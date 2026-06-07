@@ -414,7 +414,7 @@ export default function Dares() {
                 </View>
 
                 <TouchableOpacity
-                  className={`rounded-full py-[18px] items-center justify-center flex-row shadow-lg ${isSending ? 'bg-slate-300 dark:bg-rose-950/40 shadow-none' : 'bg-[#af2c3b] dark:bg-rose-600 shadow-red-300/50 dark:shadow-none'}`}
+                  className={`rounded-full py-[18px] items-center justify-center flex-row shadow-lg ${isSending ? 'bg-slate-300 dark:bg-rose-950/40 shadow-none' : 'bg-[#af2c3b] dark:bg-rose-600 shadow-md dark:shadow-none'}`}
                   activeOpacity={0.85}
                   onPress={handleSendChallenge}
                   disabled={isSending}

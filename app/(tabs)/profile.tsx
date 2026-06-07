@@ -67,7 +67,7 @@ export default function Profile() {
             </View>
 
             {/* Shared Badge */}
-            <View className="absolute bottom-[-16px] z-20 bg-[#0d5f5a] dark:bg-teal-600 px-4 py-2 rounded-full flex-row items-center justify-center shadow-lg shadow-teal-900/40">
+            <View className="absolute bottom-[-16px] z-20 bg-[#0d5f5a] dark:bg-teal-600 px-4 py-2 rounded-full flex-row items-center justify-center shadow-lg">
               <Ionicons name="heart" size={12} color="white" />
               <Text className="text-white font-bold text-[10px] ml-1 tracking-widest uppercase">Happy Together</Text>
             </View>
@@ -79,13 +79,13 @@ export default function Profile() {
 
         {/* Top Cards Info */}
         <View className="px-6 mt-8">
-          <View className="bg-white dark:bg-[#271318] rounded-[24px] p-5 shadow-sm shadow-slate-200/40 mb-4 border border-slate-100/50 dark:border-rose-950/20">
+          <View className="bg-white dark:bg-[#271318] rounded-[24px] p-5 shadow-sm mb-4 border border-slate-100/50 dark:border-rose-950/20">
             <Ionicons name="book" size={18} color={isDark ? "#f43f5e" : "#af2c3b"} className="mb-2" />
             <Text className="text-lg font-bold text-slate-800 dark:text-white tracking-tight mt-1">Memory Book</Text>
             <Text className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">124 moments captured since 2021</Text>
           </View>
 
-          <View className="bg-[#fc6062] dark:bg-indigo-900/80 rounded-[24px] p-5 shadow-lg shadow-red-200/50 mb-4 flex-col justify-center">
+          <View className="bg-[#fc6062] dark:bg-indigo-900/80 rounded-[24px] p-5 shadow-lg mb-4 flex-col justify-center">
             <Ionicons name="trophy" size={18} color={isDark ? "#fff" : "#3c0c11"} className="mb-2" />
             <Text className="text-lg font-black text-slate-900 dark:text-white tracking-tight mt-1">Level 14</Text>
             <Text className="text-[10px] font-bold text-slate-900/60 dark:text-slate-200/60 mt-1 tracking-widest uppercase">Romantic Strategists</Text>

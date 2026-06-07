@@ -115,7 +115,7 @@ export default function History() {
           </View>
 
           {/* Dares Mastered Card */}
-          <View className="bg-[#ab2f33] dark:bg-indigo-900 rounded-[32px] p-6 shadow-md shadow-red-900/30 dark:shadow-none">
+          <View className="bg-[#ab2f33] dark:bg-indigo-900 rounded-[32px] p-6 shadow-md dark:shadow-none">
             <Text className="text-[9px] font-bold text-white/80 tracking-widest uppercase mb-1">Dares Mastered</Text>
             <Text className="text-5xl font-black text-white tracking-tighter mb-6">158</Text>
             <Text className="text-[13px] font-medium text-white/90">You&apos;re in the top 5% of couples!</Text>
