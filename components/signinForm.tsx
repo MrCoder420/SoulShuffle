@@ -38,7 +38,7 @@ const SigninForm = () => {
         }
         return (
             <View className="flex-1 relative overflow-hidden">
-                <View className='absolute w-[500px] h-[500px] bg-pink-200/40 dark:bg-[#1E1215]/40 rounded-full -top-40 -left-20' />
+                <View className='absolute w-[500px] h-[500px] bg-pink-200/40 dark:bg-[#332225]/40 rounded-full -top-40 -left-20' />
                 <View className='absolute w-[400px] h-[400px] bg-purple-200/40 dark:bg-rose-950/10 rounded-full top-60 -right-40' />
 
                 <SafeAreaView className="flex-1">
@@ -56,11 +56,11 @@ const SigninForm = () => {
                             <Text className="text-slate-500 dark:text-slate-400 mt-3 text-base font-medium">Ignite the spark, play together.</Text>
                         </View>
 
-                        <View className="bg-white/90 dark:bg-[#1E1215]/90 rounded-[32px] p-6 shadow-xl shadow-rose-100 dark:shadow-none border border-white/60 dark:border-rose-950/20">
+                        <View className="bg-white/90 dark:bg-[#332225]/90 rounded-[32px] p-6 shadow-xl shadow-rose-100 dark:shadow-none border border-white/60 dark:border-rose-950/20">
 
                             <View className="mb-5">
                                 <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Email or Phone</Text>
-                                <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#13090B] rounded-2xl h-14 px-4 overflow-hidden">
+                                <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#221517] rounded-2xl h-14 px-4 overflow-hidden">
                                     <Ionicons name="mail-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
                                     <TextInput
                                         placeholder="Enter your email"
@@ -75,7 +75,7 @@ const SigninForm = () => {
 
                             <View className="mb-6">
                                 <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Password</Text>
-                                <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#13090B] rounded-2xl h-14 px-4 overflow-hidden">
+                                <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#221517] rounded-2xl h-14 px-4 overflow-hidden">
                                     <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
                                     <TextInput
                                         placeholder="Enter your password"
@@ -108,11 +108,11 @@ const SigninForm = () => {
                         <View className="mt-8 items-center">
                             <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mb-5">Or continue with</Text>
                             <View className="flex-row gap-4 w-full">
-                                <TouchableOpacity className="flex-1 bg-white/90 dark:bg-[#1E1215] border border-slate-100 dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center shadow-sm dark:shadow-none" activeOpacity={0.7}>
+                                <TouchableOpacity className="flex-1 bg-white/90 dark:bg-[#332225] border border-slate-100 dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center shadow-sm dark:shadow-none" activeOpacity={0.7}>
                                     <Ionicons name="logo-google" size={20} color="#ea4335" />
                                     <Text className="text-slate-700 dark:text-white font-bold ml-2">Google</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity className="flex-1 bg-[#1A1A1A] dark:bg-[#180D10] border border-transparent dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center shadow-sm dark:shadow-none" activeOpacity={0.7}>
+                                <TouchableOpacity className="flex-1 bg-[#1A1A1A] dark:bg-[#2A1B1D] border border-transparent dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center shadow-sm dark:shadow-none" activeOpacity={0.7}>
                                     <Ionicons name="logo-apple" size={20} color="#ffffff" />
                                     <Text className="text-white font-bold ml-2">Apple</Text>
                                 </TouchableOpacity>

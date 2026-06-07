@@ -209,11 +209,11 @@ export default function Dares() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#13090B]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#13090B" : "#fff8f7"} />
+    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#221517]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#221517" : "#fff8f7"} />
       
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 py-4 bg-[#fff8f7] dark:bg-[#13090B] z-10">
+      <View className="flex-row items-center justify-between px-6 py-4 bg-[#fff8f7] dark:bg-[#221517] z-10">
         <TouchableOpacity onPress={openSidebar}>
           <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
@@ -238,7 +238,7 @@ export default function Dares() {
       >
         {/* Search Bar */}
         <View className="px-6 mt-2 mb-6">
-          <View className="bg-white dark:bg-[#1E1215] rounded-2xl h-14 flex-row items-center px-4 shadow-sm shadow-slate-100 dark:shadow-none border border-slate-50 dark:border-rose-950/20">
+          <View className="bg-white dark:bg-[#332225] rounded-2xl h-14 flex-row items-center px-4 shadow-sm shadow-slate-100 dark:shadow-none border border-slate-50 dark:border-rose-950/20">
             <Ionicons name="search" size={20} color={isDark ? "#fff" : "#000"} />
             <TextInput 
               placeholder="Search for a dare..."
@@ -258,7 +258,7 @@ export default function Dares() {
               className={`px-6 py-4 rounded-full shadow-sm mr-2 border ${
                 selectedCategory === cat 
                   ? 'bg-rose-500 border-rose-500' 
-                  : 'bg-white dark:bg-[#1E1215] border-slate-50 dark:border-rose-950/20'
+                  : 'bg-white dark:bg-[#332225] border-slate-50 dark:border-rose-950/20'
               }`}
               onPress={() => setSelectedCategory(cat)}
             >
@@ -271,7 +271,7 @@ export default function Dares() {
 
         {/* Actions Row */}
         <View className="flex-row items-center px-6 mb-8">
-          <TouchableOpacity className="bg-white dark:bg-[#1E1215] px-5 py-3 rounded-2xl flex-row items-center shadow-sm shadow-slate-100 dark:shadow-none border border-slate-50 dark:border-rose-950/20">
+          <TouchableOpacity className="bg-white dark:bg-[#332225] px-5 py-3 rounded-2xl flex-row items-center shadow-sm shadow-slate-100 dark:shadow-none border border-slate-50 dark:border-rose-950/20">
             <Ionicons name="dice-outline" size={18} color={isDark ? "#fff" : "#000"} />
             <Text className="text-slate-800 dark:text-white font-bold text-xs ml-2">Shuffle Cards</Text>
           </TouchableOpacity>
@@ -282,12 +282,12 @@ export default function Dares() {
           <Text className="px-6 text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Dare Bundles</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6" contentContainerStyle={{ paddingRight: 40 }}>
             {bundles.map((bundle) => (
-              <TouchableOpacity key={bundle.id} className="w-[280px] h-48 mr-4 rounded-[28px] overflow-hidden relative shadow-sm border border-slate-100 dark:border-rose-950/20 bg-white dark:bg-[#1E1215]">
+              <TouchableOpacity key={bundle.id} className="w-[280px] h-48 mr-4 rounded-[28px] overflow-hidden relative shadow-sm border border-slate-100 dark:border-rose-950/20 bg-white dark:bg-[#332225]">
                 <Image source={typeof bundle.image === 'string' ? { uri: bundle.image } : bundle.image} className="w-full h-[65%] absolute top-0" />
                 <View className="absolute inset-0 bg-black/20" />
                 
                 {/* Bundle Ribbon & Premium Flag */}
-                <View className="absolute top-4 left-4 bg-white/90 dark:bg-[#13090B]/90 px-3 py-1.5 rounded-full flex-row items-center">
+                <View className="absolute top-4 left-4 bg-white/90 dark:bg-[#221517]/90 px-3 py-1.5 rounded-full flex-row items-center">
                   <Ionicons name="albums" size={12} color={isDark ? "#f43f5e" : "#ab2f33"} />
                   <Text className="text-[#ab2f33] dark:text-rose-400 font-bold text-[10px] ml-1.5 tracking-wider">{bundle.count} DARES</Text>
                 </View>
@@ -299,7 +299,7 @@ export default function Dares() {
                   </View>
                 )}
 
-                <View className="absolute bottom-0 left-0 right-0 h-[45%] bg-white dark:bg-[#1E1215] p-4 justify-between border-t border-slate-100/50 dark:border-rose-950/20">
+                <View className="absolute bottom-0 left-0 right-0 h-[45%] bg-white dark:bg-[#332225] p-4 justify-between border-t border-slate-100/50 dark:border-rose-950/20">
                   <Text className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">{bundle.title}</Text>
                   <View className="flex-row items-center justify-between">
                     <Text className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Unlock full deck</Text>
@@ -336,7 +336,7 @@ export default function Dares() {
             }).map((dare) => (
               <TouchableOpacity
                 key={dare.id}
-                className="w-[48%] bg-white dark:bg-[#1E1215] rounded-[24px] overflow-hidden shadow-sm border border-slate-50 dark:border-rose-950/20 pb-4"
+                className="w-[48%] bg-white dark:bg-[#332225] rounded-[24px] overflow-hidden shadow-sm border border-slate-50 dark:border-rose-950/20 pb-4"
                 activeOpacity={0.85}
                 onPress={() => setSelectedDare(dare)}
               >
@@ -344,7 +344,7 @@ export default function Dares() {
                   <Image source={typeof dare.image === 'string' ? { uri: dare.image } : dare.image} className="w-full h-full" />
                   
                   {/* Difficulty & Premium Badges */}
-                  <View className="absolute top-3 left-3 bg-white/95 dark:bg-[#13090B]/95 px-2.5 py-1 rounded-full flex-row items-center shadow-sm">
+                  <View className="absolute top-3 left-3 bg-white/95 dark:bg-[#221517]/95 px-2.5 py-1 rounded-full flex-row items-center shadow-sm">
                     {Array.from({ length: dare.stars }).map((_, i) => (
                       <Ionicons key={i} name="star" size={10} color="#f59e0b" style={{ marginRight: 2 }} />
                     ))}
@@ -352,7 +352,7 @@ export default function Dares() {
                   </View>
 
                   {dare.isPaid && (
-                    <View className="absolute top-3 right-3 bg-white/95 dark:bg-[#13090B]/95 w-6 h-6 rounded-full flex-row items-center justify-center shadow-sm">
+                    <View className="absolute top-3 right-3 bg-white/95 dark:bg-[#221517]/95 w-6 h-6 rounded-full flex-row items-center justify-center shadow-sm">
                       <Ionicons name="lock-closed" size={10} color={isDark ? "#f43f5e" : "#ab2f33"} />
                     </View>
                   )}
@@ -380,18 +380,18 @@ export default function Dares() {
         <View className="flex-1 justify-end bg-black/40 dark:bg-black/60">
           <TouchableOpacity className="flex-1" activeOpacity={1} onPress={() => setSelectedDare(null)} />
           {selectedDare && (
-            <View className="bg-[#fff8f7] dark:bg-[#180D10] rounded-t-[34px] overflow-hidden">
+            <View className="bg-[#fff8f7] dark:bg-[#2A1B1D] rounded-t-[34px] overflow-hidden">
               <Image source={typeof selectedDare.image === 'string' ? { uri: selectedDare.image } : selectedDare.image} className="w-full h-56" />
               <View className="p-6">
                 <View className="flex-row items-center justify-between mb-3">
-                  <View className="bg-white dark:bg-[#1E1215] px-3 py-1.5 rounded-full flex-row items-center">
+                  <View className="bg-white dark:bg-[#332225] px-3 py-1.5 rounded-full flex-row items-center">
                     {Array.from({ length: selectedDare.stars }).map((_, i) => (
                       <Ionicons key={i} name="star" size={11} color="#f59e0b" style={{ marginRight: 2 }} />
                     ))}
                     <Text className="text-slate-800 dark:text-white font-bold text-[10px] ml-1 tracking-wider uppercase">{selectedDare.difficulty}</Text>
                   </View>
                   <TouchableOpacity
-                    className="w-10 h-10 rounded-full bg-white dark:bg-[#1E1215] items-center justify-center"
+                    className="w-10 h-10 rounded-full bg-white dark:bg-[#332225] items-center justify-center"
                     onPress={() => setSelectedDare(null)}
                   >
                     <Ionicons name="close" size={20} color={isDark ? "#fff" : "#334155"} />
@@ -403,11 +403,11 @@ export default function Dares() {
                 <Text className="text-slate-600 dark:text-slate-300 font-medium text-[14px] leading-6 mb-5">{selectedDare.description}</Text>
 
                 <View className="flex-row items-center mb-6">
-                  <View className="bg-white dark:bg-[#1E1215] px-4 py-3 rounded-2xl flex-row items-center mr-3">
+                  <View className="bg-white dark:bg-[#332225] px-4 py-3 rounded-2xl flex-row items-center mr-3">
                     <Ionicons name="time" size={15} color={isDark ? "#f43f5e" : "#64748b"} />
                     <Text className="text-slate-600 dark:text-white font-bold text-[12px] ml-2">{selectedDare.time}</Text>
                   </View>
-                  <View className="bg-white dark:bg-[#1E1215] px-4 py-3 rounded-2xl flex-row items-center">
+                  <View className="bg-white dark:bg-[#332225] px-4 py-3 rounded-2xl flex-row items-center">
                     <Ionicons name={selectedDare.isPaid ? 'lock-closed' : 'heart'} size={15} color={selectedDare.isPaid ? (isDark ? '#f43f5e' : '#ab2f33') : (isDark ? '#2dd4bf' : '#0d6e67')} />
                     <Text className="text-slate-600 dark:text-white font-bold text-[12px] ml-2">{selectedDare.isPaid ? 'Premium' : 'Free'}</Text>
                   </View>

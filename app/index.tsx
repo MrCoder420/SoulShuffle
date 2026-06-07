@@ -7,7 +7,7 @@ const Index = () => {
   const [mode, setMode] = useState('signin')
 
   return (
-    <View className='flex-1 bg-rose-50 dark:bg-[#13090B]'>
+    <View className='flex-1 bg-rose-50 dark:bg-[#221517]'>
       {mode === 'signin' ? <SigninForm /> : <SignupForm />}
       <View className="flex-row justify-center mt-auto mb-6">
         <Text className="text-slate-500 dark:text-slate-400 font-medium">{mode === 'signin' ? "Don't have an account? " : "Already have an account? "}</Text>

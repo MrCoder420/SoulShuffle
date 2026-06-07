@@ -36,7 +36,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: isDark ? '#fff' : '#e11d48',
         tabBarInactiveTintColor: isDark ? 'rgba(255, 255, 255, 0.4)' : '#9ca3af',
         tabBarStyle: {
-          backgroundColor: isDark ? '#150A0C' : '#fff',
+          backgroundColor: isDark ? '#251719' : '#fff',
           borderTopWidth: 0,
           elevation: 10,
           shadowColor: isDark ? '#000' : '#000',

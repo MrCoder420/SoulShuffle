@@ -25,8 +25,8 @@ export default function Profile() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#fdfaf9] dark:bg-[#13090B]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#13090B" : "#fdfaf9"} />
+    <SafeAreaView className="flex-1 bg-[#fdfaf9] dark:bg-[#221517]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#221517" : "#fdfaf9"} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
@@ -79,7 +79,7 @@ export default function Profile() {
 
         {/* Top Cards Info */}
         <View className="px-6 mt-8">
-          <View className="bg-white dark:bg-[#1E1215] rounded-[24px] p-5 shadow-sm shadow-slate-200/40 mb-4 border border-slate-100/50 dark:border-rose-950/20">
+          <View className="bg-white dark:bg-[#332225] rounded-[24px] p-5 shadow-sm shadow-slate-200/40 mb-4 border border-slate-100/50 dark:border-rose-950/20">
             <Ionicons name="book" size={18} color={isDark ? "#f43f5e" : "#af2c3b"} className="mb-2" />
             <Text className="text-lg font-bold text-slate-800 dark:text-white tracking-tight mt-1">Memory Book</Text>
             <Text className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">124 moments captured since 2021</Text>
@@ -91,7 +91,7 @@ export default function Profile() {
             <Text className="text-[10px] font-bold text-slate-900/60 dark:text-slate-200/60 mt-1 tracking-widest uppercase">Romantic Strategists</Text>
           </View>
 
-          <View className="bg-[#e4dad6]/30 dark:bg-[#1E1215]/80 rounded-[24px] p-6 shadow-sm border border-slate-100 dark:border-rose-950/30 overflow-hidden relative">
+          <View className="bg-[#e4dad6]/30 dark:bg-[#332225]/80 rounded-[24px] p-6 shadow-sm border border-slate-100 dark:border-rose-950/30 overflow-hidden relative">
             <Text className="text-base font-bold text-slate-800 dark:text-white tracking-tight mb-3">Favorite Memory</Text>
             <Text className="text-sm font-medium italic text-slate-600 dark:text-slate-300 leading-6 pr-6">
               &quot;That rainy afternoon in Kyoto when we got lost in the bamboo forest and ended up in that tiny tea house.&quot;
@@ -118,14 +118,14 @@ export default function Profile() {
             </TouchableOpacity>
           </View>
 
-          <View className="bg-[#f5eeed]/60 dark:bg-[#1E1215]/50 rounded-[32px] p-6 shadow-sm shadow-slate-100 dark:shadow-none">
+          <View className="bg-[#f5eeed]/60 dark:bg-[#332225]/50 rounded-[32px] p-6 shadow-sm shadow-slate-100 dark:shadow-none">
             <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-400 tracking-widest uppercase mb-1">Current Milestone</Text>
             <View className="flex-row items-end justify-between">
               <Text className="text-lg font-bold text-slate-800 dark:text-white leading-6 max-w-[70%]">First International Trip Together</Text>
               <Text className="text-xl font-black text-[#0d5f5a] dark:text-teal-400">75%</Text>
             </View>
 
-            <View className="w-full h-3 bg-slate-200/80 dark:bg-[#13090B]/80 rounded-full mt-4 flex-row">
+            <View className="w-full h-3 bg-slate-200/80 dark:bg-[#221517]/80 rounded-full mt-4 flex-row">
               <View className="w-[75%] h-full bg-[#0d5f5a] dark:bg-teal-500 rounded-full"></View>
             </View>
 
@@ -165,7 +165,7 @@ export default function Profile() {
         <View className="mt-8 px-6">
           <Text className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Dare Preferences</Text>
 
-          <View className="bg-white dark:bg-[#1E1215] rounded-[32px] p-6 shadow-sm border border-slate-50/50 dark:border-rose-950/20">
+          <View className="bg-white dark:bg-[#332225] rounded-[32px] p-6 shadow-sm border border-slate-50/50 dark:border-rose-950/20">
             <View className="flex-row items-center justify-between mb-6">
               <View className="flex-row items-center">
                 <Ionicons name="restaurant" size={18} color={isDark ? "#f43f5e" : "#af2c3b"} />
@@ -341,7 +341,7 @@ export default function Profile() {
         <View className="mt-8 px-6 mb-4">
           <Text className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Settings</Text>
 
-          <View className="bg-white dark:bg-[#1E1215] rounded-[32px] p-6 py-2 shadow-sm border border-slate-50/50 dark:border-rose-950/20">
+          <View className="bg-white dark:bg-[#332225] rounded-[32px] p-6 py-2 shadow-sm border border-slate-50/50 dark:border-rose-950/20">
             {/* Dark Mode Switch Toggle */}
             <View className="flex-row items-center justify-between py-5 border-b border-slate-100 dark:border-rose-950/20">
               <View className="flex-row items-center flex-1">
