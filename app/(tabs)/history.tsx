@@ -90,7 +90,7 @@ export default function History() {
         {/* Stats Cards */}
         <View className="mb-8">
           {/* Completion Rate Card */}
-          <View className="bg-[#f7eceb] dark:bg-[#332225] rounded-[32px] p-6 mb-4 relative overflow-hidden shadow-sm dark:shadow-none">
+          <View className="bg-[#f7eceb] dark:bg-[#1E1215] rounded-[32px] p-6 mb-4 relative overflow-hidden shadow-sm dark:shadow-none">
             <Ionicons name="heart" size={140} color={isDark ? "#221517" : "#e5d5d3"} style={{ position: 'absolute', right: -30, top: 10, opacity: 0.8 }} />
             <Text className="text-[9px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase mb-1">Completion Rate</Text>
             <Text className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter mb-6">94%</Text>
@@ -101,7 +101,7 @@ export default function History() {
           </View>
 
           {/* Current Streak Card */}
-          <View className="bg-[#f7eceb] dark:bg-[#332225] rounded-[32px] p-6 mb-4 shadow-sm dark:shadow-none">
+          <View className="bg-[#f7eceb] dark:bg-[#1E1215] rounded-[32px] p-6 mb-4 shadow-sm dark:shadow-none">
             <Text className="text-[9px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase mb-1">Current Streak</Text>
             <Text className="text-4xl font-black text-[#b91c1c] dark:text-rose-400 tracking-tighter mb-6">12 Days</Text>
             
@@ -127,13 +127,13 @@ export default function History() {
           <TouchableOpacity className="bg-[#ab2f33] dark:bg-rose-600 px-6 py-2 rounded-full shadow-sm">
             <Text className="text-white dark:text-white font-bold text-[10px] tracking-widest uppercase">All</Text>
           </TouchableOpacity>
-          <TouchableOpacity className="bg-[#ede4e3] dark:bg-[#332225] px-5 py-2 rounded-full">
+          <TouchableOpacity className="bg-[#ede4e3] dark:bg-[#1E1215] px-5 py-2 rounded-full">
             <Text className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-widest uppercase">This Week</Text>
           </TouchableOpacity>
-          <TouchableOpacity className="bg-[#ede4e3] dark:bg-[#332225] px-5 py-2 rounded-full">
+          <TouchableOpacity className="bg-[#ede4e3] dark:bg-[#1E1215] px-5 py-2 rounded-full">
             <Text className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-widest uppercase">Last Month</Text>
           </TouchableOpacity>
-          <TouchableOpacity className="bg-[#ede4e3] dark:bg-[#332225] px-5 py-2 rounded-full flex-row items-center justify-center">
+          <TouchableOpacity className="bg-[#ede4e3] dark:bg-[#1E1215] px-5 py-2 rounded-full flex-row items-center justify-center">
             <Ionicons name="heart" size={10} color={isDark ? "#f43f5e" : "#64748b"} style={{ marginRight: 4 }} />
             <Text className="text-slate-500 dark:text-slate-400 font-bold text-[10px] tracking-widest uppercase">Favorites</Text>
           </TouchableOpacity>
@@ -147,7 +147,7 @@ export default function History() {
           {challengeHistory.map((challenge, index) => (
             <View key={`${challenge.id}-${challenge.sent_at || index}`} className="mb-6 relative flex-row">
               <View className="w-3 h-3 rounded-full bg-[#ab2f33] dark:bg-rose-400 absolute left-0 top-5" />
-              <View className="ml-6 flex-1 bg-white dark:bg-[#332225] rounded-[28px] overflow-hidden shadow-sm border border-slate-50 dark:border-rose-950/20">
+              <View className="ml-6 flex-1 bg-white dark:bg-[#1E1215] rounded-[28px] overflow-hidden shadow-sm border border-slate-50 dark:border-rose-950/20">
                 <Image source={{ uri: challenge.image }} className="w-full h-32" />
                 <View className="p-6">
                   <View className="flex-row justify-between items-center mb-3">
@@ -178,7 +178,7 @@ export default function History() {
           {challengeHistory.length === 0 && (
             <View className="mb-6 relative flex-row">
               <View className="w-3 h-3 rounded-full bg-[#eec5c5] dark:bg-rose-950/60 absolute left-0 top-5" />
-              <View className="ml-6 flex-1 bg-white dark:bg-[#332225] rounded-[28px] p-6 shadow-sm border border-slate-50 dark:border-rose-950/20">
+              <View className="ml-6 flex-1 bg-white dark:bg-[#1E1215] rounded-[28px] p-6 shadow-sm border border-slate-50 dark:border-rose-950/20">
                 <Text className="text-xl font-bold text-slate-900 dark:text-white tracking-tight mb-2">No Sent Challenges Yet</Text>
                 <Text className="text-slate-500 dark:text-slate-400 text-[13px] leading-5 font-medium">
                   Challenges you send from the Dares page will appear here.
@@ -190,7 +190,7 @@ export default function History() {
           {/* Timeline Item 1 */}
           {challengeHistory.length === 0 && <View className="mb-6 relative flex-row">
             <View className="w-3 h-3 rounded-full bg-[#ab2f33] dark:bg-rose-400 absolute left-0 top-5" />
-            <View className="ml-6 flex-1 bg-white dark:bg-[#332225] rounded-[28px] p-6 shadow-sm border border-slate-50 dark:border-rose-950/20">
+            <View className="ml-6 flex-1 bg-white dark:bg-[#1E1215] rounded-[28px] p-6 shadow-sm border border-slate-50 dark:border-rose-950/20">
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 tracking-widest uppercase">Oct 14, 2023</Text>
                 <View className="flex-row items-center">
@@ -217,7 +217,7 @@ export default function History() {
           {/* Timeline Item 2 */}
           {challengeHistory.length === 0 && <View className="mb-6 relative flex-row">
             <View className="w-3 h-3 rounded-full bg-[#ab2f33] dark:bg-rose-400 absolute left-0 top-5" />
-            <View className="ml-6 flex-1 bg-white dark:bg-[#332225] rounded-[28px] p-6 shadow-sm border border-slate-50 dark:border-rose-950/20">
+            <View className="ml-6 flex-1 bg-white dark:bg-[#1E1215] rounded-[28px] p-6 shadow-sm border border-slate-50 dark:border-rose-950/20">
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 tracking-widest uppercase">Oct 22, 2023</Text>
                 <View className="flex-row items-center">
@@ -244,7 +244,7 @@ export default function History() {
           {/* Timeline Item 3 (Expired) */}
           {challengeHistory.length === 0 && <View className="mb-6 relative flex-row">
             <View className="w-3 h-3 rounded-full bg-[#eec5c5] dark:bg-rose-950/60 absolute left-0 top-5" />
-            <View className="ml-6 flex-1 bg-white dark:bg-[#332225] rounded-[28px] p-6 shadow-sm border border-[#eec5c5]/40 dark:border-rose-950/20 opacity-90">
+            <View className="ml-6 flex-1 bg-white dark:bg-[#1E1215] rounded-[28px] p-6 shadow-sm border border-[#eec5c5]/40 dark:border-rose-950/20 opacity-90">
               <View className="flex-row justify-between items-center mb-3">
                 <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 tracking-widest uppercase">Oct 28, 2023</Text>
                 <View className="flex-row items-center">
@@ -272,7 +272,7 @@ export default function History() {
 
         {/* Load More Button */}
         <View className="items-center mt-2 mb-8">
-          <TouchableOpacity className="bg-[#ede4e3] dark:bg-[#332225] px-8 py-4 rounded-full w-full items-center">
+          <TouchableOpacity className="bg-[#ede4e3] dark:bg-[#1E1215] px-8 py-4 rounded-full w-full items-center">
             <Text className="text-[#ab2f33] dark:text-rose-400 font-bold text-[11px] tracking-widest uppercase">Load More History</Text>
           </TouchableOpacity>
         </View>

@@ -87,7 +87,7 @@ export default function Sidebar() {
         />
         
         {/* Menu Panel */}
-        <View className="bg-[#fff8f7] dark:bg-[#2A1B1D] w-[80%] h-full pt-16 rounded-tr-[40px] rounded-br-[40px] shadow-2xl shadow-slate-900/40 dark:shadow-black/60 border-r border-[#ffeceb] dark:border-rose-950/20" style={{ zIndex: 1001 }}>
+        <View className="bg-[#fff8f7] dark:bg-[#180D10] w-[80%] h-full pt-16 rounded-tr-[40px] rounded-br-[40px] shadow-2xl shadow-slate-900/40 dark:shadow-black/60 border-r border-[#ffeceb] dark:border-rose-950/20" style={{ zIndex: 1001 }}>
           <View className="px-8 pb-8 flex-1">
             
             {/* Avatar Section */}
@@ -96,7 +96,7 @@ export default function Sidebar() {
                 source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop' }} 
                 className="w-full h-full rounded-full border-[3px] border-[#e24e5d] dark:border-rose-400"
               />
-              <View className="absolute -bottom-1 -right-2 bg-[#0d6e67] dark:bg-teal-600 w-8 h-8 rounded-full items-center justify-center border-2 border-white dark:border-[#2A1B1D]">
+              <View className="absolute -bottom-1 -right-2 bg-[#0d6e67] dark:bg-teal-600 w-8 h-8 rounded-full items-center justify-center border-2 border-white dark:border-[#180D10]">
                 <Text className="text-white font-bold text-[11px]">14</Text>
               </View>
             </View>
@@ -168,7 +168,7 @@ export default function Sidebar() {
           </View>
 
           {/* Footer */}
-          <View className="px-8 pb-12 pt-4 border-t border-slate-100 dark:border-slate-800/20 bg-[#fffdfc] dark:bg-[#2A1B1D]/40 rounded-br-[40px]">
+          <View className="px-8 pb-12 pt-4 border-t border-slate-100 dark:border-slate-800/20 bg-[#fffdfc] dark:bg-[#180D10]/40 rounded-br-[40px]">
             <Text className="text-3xl font-black italic text-[#af2c3b] dark:text-slate-100 tracking-tight mb-2">Love Dare</Text>
             <Text className="text-[8px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase">Version 2.4.0 • Made with love</Text>
           </View>

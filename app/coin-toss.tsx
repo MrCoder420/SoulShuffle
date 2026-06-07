@@ -109,7 +109,7 @@ export default function CoinToss() {
 
       {/* Header */}
       <View className="flex-row items-center justify-between px-6 py-4 bg-[#fff8f7] dark:bg-[#221517] z-10">
-        <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 rounded-full bg-white dark:bg-[#332225] items-center justify-center shadow-sm border border-slate-50 dark:border-rose-950/20">
+        <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 rounded-full bg-white dark:bg-[#1E1215] items-center justify-center shadow-sm border border-slate-50 dark:border-rose-950/20">
           <Ionicons name="arrow-back" size={22} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
         <Text className="text-slate-900 dark:text-white font-black text-[17px] tracking-tight">Coin Toss</Text>
@@ -133,7 +133,7 @@ export default function CoinToss() {
             className={`flex-1 flex-row items-center justify-center py-4 rounded-2xl border-[2px] ${
               userChoice === 'HEADS'
                 ? 'bg-[#af2c3b] border-[#af2c3b] dark:bg-rose-600 dark:border-rose-600'
-                : 'bg-white border-slate-100 dark:bg-[#332225] dark:border-rose-950/20'
+                : 'bg-white border-slate-100 dark:bg-[#1E1215] dark:border-rose-950/20'
             }`}
             onPress={() => !isFlipping && setUserChoice('HEADS')}
             disabled={isFlipping}
@@ -148,7 +148,7 @@ export default function CoinToss() {
             className={`flex-1 flex-row items-center justify-center py-4 rounded-2xl border-[2px] ${
               userChoice === 'TAILS'
                 ? 'bg-[#af2c3b] border-[#af2c3b] dark:bg-rose-600 dark:border-rose-600'
-                : 'bg-white border-slate-100 dark:bg-[#332225] dark:border-rose-950/20'
+                : 'bg-white border-slate-100 dark:bg-[#1E1215] dark:border-rose-950/20'
             }`}
             onPress={() => !isFlipping && setUserChoice('TAILS')}
             disabled={isFlipping}
@@ -205,7 +205,7 @@ export default function CoinToss() {
         {/* Result Card */}
         {showResultCard && result && (
           <View className="px-6 mb-8">
-            <View className="bg-white dark:bg-[#332225] dark:border dark:border-rose-950/20 rounded-[28px] p-6 items-center shadow-sm shadow-rose-100/50 dark:shadow-none">
+            <View className="bg-white dark:bg-[#1E1215] dark:border dark:border-rose-950/20 rounded-[28px] p-6 items-center shadow-sm shadow-rose-100/50 dark:shadow-none">
               <View className={`w-12 h-12 rounded-full items-center justify-center mb-3 ${
                 userChoice === result ? 'bg-teal-100 dark:bg-teal-500/10' : 'bg-rose-100 dark:bg-rose-500/10'
               }`}>
@@ -232,14 +232,14 @@ export default function CoinToss() {
           <Text className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Flip History</Text>
           
           {history.length === 0 ? (
-            <View className="bg-white dark:bg-[#332225] rounded-3xl p-8 items-center border border-slate-50 dark:border-rose-950/20">
+            <View className="bg-white dark:bg-[#1E1215] rounded-3xl p-8 items-center border border-slate-50 dark:border-rose-950/20">
               <Ionicons name="list-outline" size={32} color="#cbd5e1" />
               <Text className="text-slate-400 dark:text-slate-500 font-semibold text-sm mt-2 text-center">
                 No flips in this session yet.
               </Text>
             </View>
           ) : (
-            <View className="bg-white dark:bg-[#332225] rounded-3xl p-4 border border-slate-50 dark:border-rose-950/20">
+            <View className="bg-white dark:bg-[#1E1215] rounded-3xl p-4 border border-slate-50 dark:border-rose-950/20">
               {history.map((item, idx) => (
                 <View 
                   key={item.id} 
