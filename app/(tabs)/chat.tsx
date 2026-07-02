@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { getActiveRoom, SentChallenge } from '@/services/roomService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
+import { getMyProfile } from '@/services/authService';
 
 export default function Chat() {
   const { openSidebar } = useSidebar();
@@ -14,6 +15,19 @@ export default function Chat() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profile = await getMyProfile();
+        setCurrentUserId(profile?.id || null);
+      } catch (err) {
+        console.log('Failed to fetch profile in chat:', err);
+      }
+    };
+    loadProfile();
+  }, []);
 
   useEffect(() => {
     const showSubscription = Keyboard.addListener(
@@ -147,18 +161,34 @@ export default function Chat() {
               <Text className="text-slate-500 dark:text-slate-400 text-[14px] leading-5 font-medium mb-6">
                 {activeChallenge?.description || 'When your partner sends a dare, it will appear here.'}
               </Text>
-              <TouchableOpacity
-                className="bg-rose-50 dark:bg-[#0F0608] rounded-full py-4 items-center justify-center border border-rose-100 dark:border-rose-950/40 shadow-sm active:opacity-80"
-                onPress={() => {
-                  if (!activeChallenge) {
-                    Alert.alert('No Challenge', 'There is no active challenge to accept yet.');
-                    return;
-                  }
-                  Alert.alert('Dare Accepted', `${activeChallenge.title} is now active.`);
-                }}
-              >
-                <Text className="text-[#b91c1c] dark:text-rose-400 font-bold text-[15px]">Accept Dare</Text>
-              </TouchableOpacity>
+              {activeChallenge?.message ? (
+                <View className="bg-rose-50/50 dark:bg-rose-950/10 px-4 py-3 rounded-2xl border border-rose-100/30 dark:border-rose-950/25 mb-5">
+                  <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[10px] uppercase tracking-wider mb-1">Note from partner</Text>
+                  <Text className="text-slate-600 dark:text-slate-300 text-[13px] italic font-medium leading-5">
+                    "{activeChallenge.message}"
+                  </Text>
+                </View>
+              ) : null}
+              {activeChallenge?.sender_id === currentUserId ? (
+                <View className="bg-slate-50 dark:bg-[#271318]/40 rounded-full py-4 items-center justify-center border border-slate-100 dark:border-rose-950/20">
+                  <Text className="text-slate-400 dark:text-slate-500 font-bold text-[13px] uppercase tracking-wider">
+                    Waiting for partner to accept
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  className="bg-rose-50 dark:bg-[#0F0608] rounded-full py-4 items-center justify-center border border-rose-100 dark:border-rose-950/40 shadow-sm active:opacity-80"
+                  onPress={() => {
+                    if (!activeChallenge) {
+                      Alert.alert('No Challenge', 'There is no active challenge to accept yet.');
+                      return;
+                    }
+                    Alert.alert('Dare Accepted', `${activeChallenge.title} is now active.`);
+                  }}
+                >
+                  <Text className="text-[#b91c1c] dark:text-rose-400 font-bold text-[15px]">Accept Dare</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 

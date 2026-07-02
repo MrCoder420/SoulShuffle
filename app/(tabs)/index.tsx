@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, SafeAreaView, Platform, StatusBar, TextInput, ActivityIndicator, Alert, AppState, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { createRoom, joinRoom, getActiveRoom, fetchCardSends, acceptCardSend, rejectCardSend, Room, ExpiryType } from '@/services/roomService';
+import { createRoom, joinRoom, getActiveRoom, fetchCardSends, acceptCardSend, rejectCardSend, completeCardSend, Room, ExpiryType } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
+import { getMyProfile } from '@/services/authService';
 
 import CountdownTimer from '@/components/CountdownTimer';
 
@@ -66,6 +67,7 @@ export default function Dashboard() {
   const [actionError, setActionError] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
   const [cardSends, setCardSends] = useState<any[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   // Find pending challenges
   const pendingChallenges = cardSends.filter(c => c.status === 'SENT') || [];
@@ -95,6 +97,12 @@ export default function Dashboard() {
     try {
       if (!silent) {
         setRoomLoading(true);
+      }
+      try {
+        const profile = await getMyProfile();
+        setCurrentUserId(profile?.id || null);
+      } catch (err) {
+        console.log('Failed to fetch profile in dashboard:', err);
       }
       const room = await getActiveRoom();
       setActiveRoom(room);
@@ -221,6 +229,16 @@ export default function Dashboard() {
       fetchActiveRoom(true);
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to reject card');
+    }
+  };
+
+  const handleCompleteCard = async (sendId: string) => {
+    try {
+      await completeCardSend(sendId);
+      Alert.alert('Challenge Completed!', 'Well done! You have completed this dare.');
+      fetchActiveRoom(true);
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.message || 'Failed to complete card');
     }
   };
 
@@ -685,26 +703,66 @@ export default function Dashboard() {
             <View className="h-40 relative">
               <Image source={{ uri: activeChallenge.card.image_url }} className="w-full h-full" />
               <View className="absolute inset-0 bg-black/25" />
-              <View className="absolute top-4 left-4 bg-[#fde047] px-3 py-1.5 rounded-full flex-row items-center">
-                <Ionicons name="flash" size={12} color="#854d0e" />
-                <Text className="text-[#854d0e] font-bold text-[10px] tracking-widest uppercase ml-1.5">Active Challenge</Text>
-              </View>
+              {activeChallenge.sender_id === currentUserId ? (
+                <View className="absolute top-4 left-4 bg-teal-500 dark:bg-teal-600 px-3 py-1.5 rounded-full flex-row items-center">
+                  <Ionicons name="paper-plane" size={12} color="white" />
+                  <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">Sent Dare (In Progress)</Text>
+                </View>
+              ) : (
+                <View className="absolute top-4 left-4 bg-[#fde047] px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
+                  <Ionicons name="flash" size={12} color="#854d0e" />
+                  <Text className="text-[#854d0e] font-bold text-[10px] tracking-widest uppercase ml-1.5">My Active Challenge</Text>
+                </View>
+              )}
             </View>
             <View className="p-6">
               <Text className="text-[10px] font-bold text-rose-500 dark:text-rose-400 tracking-widest uppercase mb-2">{activeChallenge.card.category}</Text>
               <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-3">{activeChallenge.card.title}</Text>
+              
+              {activeChallenge.sender_id === currentUserId && (
+                <View className="bg-teal-50/50 dark:bg-[#180D10]/40 px-4 py-3 rounded-2xl border border-teal-100/30 dark:border-rose-950/20 mb-5 flex-row items-center">
+                  <Ionicons name="hourglass-outline" size={16} color={isDark ? "#2dd4bf" : "#0d5f5a"} />
+                  <Text className="text-[#0d5f5a] dark:text-teal-400 font-semibold text-[12.5px] leading-5 ml-2.5 flex-1">
+                    Your partner accepted this dare and is completing it.
+                  </Text>
+                </View>
+              )}
+
               <Text className="text-slate-500 dark:text-slate-300 text-[14px] leading-6 font-medium mb-5">{activeChallenge.card.description}</Text>
+              
+              {activeChallenge.message ? (
+                <View className="bg-rose-50/50 dark:bg-rose-950/10 px-4 py-3 rounded-2xl border border-rose-100/30 dark:border-rose-950/25 mb-5">
+                  <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[10px] uppercase tracking-wider mb-1">
+                    {activeChallenge.sender_id === currentUserId ? "Your note to partner" : "Note from partner"}
+                  </Text>
+                  <Text className="text-slate-600 dark:text-slate-300 text-[13px] italic font-medium leading-5">
+                    "{activeChallenge.message}"
+                  </Text>
+                </View>
+              ) : null}
+
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center">
                   <Ionicons name="time" size={14} color="#64748b" />
-                  <Text className="text-slate-500 dark:text-slate-400 font-bold text-[12px] ml-2 mr-4">{activeChallenge.card.time_requirement}</Text>
+                  <Text className="text-slate-500 dark:text-slate-400 font-bold text-[12px] ml-2 mr-2">Time Left:</Text>
                   {activeChallenge.created_at && (
                     <CountdownTimer targetDate={getTargetDateStr(activeChallenge.created_at)} />
                   )}
                 </View>
-                <TouchableOpacity className="bg-rose-50 dark:bg-slate-800/60 px-5 py-3 rounded-full border border-rose-100 dark:border-slate-700/40" onPress={() => navigateTo('/history')}>
-                  <Text className="text-[#b91c1c] dark:text-rose-400 font-bold text-[12px]">View History</Text>
-                </TouchableOpacity>
+
+                {activeChallenge.sender_id !== currentUserId ? (
+                  <TouchableOpacity 
+                    className="bg-emerald-500 dark:bg-emerald-600 px-5 py-3 rounded-full flex-row items-center shadow-md dark:shadow-none active:opacity-85"
+                    onPress={() => handleCompleteCard(activeChallenge.id)}
+                  >
+                    <Ionicons name="checkmark-circle" size={14} color="white" />
+                    <Text className="text-white font-bold text-[12px] ml-1.5">Complete</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity className="bg-rose-50 dark:bg-slate-800/60 px-5 py-3 rounded-full border border-rose-100 dark:border-slate-700/40" onPress={() => navigateTo('/history')}>
+                    <Text className="text-[#b91c1c] dark:text-rose-400 font-bold text-[12px]">View History</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </View>
@@ -727,8 +785,14 @@ export default function Dashboard() {
                     <Image source={{ uri: cardSend.card?.image_url }} className="w-full h-full" />
                     <View className="absolute inset-0 bg-black/40" />
                     <View className="absolute top-3 left-3 bg-white/90 dark:bg-black/70 px-2.5 py-1 rounded-full flex-row items-center">
-                      <Ionicons name="mail-unread" size={12} color={isDark ? "#fda4af" : "#e11d48"} />
-                      <Text className="text-rose-600 dark:text-rose-400 font-bold text-[9px] tracking-widest uppercase ml-1.5">Received</Text>
+                      <Ionicons 
+                        name={cardSend.sender_id === currentUserId ? "paper-plane" : "mail-unread"} 
+                        size={12} 
+                        color={cardSend.sender_id === currentUserId ? (isDark ? "#2dd4bf" : "#0d5f5a") : (isDark ? "#fda4af" : "#e11d48")} 
+                      />
+                      <Text className={`font-bold text-[9px] tracking-widest uppercase ml-1.5 ${cardSend.sender_id === currentUserId ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"}`}>
+                        {cardSend.sender_id === currentUserId ? "Sent" : "Received"}
+                      </Text>
                     </View>
                   </View>
                   <View className="p-5">
@@ -740,21 +804,37 @@ export default function Dashboard() {
                         <CountdownTimer targetDate={getTargetDateStr(cardSend.created_at)} />
                       )}
                     </View>
+                    {cardSend.message ? (
+                      <View className="bg-rose-50/50 dark:bg-rose-950/10 px-4 py-3 rounded-2xl border border-rose-100/30 dark:border-rose-950/25 mb-4">
+                        <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[10px] uppercase tracking-wider mb-1">Note from partner</Text>
+                        <Text className="text-slate-600 dark:text-slate-300 text-[13px] italic font-medium leading-5">
+                          "{cardSend.message}"
+                        </Text>
+                      </View>
+                    ) : null}
 
-                    <View className="flex-row gap-2">
-                      <TouchableOpacity 
-                        className="flex-1 bg-red-500 dark:bg-red-600 py-3 rounded-xl items-center shadow-sm dark:shadow-none"
-                        onPress={() => handleRejectCard(cardSend.id)}
-                      >
-                        <Text className="text-white font-bold text-[13px]">Reject</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        className="flex-1 bg-emerald-500 dark:bg-emerald-600 py-3 rounded-xl items-center shadow-md dark:shadow-none"
-                        onPress={() => handleAcceptCard(cardSend.id)}
-                      >
-                        <Text className="text-white font-bold text-[13px]">Accept</Text>
-                      </TouchableOpacity>
-                    </View>
+                    {cardSend.sender_id === currentUserId ? (
+                      <View className="bg-slate-100 dark:bg-[#180D10]/50 py-3.5 rounded-xl items-center border border-slate-200/50 dark:border-rose-950/20">
+                        <Text className="text-slate-500 dark:text-slate-400 font-bold text-[12px] uppercase tracking-wider">
+                          Waiting for partner...
+                        </Text>
+                      </View>
+                    ) : (
+                      <View className="flex-row gap-2">
+                        <TouchableOpacity 
+                          className="flex-1 bg-red-500 dark:bg-red-600 py-3 rounded-xl items-center shadow-sm dark:shadow-none"
+                          onPress={() => handleRejectCard(cardSend.id)}
+                        >
+                          <Text className="text-white font-bold text-[13px]">Reject</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          className="flex-1 bg-emerald-500 dark:bg-emerald-600 py-3 rounded-xl items-center shadow-md dark:shadow-none"
+                          onPress={() => handleAcceptCard(cardSend.id)}
+                        >
+                          <Text className="text-white font-bold text-[13px]">Accept</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 </View>
               ))}

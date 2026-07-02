@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, SafeAreaView, Platform, StatusBar, TextInput, Modal, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { getActiveRoom, sendChallenge, ChallengePayload } from '@/services/roomService';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { getActiveRoom, sendChallenge, ChallengePayload, Room } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { fetchCards, fetchAvailableDeck } from '@/services/cardService';
@@ -59,6 +59,14 @@ export default function Dares() {
   const [isSending, setIsSending] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const [room, setRoom] = useState<Room | null>(null);
+  const [note, setNote] = useState<string>('');
+
+  useEffect(() => {
+    if (selectedDare) {
+      setNote('');
+    }
+  }, [selectedDare]);
 
   const [dares, setDares] = useState<Dare[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,15 +152,16 @@ export default function Dares() {
   const loadDares = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const room = await getActiveRoom();
-      let fetched;
-      if (room) {
-        fetched = await fetchAvailableDeck(room.id);
+      const activeRoom = await getActiveRoom();
+      setRoom(activeRoom);
+      
+      if (activeRoom && activeRoom.status === 'ACTIVE') {
+        const fetched = await fetchAvailableDeck(activeRoom.id);
+        const mapped = fetched.map(mapCardToDare);
+        setDares(mapped);
       } else {
-        fetched = await fetchCards();
+        setDares([]);
       }
-      const mapped = fetched.map(mapCardToDare);
-      setDares(mapped);
     } catch (error) {
       console.log('Failed to fetch dares from backend, loading fallback cards:', error);
       const fallbacks = getFallbackCards().map(mapCardToDare);
@@ -163,13 +172,69 @@ export default function Dares() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      loadDares();
+    }, [])
+  );
+
   useEffect(() => {
-    loadDares();
+    const setupSocket = async () => {
+      if (room && room.status === 'WAITING') {
+        await GameSocket.initialize();
+        GameSocket.joinRoom(room.code);
+      }
+    };
+    setupSocket();
+  }, [room?.code, room?.status]);
+
+  useEffect(() => {
+    const handlePartnerJoined = (payload: any) => {
+      console.log('Partner joined event received in Dares, refreshing...', payload);
+      loadDares(true);
+    };
+
+    GameSocket.on('partner_joined', handlePartnerJoined);
+
+    return () => {
+      GameSocket.off('partner_joined', handlePartnerJoined);
+    };
   }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
     loadDares(true);
+  };
+
+  const renderDisconnectedState = () => {
+    return (
+      <View className="flex-1 justify-center items-center px-8 py-16">
+        <View className="bg-white dark:bg-[#271318] rounded-[32px] p-8 items-center shadow-lg shadow-rose-100/50 dark:shadow-none border border-rose-100/50 dark:border-rose-950/20 w-full max-w-sm">
+          <View className="w-20 h-20 bg-rose-50 dark:bg-rose-950/30 rounded-full items-center justify-center mb-6">
+            <Ionicons name="heart-dislike-outline" size={42} color={isDark ? "#f43f5e" : "#e11d48"} />
+          </View>
+          
+          <Text className="text-2xl font-black text-slate-800 dark:text-white text-center mb-3 tracking-tight">
+            Connection Required
+          </Text>
+          
+          <Text className="text-slate-500 dark:text-slate-400 font-medium text-[14px] text-center leading-6 mb-8">
+            Please connect to your partner first to play and share dares. Join a room or invite your partner to get started!
+          </Text>
+
+          <TouchableOpacity
+            className="w-full bg-[#af2c3b] dark:bg-rose-600 rounded-full py-4 items-center justify-center shadow-md shadow-rose-900/10 dark:shadow-none"
+            activeOpacity={0.85}
+            onPress={() => router.push('/')}
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="link" size={18} color="white" />
+              <Text className="text-white font-bold text-[15px] ml-2">Connect Now</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   const bundles = [
@@ -195,10 +260,15 @@ export default function Dares() {
         return;
       }
 
-      await sendChallenge(selectedDare.id.toString(), selectedDare.description);
+      await sendChallenge(selectedDare.id.toString(), note);
       
       // Emit real-time event to partner so it appears instantly!
-      GameSocket.sendGameEvent(room.code, 'CHALLENGE_SENT', { challenge: selectedDare });
+      GameSocket.sendGameEvent(room.code, 'CHALLENGE_SENT', { 
+        challenge: {
+          ...selectedDare,
+          message: note
+        }
+      });
 
       setSelectedDare(null);
       Alert.alert('Challenge Sent', `${selectedDare.title} was sent to your partner.`);
@@ -240,147 +310,156 @@ export default function Dares() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e11d48']} tintColor={isDark ? '#fff' : '#e11d48'} />
-        }
-      >
-        {/* Search Bar */}
-        <View className="px-6 mt-2 mb-6">
-          <View className="bg-white dark:bg-[#271318] rounded-2xl h-14 flex-row items-center px-4 shadow-sm shadow-slate-100 dark:shadow-none border border-slate-50 dark:border-rose-950/20">
-            <Ionicons name="search" size={20} color={isDark ? "#fff" : "#000"} />
-            <TextInput 
-              placeholder="Search for a dare..."
-              placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#9ca3af"}
-              className="flex-1 ml-3 text-slate-800 dark:text-white text-[15px] font-medium"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
+      {loading ? (
+        <View className="flex-1 items-center justify-center bg-[#fff8f7] dark:bg-[#0F0608]">
+          <ActivityIndicator size="large" color="#f43f5e" />
+          <Text className="text-[#a12338] dark:text-rose-400 font-semibold text-sm mt-3">Loading dares...</Text>
+        </View>
+      ) : room && room.status === 'ACTIVE' ? (
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e11d48']} tintColor={isDark ? '#fff' : '#e11d48'} />
+          }
+        >
+          {/* Search Bar */}
+          <View className="px-6 mt-2 mb-6">
+            <View className="bg-white dark:bg-[#271318] rounded-2xl h-14 flex-row items-center px-4 shadow-sm shadow-slate-100 dark:shadow-none border border-slate-50 dark:border-rose-950/20">
+              <Ionicons name="search" size={20} color={isDark ? "#fff" : "#000"} />
+              <TextInput 
+                placeholder="Search for a dare..."
+                placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#9ca3af"}
+                className="flex-1 ml-3 text-slate-800 dark:text-white text-[15px] font-medium"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
           </View>
-        </View>
 
-        {/* Filter Pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6 mb-8" contentContainerStyle={{ paddingRight: 40, alignItems: 'center' }}>
-          {['ALL', ...Array.from(new Set(dares.map(d => d.category)))].map(cat => (
-            <TouchableOpacity 
-              key={cat}
-              className={`px-6 py-4 rounded-full shadow-sm mr-2 border ${
-                selectedCategory === cat 
-                  ? 'bg-rose-500 border-rose-500' 
-                  : 'bg-white dark:bg-[#271318] border-slate-50 dark:border-rose-950/20'
-              }`}
-              onPress={() => setSelectedCategory(cat)}
-            >
-              <Text className={`font-bold text-sm tracking-wide ${selectedCategory === cat ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                {cat === 'ALL' ? 'All Dares' : cat.charAt(0) + cat.slice(1).toLowerCase()}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Actions Row */}
-        <View className="flex-row items-center px-6 mb-8">
-          <TouchableOpacity className="bg-white dark:bg-[#271318] px-5 py-3 rounded-2xl flex-row items-center shadow-sm shadow-slate-100 dark:shadow-none border border-slate-50 dark:border-rose-950/20">
-            <Ionicons name="dice-outline" size={18} color={isDark ? "#fff" : "#000"} />
-            <Text className="text-slate-800 dark:text-white font-bold text-xs ml-2">Shuffle Cards</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Bundles Section */}
-        <View className="mb-10">
-          <Text className="px-6 text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Dare Bundles</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6" contentContainerStyle={{ paddingRight: 40 }}>
-            {bundles.map((bundle) => (
-              <TouchableOpacity key={bundle.id} className="w-[280px] h-48 mr-4 rounded-[28px] overflow-hidden relative shadow-sm border border-slate-100 dark:border-rose-950/20 bg-white dark:bg-[#271318]">
-                <Image source={typeof bundle.image === 'string' ? { uri: bundle.image } : bundle.image} className="w-full h-[65%] absolute top-0" />
-                <View className="absolute inset-0 bg-black/20" />
-                
-                {/* Bundle Ribbon & Premium Flag */}
-                <View className="absolute top-4 left-4 bg-white/90 dark:bg-[#0F0608]/90 px-3 py-1.5 rounded-full flex-row items-center">
-                  <Ionicons name="albums" size={12} color={isDark ? "#f43f5e" : "#ab2f33"} />
-                  <Text className="text-[#ab2f33] dark:text-rose-400 font-bold text-[10px] ml-1.5 tracking-wider">{bundle.count} DARES</Text>
-                </View>
-
-                {bundle.isPaid && (
-                  <View className="absolute top-4 right-4 bg-[#fde047] px-2 py-1.5 rounded-full shadow-sm flex-row items-center">
-                    <Ionicons name="lock-closed" size={10} color="#854d0e" />
-                    <Text className="text-[#854d0e] font-bold text-[9px] ml-1 tracking-widest uppercase">Premium</Text>
-                  </View>
-                )}
-
-                <View className="absolute bottom-0 left-0 right-0 h-[45%] bg-white dark:bg-[#271318] p-4 justify-between border-t border-slate-100/50 dark:border-rose-950/20">
-                  <Text className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">{bundle.title}</Text>
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Unlock full deck</Text>
-                    <Text className={`font-bold text-[12px] ${bundle.isPaid ? 'text-[#ab2f33] dark:text-rose-400' : 'text-[#0d6e67] dark:text-teal-400'}`}>
-                      {bundle.price}
-                    </Text>
-                  </View>
-                </View>
+          {/* Filter Pills */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6 mb-8" contentContainerStyle={{ paddingRight: 40, alignItems: 'center' }}>
+            {['ALL', ...Array.from(new Set(dares.map(d => d.category)))].map(cat => (
+              <TouchableOpacity 
+                key={cat}
+                className={`px-6 py-4 rounded-full shadow-sm mr-2 border ${
+                  selectedCategory === cat 
+                    ? 'bg-rose-500 border-rose-500' 
+                    : 'bg-white dark:bg-[#271318] border-slate-50 dark:border-rose-950/20'
+                }`}
+                onPress={() => setSelectedCategory(cat)}
+              >
+                <Text className={`font-bold text-sm tracking-wide ${selectedCategory === cat ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                  {cat === 'ALL' ? 'All Dares' : cat.charAt(0) + cat.slice(1).toLowerCase()}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
-        </View>
 
-        {/* Single Dares Grid */}
-        <View className="px-6 flex-row flex-wrap justify-between gap-y-4">
-          <Text className="w-full text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-1">Single Actions</Text>
-          
-          {loading ? (
-            <View className="w-full py-10 items-center justify-center">
-              <ActivityIndicator size="large" color="#f43f5e" />
-              <Text className="text-slate-400 font-semibold text-sm mt-3">Loading dares from database...</Text>
-            </View>
-          ) : dares.length === 0 ? (
-            <View className="w-full py-10 items-center justify-center">
-              <Ionicons name="albums-outline" size={48} color="#cbd5e1" />
-              <Text className="text-slate-400 font-semibold text-sm mt-3">No dares found in database</Text>
-            </View>
-          ) : (
-            dares.filter(dare => {
-              const matchesCategory = selectedCategory === 'ALL' || dare.category.toUpperCase() === selectedCategory.toUpperCase();
-              const matchesSearch = dare.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                    (dare.description && dare.description.toLowerCase().includes(searchQuery.toLowerCase()));
-              return matchesCategory && matchesSearch;
-            }).map((dare) => (
-              <TouchableOpacity
-                key={dare.id}
-                className="w-[48%] bg-white dark:bg-[#271318] rounded-[24px] overflow-hidden shadow-sm border border-slate-50 dark:border-rose-950/20 pb-4"
-                activeOpacity={0.85}
-                onPress={() => setSelectedDare(dare)}
-              >
-                <View className="w-full h-40 relative">
-                  <Image source={typeof dare.image === 'string' ? { uri: dare.image } : dare.image} className="w-full h-full" />
+          {/* Actions Row */}
+          <View className="flex-row items-center px-6 mb-8">
+            <TouchableOpacity className="bg-white dark:bg-[#271318] px-5 py-3 rounded-2xl flex-row items-center shadow-sm shadow-slate-100 dark:shadow-none border border-slate-50 dark:border-rose-950/20">
+              <Ionicons name="dice-outline" size={18} color={isDark ? "#fff" : "#000"} />
+              <Text className="text-slate-800 dark:text-white font-bold text-xs ml-2">Shuffle Cards</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Bundles Section */}
+          <View className="mb-10">
+            <Text className="px-6 text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Dare Bundles</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6" contentContainerStyle={{ paddingRight: 40 }}>
+              {bundles.map((bundle) => (
+                <TouchableOpacity key={bundle.id} className="w-[280px] h-48 mr-4 rounded-[28px] overflow-hidden relative shadow-sm border border-slate-100 dark:border-rose-950/20 bg-white dark:bg-[#271318]">
+                  <Image source={typeof bundle.image === 'string' ? { uri: bundle.image } : bundle.image} className="w-full h-[65%] absolute top-0" />
+                  <View className="absolute inset-0 bg-black/20" />
                   
-                  {/* Difficulty & Premium Badges */}
-                  <View className="absolute top-3 left-3 bg-white/95 dark:bg-[#0F0608]/95 px-2.5 py-1 rounded-full flex-row items-center shadow-sm">
-                    {Array.from({ length: dare.stars }).map((_, i) => (
-                      <Ionicons key={i} name="star" size={10} color="#f59e0b" style={{ marginRight: 2 }} />
-                    ))}
-                    <Text className="text-slate-800 dark:text-slate-300 font-bold text-[9px] ml-1 tracking-wider uppercase">{dare.difficulty}</Text>
+                  {/* Bundle Ribbon & Premium Flag */}
+                  <View className="absolute top-4 left-4 bg-white/90 dark:bg-[#0F0608]/90 px-3 py-1.5 rounded-full flex-row items-center">
+                    <Ionicons name="albums" size={12} color={isDark ? "#f43f5e" : "#ab2f33"} />
+                    <Text className="text-[#ab2f33] dark:text-rose-400 font-bold text-[10px] ml-1.5 tracking-wider">{bundle.count} DARES</Text>
                   </View>
 
-                  {dare.isPaid && (
-                    <View className="absolute top-3 right-3 bg-white/95 dark:bg-[#0F0608]/95 w-6 h-6 rounded-full flex-row items-center justify-center shadow-sm">
-                      <Ionicons name="lock-closed" size={10} color={isDark ? "#f43f5e" : "#ab2f33"} />
+                  {bundle.isPaid && (
+                    <View className="absolute top-4 right-4 bg-[#fde047] px-2 py-1.5 rounded-full shadow-sm flex-row items-center">
+                      <Ionicons name="lock-closed" size={10} color="#854d0e" />
+                      <Text className="text-[#854d0e] font-bold text-[9px] ml-1 tracking-widest uppercase">Premium</Text>
                     </View>
                   )}
-                </View>
 
-                <View className="px-4 pt-4">
-                  <Text className="text-[9px] font-bold text-slate-500 dark:text-rose-400 tracking-wider uppercase mb-1">{dare.category}</Text>
-                  <Text className="text-[17px] font-bold text-slate-800 dark:text-white tracking-tight leading-5 mb-3">{dare.title}</Text>
+                  <View className="absolute bottom-0 left-0 right-0 h-[45%] bg-white dark:bg-[#271318] p-4 justify-between border-t border-slate-100/50 dark:border-rose-950/20">
+                    <Text className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">{bundle.title}</Text>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Unlock full deck</Text>
+                      <Text className={`font-bold text-[12px] ${bundle.isPaid ? 'text-[#ab2f33] dark:text-rose-400' : 'text-[#0d6e67] dark:text-teal-400'}`}>
+                        {bundle.price}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
+          {/* Single Dares Grid */}
+          <View className="px-6 flex-row flex-wrap justify-between gap-y-4">
+            <Text className="w-full text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-1">Single Actions</Text>
+            
+            {dares.length === 0 ? (
+              <View className="w-full py-10 items-center justify-center">
+                <Ionicons name="albums-outline" size={48} color="#cbd5e1" />
+                <Text className="text-slate-400 font-semibold text-sm mt-3">No dares found in database</Text>
+              </View>
+            ) : (
+              dares.filter(dare => {
+                const matchesCategory = selectedCategory === 'ALL' || dare.category.toUpperCase() === selectedCategory.toUpperCase();
+                const matchesSearch = dare.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      (dare.description && dare.description.toLowerCase().includes(searchQuery.toLowerCase()));
+                return matchesCategory && matchesSearch;
+              }).map((dare) => (
+                <TouchableOpacity
+                  key={dare.id}
+                  className="w-[48%] bg-white dark:bg-[#271318] rounded-[24px] overflow-hidden shadow-sm border border-slate-50 dark:border-rose-950/20 pb-4"
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedDare(dare)}
+                >
+                  <View className="w-full h-40 relative">
+                    <Image source={typeof dare.image === 'string' ? { uri: dare.image } : dare.image} className="w-full h-full" />
+                    
+                    {/* Difficulty & Premium Badges */}
+                    <View className="absolute top-3 left-3 bg-white/95 dark:bg-[#0F0608]/95 px-2.5 py-1 rounded-full flex-row items-center shadow-sm">
+                      {Array.from({ length: dare.stars }).map((_, i) => (
+                        <Ionicons key={i} name="star" size={10} color="#f59e0b" style={{ marginRight: 2 }} />
+                      ))}
+                      <Text className="text-slate-800 dark:text-slate-300 font-bold text-[9px] ml-1 tracking-wider uppercase">{dare.difficulty}</Text>
+                    </View>
 
-        </View>
+                    {dare.isPaid && (
+                      <View className="absolute top-3 right-3 bg-white/95 dark:bg-[#0F0608]/95 w-6 h-6 rounded-full flex-row items-center justify-center shadow-sm">
+                        <Ionicons name="lock-closed" size={10} color={isDark ? "#f43f5e" : "#ab2f33"} />
+                      </View>
+                    )}
+                  </View>
 
-      </ScrollView>
+                  <View className="px-4 pt-4">
+                    <Text className="text-[9px] font-bold text-slate-500 dark:text-rose-400 tracking-wider uppercase mb-1">{dare.category}</Text>
+                    <Text className="text-[17px] font-bold text-slate-800 dark:text-white tracking-tight leading-5 mb-3">{dare.title}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e11d48']} tintColor={isDark ? '#fff' : '#e11d48'} />
+          }
+        >
+          {renderDisconnectedState()}
+        </ScrollView>
+      )}
 
       <Modal
         visible={!!selectedDare}
@@ -421,6 +500,23 @@ export default function Dares() {
                   <View className="bg-white dark:bg-[#271318] px-4 py-3 rounded-2xl flex-row items-center">
                     <Ionicons name={selectedDare.isPaid ? 'lock-closed' : 'heart'} size={15} color={selectedDare.isPaid ? (isDark ? '#f43f5e' : '#ab2f33') : (isDark ? '#2dd4bf' : '#0d6e67')} />
                     <Text className="text-slate-600 dark:text-white font-bold text-[12px] ml-2">{selectedDare.isPaid ? 'Premium' : 'Free'}</Text>
+                  </View>
+                </View>
+
+                {/* Add note text input */}
+                <View className="mb-6">
+                  <Text className="text-[11px] font-bold text-slate-400 dark:text-rose-400/60 tracking-wider uppercase mb-2">Add a personal note (optional)</Text>
+                  <View className="bg-white dark:bg-[#271318] rounded-2xl border border-slate-100 dark:border-rose-950/20 px-4 py-2">
+                    <TextInput
+                      placeholder="Type something sweet or playful..."
+                      placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
+                      className="text-slate-800 dark:text-white text-[14px] font-medium min-h-[50px] max-h-[100px]"
+                      multiline
+                      numberOfLines={3}
+                      value={note}
+                      onChangeText={setNote}
+                      style={{ textAlignVertical: 'top' }}
+                    />
                   </View>
                 </View>
 

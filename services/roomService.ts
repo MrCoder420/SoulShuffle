@@ -27,6 +27,7 @@ export interface ChallengePayload {
   time: string;
   image: any;
   description?: string;
+  message?: string; // Add note / message support
 }
 
 export interface SentChallenge extends ChallengePayload {

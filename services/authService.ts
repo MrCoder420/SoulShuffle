@@ -50,3 +50,9 @@ export const resetPassword = async (email: string, otp: string, newPassword: str
 export const logout = async () => {
   await AsyncStorage.clear();
 };
+
+// ── GET ME ───────────────────────────────────────────────
+export const getMyProfile = async () => {
+  const response = await api.get('/profile/me');
+  return response.data.data.profile;
+};
