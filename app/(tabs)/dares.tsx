@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { getActiveRoom, sendChallenge, ChallengePayload, Room } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { fetchCards, fetchAvailableDeck } from '@/services/cardService';
+import { fetchCards, fetchAvailableDeck, fetchSendLimits, SendLimits } from '@/services/cardService';
 import { useSidebar } from '@/context/SidebarContext';
 
 const sunsetPicnic = require('@/assets/images/sunset_picnic.jpeg');
@@ -61,6 +61,7 @@ export default function Dares() {
   const isDark = colorScheme === 'dark';
   const [room, setRoom] = useState<Room | null>(null);
   const [note, setNote] = useState<string>('');
+  const [limits, setLimits] = useState<SendLimits | null>(null);
 
   useEffect(() => {
     if (selectedDare) {
@@ -156,11 +157,16 @@ export default function Dares() {
       setRoom(activeRoom);
       
       if (activeRoom && activeRoom.status === 'ACTIVE') {
-        const fetched = await fetchAvailableDeck(activeRoom.id);
+        const [fetched, fetchedLimits] = await Promise.all([
+          fetchAvailableDeck(activeRoom.id),
+          fetchSendLimits()
+        ]);
         const mapped = fetched.map(mapCardToDare);
         setDares(mapped);
+        setLimits(fetchedLimits);
       } else {
         setDares([]);
+        setLimits(null);
       }
     } catch (error) {
       console.log('Failed to fetch dares from backend, loading fallback cards:', error);
@@ -272,6 +278,7 @@ export default function Dares() {
 
       setSelectedDare(null);
       Alert.alert('Challenge Sent', `${selectedDare.title} was sent to your partner.`);
+      loadDares(true);
     } catch (error: any) {
       if (error.response?.status === 401) {
         Alert.alert('Session Expired', 'Please sign in again before sending a challenge.', [
@@ -503,6 +510,24 @@ export default function Dares() {
                   </View>
                 </View>
 
+                {limits && (
+                  <View className="flex-row items-center justify-between bg-white dark:bg-[#271318] px-6 py-4 rounded-[20px] border border-slate-100/50 dark:border-rose-950/20 mb-6">
+                    <View className="flex-row items-center">
+                      <Ionicons name="calendar-outline" size={18} color={isDark ? "#fda4af" : "#af2c3b"} />
+                      <Text className="text-slate-600 dark:text-slate-300 text-xs font-extrabold ml-2">
+                        Sends Today: {limits.daily_sent}/{limits.daily_limit}
+                      </Text>
+                    </View>
+                    <View className="h-6 w-[1px] bg-slate-100 dark:bg-rose-950/25" />
+                    <View className="flex-row items-center">
+                      <Ionicons name="flame-outline" size={18} color={isDark ? "#2dd4bf" : "#0d6e67"} />
+                      <Text className="text-slate-600 dark:text-slate-300 text-xs font-extrabold ml-2">
+                        Active Dares: {limits.active_count}/{limits.active_limit}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
                 {/* Add note text input */}
                 <View className="mb-6">
                   <Text className="text-[11px] font-bold text-slate-400 dark:text-rose-400/60 tracking-wider uppercase mb-2">Add a personal note (optional)</Text>
@@ -520,18 +545,43 @@ export default function Dares() {
                   </View>
                 </View>
 
+                {limits && !limits.can_send && (
+                  <View className="flex-row items-start bg-rose-50/50 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-950/30 p-4 rounded-2xl mb-6">
+                    <Ionicons name="warning" size={18} color={isDark ? "#f43f5e" : "#b91c1c"} style={{ marginTop: 1 }} />
+                    <Text className="text-rose-700 dark:text-rose-400 text-xs font-semibold ml-2.5 flex-1 leading-5">
+                      {limits.daily_remaining === 0 
+                        ? "Daily limit reached. You can only send 3 challenges per day (resets at midnight UTC)." 
+                        : "Active limit reached. You can only have 2 active challenges at the same time."}
+                    </Text>
+                  </View>
+                )}
+
                 <TouchableOpacity
-                  className={`rounded-full py-[18px] items-center justify-center flex-row shadow-lg ${isSending ? 'bg-slate-300 dark:bg-rose-950/40 shadow-none' : 'bg-[#af2c3b] dark:bg-rose-600 shadow-md dark:shadow-none'}`}
+                  className={`rounded-full py-[18px] items-center justify-center flex-row shadow-lg ${
+                    isSending || (limits !== null && !limits.can_send)
+                      ? 'bg-slate-100 dark:bg-rose-950/15 shadow-none border border-slate-200/45 dark:border-rose-950/20'
+                      : 'bg-[#af2c3b] dark:bg-rose-600 shadow-md dark:shadow-none'
+                  }`}
                   activeOpacity={0.85}
                   onPress={handleSendChallenge}
-                  disabled={isSending}
+                  disabled={isSending || (limits !== null && !limits.can_send)}
                 >
                   {isSending ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <>
-                      <Ionicons name="send" size={18} color="white" />
-                      <Text className="text-white font-bold text-[15px] ml-2">Send to Partner</Text>
+                      <Ionicons 
+                        name="send" 
+                        size={18} 
+                        color={limits && !limits.can_send ? (isDark ? '#64748b' : '#94a3b8') : 'white'} 
+                      />
+                      <Text className={`font-bold text-[15px] ml-2 ${
+                        limits && !limits.can_send 
+                          ? 'text-slate-400 dark:text-slate-500' 
+                          : 'text-white'
+                      }`}>
+                        {limits && !limits.can_send ? 'Send Limit Reached' : 'Send to Partner'}
+                      </Text>
                     </>
                   )}
                 </TouchableOpacity>

@@ -41,3 +41,22 @@ export const fetchAvailableDeck = async (roomId: string): Promise<any[]> => {
   const response = await api.get(`/user/deck/available?room_id=${roomId}`);
   return response.data.data.cards;
 };
+
+export interface SendLimits {
+  daily_sent: number;
+  daily_limit: number;
+  daily_remaining: number;
+  active_count: number;
+  active_limit: number;
+  active_remaining: number;
+  can_send: boolean;
+}
+
+/**
+ * Fetch daily and active limits for sending cards
+ */
+export const fetchSendLimits = async (): Promise<SendLimits> => {
+  const response = await api.get('/user/deck/sends/limits');
+  return response.data.data;
+};
+
