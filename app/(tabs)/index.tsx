@@ -49,6 +49,56 @@ const normalizeSendRecord = (send: any) => {
   };
 };
 
+const calculateStreak = (sends: any[]) => {
+  if (!sends || sends.length === 0) return 0;
+  
+  // Extract unique local YYYY-MM-DD dates for each send
+  const dates = Array.from(
+    new Set(
+      sends
+        .map(s => {
+          if (!s.created_at) return null;
+          const d = new Date(s.created_at);
+          if (isNaN(d.getTime())) return null;
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        })
+        .filter(Boolean) as string[]
+    )
+  ).sort((a, b) => b.localeCompare(a)); // Sort descending (latest first)
+
+  if (dates.length === 0) return 0;
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+  // If latest activity is not today and not yesterday, the streak is broken
+  if (dates[0] !== todayStr && dates[0] !== yesterdayStr) {
+    return 0;
+  }
+
+  let streak = 1;
+  let currentDate = new Date(dates[0]);
+
+  for (let i = 1; i < dates.length; i++) {
+    const expectedPrevDate = new Date(currentDate);
+    expectedPrevDate.setDate(expectedPrevDate.getDate() - 1);
+    const expectedPrevStr = `${expectedPrevDate.getFullYear()}-${String(expectedPrevDate.getMonth() + 1).padStart(2, '0')}-${String(expectedPrevDate.getDate()).padStart(2, '0')}`;
+
+    if (dates[i] === expectedPrevStr) {
+      streak++;
+      currentDate = expectedPrevDate;
+    } else {
+      break; // streak is broken
+    }
+  }
+
+  return streak;
+};
+
 export default function Dashboard() {
   const { openSidebar } = useSidebar();
   const colorScheme = useColorScheme();
@@ -68,12 +118,16 @@ export default function Dashboard() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [cardSends, setCardSends] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState('Alex');
   
   // Find pending challenges
   const pendingChallenges = cardSends.filter(c => c.status === 'SENT') || [];
   const activeChallenges = cardSends.filter(c => c.status === 'IN_PROGRESS' || c.status === 'COMPLETED_BY_RECEIVER') || [];
   const activeChallenge = activeChallenges.length > 0 ? activeChallenges[0] : null;
   const completedChallenges = cardSends.filter(c => c.status === 'COMPLETED' || c.status === 'DEFLECTED' || c.status === 'EXPIRED') || [];
+  
+  const finishedDaresCount = cardSends.filter(c => c.status === 'COMPLETED').length;
+  const currentStreak = calculateStreak(cardSends);
   
   // Dummy pending challenge for UI visualization if empty
   const displayPendingChallenges = pendingChallenges.length > 0 ? pendingChallenges : [
@@ -101,6 +155,9 @@ export default function Dashboard() {
       try {
         const profile = await getMyProfile();
         setCurrentUserId(profile?.id || null);
+        if (profile?.first_name || profile?.users?.name) {
+          setUserName(profile.first_name || profile.users.name.split(' ')[0]);
+        }
       } catch (err) {
         console.log('Failed to fetch profile in dashboard:', err);
       }
@@ -513,10 +570,12 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <View className="px-6 mt-4">
           <Text className="text-[32px] leading-10 font-black text-slate-900 dark:text-white tracking-tight">
-            Welcome back, Alex{'\n'}& Sam 💕
+            Welcome back, {userName}{activeRoom?.partner_id ? '\n& Partner' : ''} 💕
           </Text>
           <Text className="text-slate-500 dark:text-slate-400 font-semibold text-sm mt-3">
-            Together for 2.5 years • Level 14 Romantic
+            {activeRoom?.created_at 
+              ? `Room Active for ${Math.max(1, Math.ceil(Math.abs(new Date().getTime() - new Date(activeRoom.created_at).getTime()) / (1000 * 60 * 60 * 24)))} days` 
+              : 'Happy Together'} • Level 14 Romantic
           </Text>
         </View>
 
@@ -534,14 +593,14 @@ export default function Dashboard() {
             <View className="bg-rose-50/80 dark:bg-rose-500/10 w-8 h-8 rounded-full items-center justify-center mb-3">
               <Ionicons name="medal" size={17} color={isDark ? "#f43f5e" : "#e11d48"} />
             </View>
-            <Text className="text-[26px] leading-8 font-black text-slate-900 dark:text-rose-400">24</Text>
+            <Text className="text-[26px] leading-8 font-black text-slate-900 dark:text-rose-400">{finishedDaresCount}</Text>
             <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 mt-1 tracking-widest uppercase">Dares Finished</Text>
           </View>
           <View className="bg-white dark:bg-[#122220] dark:border dark:border-teal-950/30 rounded-[24px] px-5 py-4 w-[47%] shadow-sm dark:shadow-none">
             <View className="bg-teal-50/80 dark:bg-teal-500/10 w-8 h-8 rounded-full items-center justify-center mb-3">
               <Ionicons name="flame" size={17} color={isDark ? "#2dd4bf" : "#0d9488"} />
             </View>
-            <Text className="text-[26px] leading-8 font-black text-slate-900 dark:text-teal-400">5</Text>
+            <Text className="text-[26px] leading-8 font-black text-slate-900 dark:text-teal-400">{currentStreak}</Text>
             <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 mt-1 tracking-widest uppercase">Day Streak</Text>
           </View>
         </View>
