@@ -1,13 +1,62 @@
 import { useSidebar } from '@/context/SidebarContext';
 import { useThemeToggle } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Image, Platform, SafeAreaView, ScrollView, StatusBar, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Image, Platform, ScrollView, StatusBar, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { getMyProfile } from '@/services/authService';
+import { getActiveRoom } from '@/services/roomService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
   const { openSidebar } = useSidebar();
   const { colorScheme, toggleTheme } = useThemeToggle();
   const isDark = colorScheme === 'dark';
+
+  const [userName, setUserName] = useState('User');
+  const [partnerName, setPartnerName] = useState('Partner');
+  const [activeRoom, setActiveRoom] = useState<any>(null);
+  const [daysCount, setDaysCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadProfileAndRoom = async () => {
+      try {
+        const profile = await getMyProfile();
+        if (profile?.first_name || profile?.users?.name) {
+          setUserName(profile.first_name || profile.users.name.split(' ')[0]);
+        }
+      } catch (err) {
+        console.log('Profile fetch failed in profile.tsx:', err);
+      }
+
+      try {
+        const room = await getActiveRoom();
+        setActiveRoom(room);
+        if (room) {
+          // Resolve partner name from AsyncStorage or room properties
+          const cachedPartner = await AsyncStorage.getItem(`partnerName_${room.id}`);
+          if (cachedPartner) {
+            setPartnerName(cachedPartner);
+          } else {
+            const resolved = room.partner_name || 'Partner';
+            setPartnerName(resolved);
+          }
+
+          // Calculate connection duration in days
+          if (room.created_at) {
+            const created = new Date(room.created_at);
+            const now = new Date();
+            const diffTime = Math.abs(now.getTime() - created.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            setDaysCount(diffDays);
+          }
+        }
+      } catch (err) {
+        console.log('Active room fetch failed in profile.tsx:', err);
+      }
+    };
+    loadProfileAndRoom();
+  }, []);
 
   // ── Suggestion form state ───────────────────────────────
   const CATEGORIES = ['Romantic 💕', 'Adventure 🏕️', 'Cozy 🕯️', 'Spicy 🔥', 'Creative 🎨'];
@@ -25,13 +74,13 @@ export default function Profile() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#fdfaf9] dark:bg-[#0F0608]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
+    <SafeAreaView className="flex-1 bg-[#fdfaf9] dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fdfaf9"} />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
 
         {/* Header */}
-        <View className="flex-row items-center justify-between px-6 py-4">
+        <View className="flex-row items-center justify-between px-6 pt-5 pb-3">
           <TouchableOpacity onPress={openSidebar}>
             <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
           </TouchableOpacity>
@@ -42,7 +91,7 @@ export default function Profile() {
           <TouchableOpacity>
             <Image
               source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }}
-              className="w-10 h-10 rounded-full border border-rose-200 dark:border-rose-950/30"
+              className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
             />
           </TouchableOpacity>
         </View>
@@ -73,8 +122,12 @@ export default function Profile() {
             </View>
           </View>
 
-          <Text className="text-3xl font-black text-[#af2c3b] dark:text-white mt-8 tracking-tight">Alex & Sam</Text>
-          <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">Together for 2.5 years</Text>
+          <Text className="text-3xl font-black text-[#af2c3b] dark:text-white mt-8 tracking-tight">
+            {activeRoom ? `${userName} & ${partnerName}` : userName}
+          </Text>
+          <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
+            {daysCount !== null ? `Together for ${daysCount} ${daysCount === 1 ? 'day' : 'days'}` : 'Happy Together'}
+          </Text>
         </View>
 
         {/* Top Cards Info */}

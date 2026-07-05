@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, SafeAreaView, Platform, StatusBar, TextInput, Modal, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, TextInput, Modal, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getActiveRoom, sendChallenge, ChallengePayload, Room } from '@/services/roomService';
@@ -297,11 +298,11 @@ export default function Dares() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#0F0608]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
+    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff8f7"} />
       
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 py-4 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
+      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
         <TouchableOpacity onPress={openSidebar}>
           <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
@@ -312,7 +313,7 @@ export default function Dares() {
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image 
             source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
-            className="w-10 h-10 rounded-full border border-rose-200 dark:border-rose-950/30"
+            className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
           />
         </TouchableOpacity>
       </View>
@@ -325,7 +326,7 @@ export default function Dares() {
       ) : room && room.status === 'ACTIVE' ? (
         <ScrollView 
           showsVerticalScrollIndicator={false} 
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={{ paddingBottom: 160 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e11d48']} tintColor={isDark ? '#fff' : '#e11d48'} />
           }

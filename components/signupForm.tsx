@@ -47,19 +47,17 @@ const SignupForm = () => {
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     className="flex-1 justify-center px-6"
                 >
-                    <View className="items-center mb-6 mt-10">
-                        {/* Brand Logo */}
-                        <View className="flex-row items-center gap-1.5 mb-3">
+                    <View className="items-center mb-4 mt-8">
+                        <View className="flex-row items-center gap-1.5 mb-2">
                             <Ionicons name="infinite" size={38} color={isDark ? '#fda4af' : '#be123c'} style={{ transform: [{ rotate: '-15deg' }] }} />
-                            <Text className="text-red-700 dark:text-rose-400 font-black text-3xl tracking-tight">SoulShuffle</Text>
+                            <Text className="text-red-700 dark:text-rose-400 font-black text-4xl tracking-tight">SoulShuffle</Text>
                         </View>
-                        <Text className="text-4xl mt-3 font-extrabold text-slate-800 dark:text-white tracking-tight">Create Account</Text>
-                        <Text className="text-slate-500 dark:text-slate-400 mt-3 text-base font-medium">Join us and start the journey.</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 mt-1.5 text-base font-medium">Join us and start the journey.</Text>
                     </View>
 
-                    <View className="bg-white/90 dark:bg-[#271318]/90 rounded-[32px] p-6 shadow-xl shadow-rose-100 dark:shadow-none border border-white/60 dark:border-rose-950/20">
+                    <View className="bg-white/90 dark:bg-[#271318]/90 rounded-[32px] p-5 shadow-xl shadow-rose-100 dark:shadow-none border border-white/60 dark:border-rose-950/20">
 
-                        <View className="mb-5">
+                        <View className="mb-4">
                             <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Full Name</Text>
                             <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
                                 <Ionicons name="person-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
@@ -74,7 +72,7 @@ const SignupForm = () => {
                             </View>
                         </View>
 
-                        <View className="mb-5">
+                        <View className="mb-4">
                             <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Email or Phone</Text>
                             <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
                                 <Ionicons name="mail-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
@@ -89,7 +87,7 @@ const SignupForm = () => {
                             </View>
                         </View>
 
-                        <View className="mb-6">
+                        <View className="mb-4">
                             <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Password</Text>
                             <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
                                 <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
@@ -118,8 +116,8 @@ const SignupForm = () => {
                         </TouchableOpacity>
                     </View>
 
-                    <View className="mt-8 items-center">
-                        <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mb-5">Or sign up with</Text>
+                    <View className="mt-4 items-center">
+                        <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mb-2">Or sign up with</Text>
                         <View className="flex-row gap-4 w-full">
                             <TouchableOpacity className="flex-1 bg-white/90 dark:bg-[#271318] border border-slate-100 dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center shadow-sm dark:shadow-none" activeOpacity={0.7}>
                                 <Ionicons name="logo-google" size={20} color="#ea4335" />

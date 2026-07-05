@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getActiveRoom, SentChallenge } from '@/services/roomService';
@@ -46,11 +47,11 @@ export default function History() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#fffaf9] dark:bg-[#0F0608]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
+    <SafeAreaView className="flex-1 bg-[#fffaf9] dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fffaf9"} />
       
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 py-4 bg-[#fffaf9] dark:bg-[#0F0608] z-10">
+      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fffaf9] dark:bg-[#0F0608] z-10">
         <TouchableOpacity onPress={openSidebar}>
           <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
@@ -61,14 +62,14 @@ export default function History() {
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image 
             source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
-            className="w-10 h-10 rounded-full border border-rose-200 dark:border-rose-950/30"
+            className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
           />
         </TouchableOpacity>
       </View>
 
       <ScrollView 
         showsVerticalScrollIndicator={false} 
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 120, paddingTop: 10 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 160, paddingTop: 10 }}
       >
         {/* Title Section */}
         <View className="mb-8 items-center mt-2">

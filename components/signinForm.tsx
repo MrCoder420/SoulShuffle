@@ -46,14 +46,12 @@ const SigninForm = () => {
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         className="flex-1 justify-center px-6"
                     >
-                        <View className="items-center mb-10 mt-10">
-                            {/* Brand Logo */}
-                            <View className="flex-row items-center gap-1.5 mb-3">
+                        <View className="items-center mb-6 mt-16">
+                            <View className="flex-row items-center gap-1.5 mb-2">
                                 <Ionicons name="infinite" size={38} color={isDark ? '#fda4af' : '#be123c'} style={{ transform: [{ rotate: '-15deg' }] }} />
-                                <Text className="text-red-700 dark:text-rose-400 font-black text-3xl tracking-tight">SoulShuffle</Text>
+                                <Text className="text-red-700 dark:text-rose-400 font-black text-4xl tracking-tight">SoulShuffle</Text>
                             </View>
-                            <Text className="text-4xl mt-3 font-extrabold text-slate-800 dark:text-white tracking-tight">Love Challenge</Text>
-                            <Text className="text-slate-500 dark:text-slate-400 mt-3 text-base font-medium">Ignite the spark, play together.</Text>
+                            <Text className="text-slate-500 dark:text-slate-400 mt-2 text-base font-medium">Ignite the spark, play together.</Text>
                         </View>
 
                         <View className="bg-white/90 dark:bg-[#271318]/90 rounded-[32px] p-6 shadow-xl shadow-rose-100 dark:shadow-none border border-white/60 dark:border-rose-950/20">

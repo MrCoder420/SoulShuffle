@@ -1,5 +1,5 @@
-import { Tabs, useRouter, useSegments } from 'expo-router';
-import React, { useEffect } from 'react';
+import { Tabs, useRouter, useSegments, Redirect } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import Sidebar from '@/components/Sidebar';
@@ -108,9 +110,14 @@ function TabItem({
 // ─── Custom Floating Tab Bar ──────────────────────────────────────────────────
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const isDark = useColorScheme() === 'dark';
+  const insets = useSafeAreaInsets();
+
+  const bottomMargin = Platform.OS === 'ios'
+    ? Math.max(24, insets.bottom)
+    : Math.max(16, insets.bottom + 8);
 
   return (
-    <View style={styles.barContainer}>
+    <View style={[styles.barContainer, { bottom: bottomMargin }]}>
       <View
         style={[
           styles.tabBar,
@@ -155,7 +162,6 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   barContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -197,18 +203,28 @@ const styles = StyleSheet.create({
 
 // ─── Root Layout ──────────────────────────────────────────────────────────────
 export default function TabLayout() {
-  const router = useRouter();
   const segments = useSegments();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
     const checkToken = async () => {
       const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        router.replace('/');
-      }
+      setIsAuthenticated(!!token);
     };
     checkToken();
   }, [segments]);
+
+  if (isAuthenticated === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F0608' }}>
+        <ActivityIndicator size="large" color="#e11d48" />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/" />;
+  }
 
   return (
     <View style={{ flex: 1 }}>

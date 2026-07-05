@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, SafeAreaView, Platform, StatusBar, TextInput, KeyboardAvoidingView, Alert, Keyboard } from 'react-native';
+import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, TextInput, KeyboardAvoidingView, Alert, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getActiveRoom, SentChallenge } from '@/services/roomService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
 import { getMyProfile } from '@/services/authService';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Chat() {
   const { openSidebar } = useSidebar();
@@ -15,6 +16,12 @@ export default function Chat() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const insets = useSafeAreaInsets();
+  const bottomMargin = Platform.OS === 'ios'
+    ? Math.max(24, insets.bottom)
+    : Math.max(16, insets.bottom + 8);
+  const chatInputMargin = isKeyboardVisible ? 0 : (64 + bottomMargin + 10);
+
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,11 +76,11 @@ export default function Chat() {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#fff6f5] dark:bg-[#0F0608]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
+    <SafeAreaView className="flex-1 bg-[#fff6f5] dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff6f5"} />
       
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 py-4 bg-[#fff6f5] dark:bg-[#0F0608] z-10">
+      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff6f5] dark:bg-[#0F0608] z-10">
         <TouchableOpacity onPress={openSidebar}>
           <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
@@ -84,7 +91,7 @@ export default function Chat() {
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image 
             source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
-            className="w-10 h-10 rounded-full border border-rose-200 dark:border-rose-950/30"
+            className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
           />
         </TouchableOpacity>
       </View>
@@ -165,7 +172,7 @@ export default function Chat() {
                 <View className="bg-rose-50/50 dark:bg-rose-950/10 px-4 py-3 rounded-2xl border border-rose-100/30 dark:border-rose-950/25 mb-5">
                   <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[10px] uppercase tracking-wider mb-1">Note from partner</Text>
                   <Text className="text-slate-600 dark:text-slate-300 text-[13px] italic font-medium leading-5">
-                    "{activeChallenge.message}"
+                    &quot;{activeChallenge.message}&quot;
                   </Text>
                 </View>
               ) : null}
@@ -234,7 +241,7 @@ export default function Chat() {
         {/* Chat Input Bar */}
         <View 
           className="bg-white dark:bg-[#0F0608] px-4 py-3 flex-row items-center border-t border-slate-100 dark:border-rose-950/20 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] dark:shadow-none pb-safe"
-          style={{ marginBottom: isKeyboardVisible ? 0 : (Platform.OS === 'ios' ? 100 : 92) }}
+          style={{ marginBottom: chatInputMargin }}
         >
           <TouchableOpacity className="bg-slate-100 dark:bg-[#271318] w-10 h-10 rounded-full items-center justify-center mr-3">
             <Ionicons name="add" size={24} color={isDark ? "#fff" : "#64748b"} />

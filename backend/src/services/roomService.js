@@ -10,6 +10,32 @@ const calculateExpiry = (expiryType) => {
     return date.toISOString();
 };
 
+const populateRoomNames = async (room) => {
+    if (!room) return null;
+    const hostId = room.host_id;
+    const partnerId = room.partner_id;
+
+    const idsToFetch = [hostId];
+    if (partnerId) idsToFetch.push(partnerId);
+
+    const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, first_name')
+        .in('id', idsToFetch);
+
+    if (!profileError && profiles) {
+        const hostProfile = profiles.find(p => p.id === hostId);
+        const partnerProfile = partnerId ? profiles.find(p => p.id === partnerId) : null;
+        
+        room.host_name = hostProfile ? hostProfile.first_name : 'Host';
+        room.partner_name = partnerProfile ? partnerProfile.first_name : null;
+    } else {
+        room.host_name = 'Host';
+        room.partner_name = partnerId ? 'Partner' : null;
+    }
+    return room;
+};
+
 const createRoom = async (hostId, expiryType = '7_DAYS') => {
     // Archive existing rooms for this host
     await supabase
@@ -38,7 +64,7 @@ const createRoom = async (hostId, expiryType = '7_DAYS') => {
         err.status = 400;
         throw err;
     }
-    return data;
+    return await populateRoomNames(data);
 };
 
 const joinRoom = async (partnerId, code) => {
@@ -57,7 +83,7 @@ const joinRoom = async (partnerId, code) => {
 
     // 2. Check if host is joining their own room (just return it)
     if (room.host_id === partnerId) {
-        return room;
+        return await populateRoomNames(room);
     }
 
     // 3. Check if room is full
@@ -88,7 +114,7 @@ const joinRoom = async (partnerId, code) => {
         throw err;
     }
 
-    return updatedRoom;
+    return await populateRoomNames(updatedRoom);
 };
 
 const getActiveRoom = async (userId) => {
@@ -117,7 +143,7 @@ const getActiveRoom = async (userId) => {
         return null;
     }
 
-    return room;
+    return await populateRoomNames(room);
 };
 
 const sendChallenge = async (userId, challenge) => {

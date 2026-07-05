@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Platform, StatusBar, ScrollView, StyleSheet, Image } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, TouchableOpacity, Platform, StatusBar, ScrollView, StyleSheet, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSequence, withDelay, runOnJS } from 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
+import { getActiveRoom, Room } from '@/services/roomService';
+import GameSocket from '@/services/socketService';
 
 type CoinFace = 'HEADS' | 'TAILS';
 
@@ -23,11 +26,18 @@ export default function CoinToss() {
   const isDark = colorScheme === 'dark';
 
   // Game States
+  const [room, setRoom] = useState<Room | null>(null);
   const [userChoice, setUserChoice] = useState<CoinFace>('HEADS');
   const [result, setResult] = useState<CoinFace | null>(null);
   const [isFlipping, setIsFlipping] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [showResultCard, setShowResultCard] = useState(false);
+
+  // Refs to prevent stale closures in Reanimated and callbacks
+  const userChoiceRef = useRef(userChoice);
+  useEffect(() => {
+    userChoiceRef.current = userChoice;
+  }, [userChoice]);
 
   // Animation Shared Values
   const spinValue = useSharedValue(0);
@@ -45,36 +55,55 @@ export default function CoinToss() {
     };
   });
 
-  const onFlipComplete = (finalResult: CoinFace) => {
+  // Room & Socket Setup
+  useEffect(() => {
+    const initRoomAndSocket = async () => {
+      try {
+        const activeRoom = await getActiveRoom();
+        setRoom(activeRoom);
+        if (activeRoom) {
+          await GameSocket.initialize();
+          GameSocket.joinRoom(activeRoom.code);
+        }
+      } catch (err) {
+        console.log('Failed to fetch room or setup socket in CoinToss:', err);
+      }
+    };
+    initRoomAndSocket();
+  }, []);
+
+  const onFlipComplete = useCallback((finalResult: CoinFace) => {
     setResult(finalResult);
     setIsFlipping(false);
     setShowResultCard(true);
 
-    const isWinner = userChoice === finalResult;
+    const currentUserChoice = userChoiceRef.current;
+    const isWinner = currentUserChoice === finalResult;
     const newItem: HistoryItem = {
       id: Date.now().toString(),
-      choice: userChoice,
+      choice: currentUserChoice,
       result: finalResult,
       outcome: isWinner ? 'WON' : 'LOST',
       time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     };
     setHistory(prev => [newItem, ...prev]);
-  };
+  }, []);
 
-  const handleFlip = () => {
-    if (isFlipping) return;
+  const onFlipCompleteRef = useRef(onFlipComplete);
+  useEffect(() => {
+    onFlipCompleteRef.current = onFlipComplete;
+  }, [onFlipComplete]);
 
+  const triggerFlipComplete = useCallback((finalResult: CoinFace) => {
+    onFlipCompleteRef.current(finalResult);
+  }, []);
+
+  const animateFlip = useCallback((finalOutcome: CoinFace) => {
     setIsFlipping(true);
     setShowResultCard(false);
     setResult(null);
 
-    // Determine random outcome (50/50 chance)
-    const outcomes: CoinFace[] = ['HEADS', 'TAILS'];
-    const finalOutcome = outcomes[Math.floor(Math.random() * outcomes.length)];
-
     // Calculate total rotations: land on heads (even 180s) or tails (odd 180s)
-    // Heads face: 0, 360, 720, 1080...
-    // Tails face: 180, 540, 900, 1260...
     const baseRotations = 1080; // 3 full spins
     const targetDegree = finalOutcome === 'HEADS' 
       ? baseRotations 
@@ -99,18 +128,55 @@ export default function CoinToss() {
       withTiming(1.4, { duration: 600 }),
       withTiming(1, { duration: 600 }, (finished) => {
         if (finished) {
-          runOnJS(onFlipComplete)(finalOutcome);
+          runOnJS(triggerFlipComplete)(finalOutcome);
         }
       })
     );
+  }, [triggerFlipComplete]);
+
+  const handleFlip = () => {
+    if (isFlipping) return;
+
+    // Determine random outcome (50/50 chance)
+    const outcomes: CoinFace[] = ['HEADS', 'TAILS'];
+    const finalOutcome = outcomes[Math.floor(Math.random() * outcomes.length)];
+
+    // Send to partner via socket if room is active
+    if (room && room.status === 'ACTIVE') {
+      GameSocket.sendGameEvent(room.code, 'COIN_TOSS', {
+        choice: userChoice,
+        result: finalOutcome
+      });
+    }
+
+    animateFlip(finalOutcome);
   };
 
+  // Socket Listener for incoming partner tosses
+  useEffect(() => {
+    const handleGameEvent = (payload: any) => {
+      if (payload.eventType === 'COIN_TOSS') {
+        const { choice, result: remoteResult } = payload.data;
+        // Auto-select opposite choice
+        setUserChoice(choice === 'HEADS' ? 'TAILS' : 'HEADS');
+        // Trigger flip animation with the received result
+        animateFlip(remoteResult);
+      }
+    };
+
+    GameSocket.on('game_event', handleGameEvent);
+
+    return () => {
+      GameSocket.off('game_event', handleGameEvent);
+    };
+  }, [room, animateFlip]);
+
   return (
-    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#0F0608]" style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
+    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff8f7"} />
 
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 py-4 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
+      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
         <TouchableOpacity onPress={openSidebar}>
           <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
@@ -121,20 +187,37 @@ export default function CoinToss() {
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image 
             source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
-            className="w-10 h-10 rounded-full border border-rose-200 dark:border-rose-950/30"
+            className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
           />
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
         {/* Title Section */}
         <View className="items-center px-6 mt-6">
           <Text className="text-[28px] font-black text-[#af2c3b] dark:text-rose-400 text-center tracking-tight leading-8">
             Can&apos;t agree on something?
           </Text>
-          <Text className="text-slate-500 dark:text-slate-400 font-semibold text-center text-sm mt-3 pr-4">
+          <Text className="text-slate-500 dark:text-slate-400 font-semibold text-center text-sm mt-3 pr-4 mb-4">
             Pick your side, flip the coin, and let fate decide who wins this round!
           </Text>
+
+          {/* Real-time Sync Status */}
+          {room && room.status === 'ACTIVE' ? (
+            <View className="flex-row items-center bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30 px-3.5 py-1.5 rounded-full">
+              <View className="w-2 h-2 rounded-full bg-teal-500 mr-2 shadow-sm shadow-teal-500/50" />
+              <Text className="text-teal-700 dark:text-teal-400 font-bold text-xs">
+                Flips Synced with Partner
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-row items-center bg-slate-100 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800/30 px-3.5 py-1.5 rounded-full">
+              <View className="w-2 h-2 rounded-full bg-slate-400 mr-2" />
+              <Text className="text-slate-600 dark:text-slate-400 font-bold text-xs">
+                Solo Mode (Not Synced)
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Choice Selector */}

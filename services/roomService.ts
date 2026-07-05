@@ -1,4 +1,5 @@
 import api from './api';
+import { getMyProfile } from './authService';
 
 // ── Types ────────────────────────────────────────────────
 export type ExpiryType = '7_DAYS' | '30_DAYS' | '1_YEAR';
@@ -17,6 +18,8 @@ export interface Room {
     challenge_history?: SentChallenge[];
   };
   created_at: string;
+  host_name?: string;
+  partner_name?: string | null;
 }
 
 export interface ChallengePayload {
@@ -69,9 +72,20 @@ export const sendChallenge = async (deckCardId: string, message?: string) => {
     throw new Error('No active room found.');
   }
 
+  // Resolve current user ID to determine the correct receiver
+  let receiverId = room.partner_id;
+  try {
+    const profile = await getMyProfile();
+    if (profile?.id && profile.id === room.partner_id) {
+      receiverId = room.host_id;
+    }
+  } catch (error) {
+    console.error('Failed to resolve profile in sendChallenge:', error);
+  }
+
   const response = await api.post(`/user/deck/${deckCardId}/send`, {
     room_id: room.id,
-    receiver_id: room.partner_id,
+    receiver_id: receiverId,
     message: message || ''
   });
   return response.data.data;
@@ -88,8 +102,8 @@ export const acceptCardSend = async (sendId: string) => {
   return response.data.data;
 };
 
-export const rejectCardSend = async (sendId: string) => {
-  const response = await api.patch(`/user/deck/sends/${sendId}/deflect`);
+export const rejectCardSend = async (sendId: string, roomId: string) => {
+  const response = await api.patch(`/user/deck/sends/${sendId}/reject`, { room_id: roomId });
   return response.data.data;
 };
 
@@ -103,7 +117,12 @@ export const confirmCardSend = async (sendId: string) => {
   return response.data.data;
 };
 
-export const rejectCardSendReal = async (sendId: string, roomId: string) => {
-  const response = await api.patch(`/user/deck/sends/${sendId}/reject`, { room_id: roomId });
+export const deflectCardSend = async (sendId: string) => {
+  const response = await api.patch(`/user/deck/sends/${sendId}/deflect`);
+  return response.data.data;
+};
+
+export const fetchDeflectCards = async (roomId: string) => {
+  const response = await api.get(`/user/deck/deflect-cards?room_id=${roomId}`);
   return response.data.data;
 };
