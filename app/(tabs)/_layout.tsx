@@ -27,7 +27,7 @@ const TABS = [
   { name: 'dares',     label: 'Dares',     icon: 'copy-outline',      activeIcon: 'copy'      },
   { name: 'coin-toss', label: 'Coin Toss', icon: 'aperture-outline',  activeIcon: 'aperture'  },
   { name: 'history',   label: 'History',   icon: 'hourglass-outline', activeIcon: 'hourglass' },
-  { name: 'profile',   label: 'Profile',   icon: 'rose-outline',      activeIcon: 'rose'      },
+  { name: 'store',     label: 'Store',     icon: 'cart-outline',      activeIcon: 'cart'      },
 ];
 
 // ─── Tab Button Item ──────────────────────────────────────────────────────────
@@ -237,6 +237,7 @@ export default function TabLayout() {
         ))}
         <Tabs.Screen name="explore" options={{ href: null, title: 'Explore' }} />
         <Tabs.Screen name="chat" options={{ href: null, title: 'Chat' }} />
+        <Tabs.Screen name="profile" options={{ href: null, title: 'Profile' }} />
       </Tabs>
       <Sidebar />
     </View>

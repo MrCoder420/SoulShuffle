@@ -282,9 +282,9 @@ export default function Dares() {
   };
 
   const bundles = [
-    { id: 101, title: 'Weekend Getaway', count: 5, isPaid: true, image: 'https://images.unsplash.com/photo-1484712401471-05c7215857eb?w=600&h=400&fit=crop', price: 'Premium' },
-    { id: 102, title: 'Cozy Winter', count: 8, isPaid: false, image: 'https://images.unsplash.com/photo-1517263904808-5dc91e3e7044?w=600&h=400&fit=crop', price: 'Free' },
-    { id: 103, title: 'Spicy Nights', count: 10, isPaid: true, image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=600&h=400&fit=crop', price: 'Premium' },
+    { id: 101, title: 'Weekend Getaway', count: 5, isPaid: true, image: require('../../assets/images/bundle_romantic.png'), price: 'Premium' },
+    { id: 102, title: 'Cozy Winter', count: 8, isPaid: false, image: require('../../assets/images/bundle_cozy.png'), price: 'Free' },
+    { id: 103, title: 'Spicy Nights', count: 10, isPaid: true, image: require('../../assets/images/bundle_spicy.png'), price: 'Premium' },
   ];
 
   const handleSendChallenge = async () => {
