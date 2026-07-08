@@ -240,7 +240,7 @@ export default function StoreScreen() {
 
   // OTP resend timer effect
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (paymentStep === 'otp' && otpResendSeconds > 0) {
       timer = setTimeout(() => {
         setOtpResendSeconds(prev => prev - 1);
@@ -728,7 +728,7 @@ export default function StoreScreen() {
                           onChangeText={(t) => setCardNumber(formatCardNumber(t))}
                         />
                         <View className="absolute right-4 top-3.5">
-                          <Ionicons name="logo-visa" size={22} color={isDark ? "#fda4af" : "#94a3b8"} />
+                          <Ionicons name="card" size={22} color={isDark ? "#fda4af" : "#94a3b8"} />
                         </View>
                       </View>
                     </View>
