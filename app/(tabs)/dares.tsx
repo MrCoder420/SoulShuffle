@@ -282,9 +282,9 @@ export default function Dares() {
   };
 
   const bundles = [
-    { id: 101, title: 'Weekend Getaway', count: 5, isPaid: true, image: require('../../assets/images/bundle_romantic.png'), price: 'Premium' },
-    { id: 102, title: 'Cozy Winter', count: 8, isPaid: false, image: require('../../assets/images/bundle_cozy.png'), price: 'Free' },
-    { id: 103, title: 'Spicy Nights', count: 10, isPaid: true, image: require('../../assets/images/bundle_spicy.png'), price: 'Premium' },
+    { id: 101, title: 'Weekend Getaway', count: 5, isPaid: true, image: require('../../assets/images/bundle_romantic.jpg'), price: 'Premium' },
+    { id: 102, title: 'Cozy Winter', count: 8, isPaid: false, image: require('../../assets/images/bundle_cozy.jpg'), price: 'Free' },
+    { id: 103, title: 'Spicy Nights', count: 10, isPaid: true, image: require('../../assets/images/bundle_spicy.jpg'), price: 'Premium' },
   ];
 
   const handleBundlePress = (bundle: any) => {

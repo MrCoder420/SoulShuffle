@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   StatusBar,
   Animated,
@@ -15,6 +14,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   fetchQuestionnaire,
@@ -46,8 +46,10 @@ export default function Questionnaire() {
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isMaintenance, setIsMaintenance] = useState(false);
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const [history, setHistory] = useState<number[]>([0]);
+  const currentStep = history[history.length - 1] ?? 0;
   // answers keyed by question_id → selected_option_id (string) or array of option_ids or text_value
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [textValue, setTextValue] = useState('');
@@ -61,7 +63,7 @@ export default function Questionnaire() {
   const optionAnimsRef = useRef<Animated.Value[][]>([]);
 
   const currentQuestion: Question | undefined = questions[currentStep];
-  const progress = questions.length > 0 ? currentStep / questions.length : 0;
+  const progress = questions.length > 0 ? (currentStep + 1) / questions.length : 0;
 
   // ─── Fetch questions from the backend on mount ──────────
   useEffect(() => {
@@ -77,7 +79,7 @@ export default function Questionnaire() {
         const existingAnswers = await getMyAnswers();
         if (existingAnswers?.length > 0) {
           // @ts-ignore
-          router.replace('/(tabs)');
+          router.replace('/');
           return;
         }
       } catch (answerError: any) {
@@ -87,9 +89,7 @@ export default function Questionnaire() {
       const data = await fetchQuestionnaire();
 
       if (!data || data.length === 0) {
-        // No questions configured — skip questionnaire entirely
-        // @ts-ignore
-        router.replace('/(tabs)');
+        setIsMaintenance(true);
         return;
       }
 
@@ -136,17 +136,18 @@ export default function Questionnaire() {
       friction: 10,
       useNativeDriver: false,
     }).start();
+
+    // Safely trigger options animation for the new step
+    animateOptionsIn(currentStep);
   }, [currentStep, questions.length]);
 
-  const animateOptionsIn = (step?: number, qs?: Question[]) => {
-    const stepIndex = step ?? currentStep;
-    const questionList = qs ?? questions;
+  const animateOptionsIn = (stepIndex: number) => {
     const anims = optionAnimsRef.current[stepIndex];
     if (!anims) return;
 
     anims.forEach(anim => anim.setValue(0));
 
-    const optionCount = questionList[stepIndex]?.question_options?.length || 1;
+    const optionCount = questions[stepIndex]?.question_options?.length || 1;
     const animations = anims.slice(0, optionCount).map((anim, index) =>
       Animated.spring(anim, {
         toValue: 1,
@@ -179,8 +180,8 @@ export default function Questionnaire() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      callback();
       slideAnim.setValue(direction === 'next' ? SCREEN_WIDTH * 0.3 : -SCREEN_WIDTH * 0.3);
+      callback(); // This triggers the useEffect for currentStep
 
       Animated.parallel([
         Animated.spring(fadeAnim, {
@@ -201,19 +202,37 @@ export default function Questionnaire() {
           friction: 10,
           useNativeDriver: true,
         }),
-      ]).start(() => {
-        animateOptionsIn();
-      });
+      ]).start();
     });
   };
 
   // ─── Determine input type (normalize casing) ────────────
-  const getInputType = (q: Question): 'single_select' | 'multi_select' | 'text' | 'slider' => {
+  const getInputType = (q: Question): 'single_select' | 'multi_select' | 'text' | 'slider' | 'date_picker' => {
     const type = q.input_type?.toUpperCase() || 'SINGLE_CHOICE';
     if (type === 'MULTI_CHOICE') return 'multi_select';
     if (type === 'TEXT') return 'text';
-    if (type === 'SLIDER') return 'text'; // Treat slider as text input for now
+    if (type === 'SLIDER') return 'slider';
+    if (type === 'DATE_PICKER') return 'date_picker';
     return 'single_select'; // SINGLE_CHOICE
+  };
+
+  const findNextQuestionIndex = (startIndex: number, currentAnswers: Record<string, string | string[]> = answers) => {
+    for (let i = startIndex + 1; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.question_dependencies || q.question_dependencies.length === 0) {
+        return i;
+      }
+      const meetsDependencies = q.question_dependencies.every(dep => {
+        const answer = currentAnswers[dep.parent_question_id];
+        if (!answer) return false;
+        if (Array.isArray(answer)) {
+          return answer.includes(dep.required_option_id);
+        }
+        return answer === dep.required_option_id;
+      });
+      if (meetsDependencies) return i;
+    }
+    return -1;
   };
 
   const handleSelectOption = (optionId: string) => {
@@ -228,64 +247,84 @@ export default function Questionnaire() {
         setAnswers({ ...answers, [currentQuestion.id]: [...current, optionId] });
       }
     } else {
-      setAnswers({ ...answers, [currentQuestion.id]: optionId });
+      const newAnswers = { ...answers, [currentQuestion.id]: optionId };
+      setAnswers(newAnswers);
       // Auto-advance for single select after a brief delay
-      if (currentStep < questions.length - 1) {
-        setTimeout(() => {
-          handleNext();
-        }, 400);
-      }
+      setTimeout(() => {
+        handleNext(newAnswers);
+      }, 400);
     }
   };
 
-  const handleNext = () => {
+  const handleNext = (overrideAnswers?: Record<string, string | string[]>) => {
     if (!currentQuestion) return;
     const inputType = getInputType(currentQuestion);
+    const currentAnswers = overrideAnswers || answers;
 
-    if (inputType === 'text' || inputType === 'slider') {
-      setAnswers({ ...answers, [currentQuestion.id]: textValue });
+    let finalAnswer = textValue;
+    if (inputType === 'date_picker' && textValue) {
+       try {
+         finalAnswer = new Date(textValue).toISOString();
+       } catch (e) {
+         // fallback if invalid date string
+       }
     }
 
-    if (currentStep < questions.length - 1) {
+    if (inputType === 'text' || inputType === 'slider' || inputType === 'date_picker') {
+      currentAnswers[currentQuestion.id] = finalAnswer;
+      setAnswers({ ...currentAnswers });
+    }
+
+    const nextIndex = findNextQuestionIndex(currentStep, currentAnswers);
+
+    if (nextIndex !== -1) {
       animateTransition('next', () => {
-        setCurrentStep(prev => prev + 1);
+        setHistory(prev => [...prev, nextIndex]);
         setTextValue('');
-        // Pre-fill text if going forward and already answered
-        const nextQ = questions[currentStep + 1];
-        if (nextQ && (getInputType(nextQ) === 'text' || getInputType(nextQ) === 'slider')) {
-          setTextValue((answers[nextQ.id] as string) || '');
+        const nextQ = questions[nextIndex];
+        if (nextQ && ['text', 'slider', 'date_picker'].includes(getInputType(nextQ))) {
+          setTextValue((currentAnswers[nextQ.id] as string) || '');
         }
       });
     } else {
-      handleFinish();
+      handleFinish(currentAnswers);
     }
   };
 
   const handleBack = () => {
-    if (currentStep > 0) {
+    if (history.length > 1) {
       animateTransition('back', () => {
-        setCurrentStep(prev => prev - 1);
-        const prevQ = questions[currentStep - 1];
+        const newHistory = [...history];
+        newHistory.pop();
+        setHistory(newHistory);
+        const prevIndex = newHistory[newHistory.length - 1];
+        const prevQ = questions[prevIndex];
         const prevInputType = getInputType(prevQ);
-        if (prevInputType === 'text' || prevInputType === 'slider') {
+        if (['text', 'slider', 'date_picker'].includes(prevInputType)) {
           setTextValue((answers[prevQ.id] as string) || '');
         }
       });
     }
   };
 
-  const handleFinish = async () => {
+  const handleFinish = async (finalAnswersParam?: Record<string, string | string[]>) => {
     if (!currentQuestion) {
       // @ts-ignore
-      router.replace('/(tabs)');
+      router.replace('/');
       return;
     }
 
     // Save text answer for last question
     const inputType = getInputType(currentQuestion);
-    let finalAnswers = { ...answers };
-    if (inputType === 'text' || inputType === 'slider') {
-      finalAnswers[currentQuestion.id] = textValue;
+    let finalAnswers = { ...(finalAnswersParam || answers) };
+    if (inputType === 'text' || inputType === 'slider' || inputType === 'date_picker') {
+      let finalAnswer = textValue;
+      if (inputType === 'date_picker' && textValue) {
+         try {
+           finalAnswer = new Date(textValue).toISOString();
+         } catch (e) { }
+      }
+      finalAnswers[currentQuestion.id] = finalAnswer;
     }
 
     // Build the payload matching the backend's expected format
@@ -305,7 +344,7 @@ export default function Questionnaire() {
             text_value: null,
           });
         }
-      } else if (qInputType === 'text' || qInputType === 'slider') {
+      } else if (['text', 'slider', 'date_picker'].includes(qInputType)) {
         payload.push({
           question_id: q.id,
           selected_option_id: null,
@@ -322,39 +361,20 @@ export default function Questionnaire() {
     }
 
     if (payload.length > 0) {
-      try {
-        setIsSubmitting(true);
-        await submitAnswersApi(payload);
-      } catch (error: any) {
-        console.error('Failed to submit answers:', error);
-        Alert.alert(
-          'Submission Error',
-          error.response?.data?.message || 'Failed to save your answers. You can try again later.',
-          [
-            { text: 'Retry', onPress: handleFinish },
-            {
-              text: 'Skip',
-              style: 'cancel',
-              onPress: () => {
-                // @ts-ignore
-                router.replace('/(tabs)');
-              },
-            },
-          ]
-        );
-        return;
-      } finally {
-        setIsSubmitting(false);
-      }
+      // Fire and forget: submit to AWS in the background
+      submitAnswersApi(payload).catch((error: any) => {
+        console.error('Background submission failed:', error);
+      });
     }
 
+    // Instantly transition to the tabs screen without blocking the UI
     // @ts-ignore
-    router.replace('/(tabs)');
+    router.replace('/');
   };
 
   const handleSkip = () => {
     // @ts-ignore
-    router.replace('/(tabs)');
+    router.replace('/');
   };
 
   const isNextDisabled = () => {
@@ -362,7 +382,7 @@ export default function Questionnaire() {
     const inputType = getInputType(currentQuestion);
     const answer = answers[currentQuestion.id];
 
-    if (inputType === 'text' || inputType === 'slider') {
+    if (['text', 'slider', 'date_picker'].includes(inputType)) {
       return !textValue.trim();
     }
     if (inputType === 'multi_select') {
@@ -437,10 +457,34 @@ export default function Questionnaire() {
     );
   }
 
+  // ─── Maintenance State ─────────────────────────────────────
+  if (isMaintenance) {
+    return (
+      <SafeAreaView
+        className="flex-1 bg-rose-50 items-center justify-center px-8"
+        style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}
+      >
+        <StatusBar barStyle="dark-content" backgroundColor="#fff1f2" />
+        <View className="bg-white/60 w-20 h-20 rounded-[28px] items-center justify-center mb-6 border border-white/40">
+          <Ionicons name="construct-outline" size={40} color="#f43f5e" />
+        </View>
+        <Text className="text-slate-800 font-bold text-xl text-center mb-2">
+          Maintenance Mode
+        </Text>
+        <Text className="text-slate-500 font-medium text-sm text-center mb-8">
+          The questionnaire is currently unavailable. Please try again later.
+        </Text>
+        <TouchableOpacity onPress={handleSkip} className="bg-rose-500 rounded-2xl px-8 py-4">
+          <Text className="text-white font-bold text-base">Go to Dashboard</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   // ─── No questions / empty state (shouldn't reach here, but guard) ───
   if (!currentQuestion) {
     // @ts-ignore
-    router.replace('/(tabs)');
+    router.replace('/');
     return null;
   }
 
@@ -469,8 +513,8 @@ export default function Questionnaire() {
             <TouchableOpacity
               onPress={handleBack}
               className="w-11 h-11 bg-white/70 rounded-full items-center justify-center border border-white/50"
-              style={{ opacity: currentStep > 0 ? 1 : 0.3 }}
-              disabled={currentStep === 0}
+              style={{ opacity: history.length > 1 ? 1 : 0.3 }}
+              disabled={history.length <= 1}
             >
               <Ionicons name="chevron-back" size={22} color="#9f1239" />
             </TouchableOpacity>
@@ -530,7 +574,7 @@ export default function Questionnaire() {
 
             {/* Options */}
             <View className="mt-8">
-              {inputType === 'text' || inputType === 'slider' ? (
+              {['text', 'slider', 'date_picker'].includes(inputType) ? (
                 <Animated.View
                   style={{
                     opacity: optionAnimsRef.current[currentStep]?.[0] || new Animated.Value(1),
@@ -549,7 +593,7 @@ export default function Questionnaire() {
                   <View className="bg-white/90 rounded-[28px] p-2 border border-white/60">
                     <TextInput
                       placeholder={
-                        inputType === 'slider' ? 'Enter a number...' : 'Type here...'
+                        inputType === 'slider' ? 'Enter a number...' : inputType === 'date_picker' ? 'YYYY-MM-DD' : 'Type here...'
                       }
                       placeholderTextColor="#c4b5b3"
                       className="text-slate-800 font-semibold text-lg px-5 py-5"
@@ -628,8 +672,8 @@ export default function Questionnaire() {
 
         {/* Bottom Action */}
         <View className="px-6 pb-6 pt-3">
-          {/* Show continue button for multi-select, text, and slider types */}
-          {(inputType === 'multi_select' || inputType === 'text' || inputType === 'slider') && (
+          {/* Show continue button for multi-select, text, slider, and date_picker types */}
+          {['multi_select', 'text', 'slider', 'date_picker'].includes(inputType) && (
             <TouchableOpacity
               onPress={handleNext}
               disabled={isNextDisabled() || isSubmitting}

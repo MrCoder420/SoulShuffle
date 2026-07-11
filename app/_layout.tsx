@@ -31,6 +31,7 @@ export default function RootLayout() {
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="questionnaire" options={{ headerShown: false, gestureEnabled: false }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="notifications" options={{ headerShown: false }} />
               <Stack.Screen name="coin-toss" options={{ headerShown: false, presentation: 'card' }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             </Stack>

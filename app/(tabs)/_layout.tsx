@@ -1,4 +1,5 @@
-import { Tabs, useRouter, useSegments, Redirect } from 'expo-router';
+import { Tabs, useRouter, useSegments, useNavigation } from 'expo-router';
+import { CommonActions } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -8,6 +9,7 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
+  DeviceEventEmitter,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -204,27 +206,22 @@ const styles = StyleSheet.create({
 // ─── Root Layout ──────────────────────────────────────────────────────────────
 export default function TabLayout() {
   const segments = useSegments();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const router = useRouter();
+  const navigation = useNavigation();
 
+  // ── Logout handler: resets root Stack to login screen ──
   useEffect(() => {
-    const checkToken = async () => {
-      const token = await AsyncStorage.getItem('accessToken');
-      setIsAuthenticated(!!token);
-    };
-    checkToken();
-  }, [segments]);
-
-  if (isAuthenticated === null) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F0608' }}>
-        <ActivityIndicator size="large" color="#e11d48" />
-      </View>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Redirect href="/" />;
-  }
+    const sub = DeviceEventEmitter.addListener('app:logout', () => {
+      console.log('[TABS LAYOUT] app:logout → resetting root stack to index');
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'index' }],
+        })
+      );
+    });
+    return () => sub.remove();
+  }, [navigation]);
 
   return (
     <View style={{ flex: 1 }}>

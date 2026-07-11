@@ -26,6 +26,7 @@ export interface CardBundle {
   description: string;
   image_url: string | null;
   bundle_plans?: BundlePlan[];
+  plans?: BundlePlan[];
   bundle_cards?: { card_id: string; cards: StoreCard }[];
   is_active: boolean;
 }
@@ -58,4 +59,9 @@ export const fetchStoreBundleById = async (bundleId: string): Promise<CardBundle
 export const fetchPurchaseHistory = async (): Promise<PurchaseRecord[]> => {
   const response = await api.get('/store/purchase/history');
   return response.data.data.purchases || response.data.data || [];
+};
+
+export const bypassStorePurchase = async (bundleId: string, planId: string): Promise<any> => {
+  const response = await api.post('/store/purchase/mock-bypass', { bundleId, planId });
+  return response.data.data;
 };

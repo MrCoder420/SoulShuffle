@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, TextInput, ActivityIndicator, Alert, AppState, useWindowDimensions } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, TextInput, ActivityIndicator, Alert, AppState, useWindowDimensions, DeviceEventEmitter, KeyboardAvoidingView, Keyboard, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { createRoom, joinRoom, getActiveRoom, fetchCardSends, acceptCardSend, rejectCardSend, completeCardSend, confirmCardSend, deflectCardSend, fetchDeflectCards, Room, ExpiryType } from '@/services/roomService';
+import { createRoom, joinRoom, getActiveRoom, fetchCardSends, acceptCardSend, rejectCardSend, completeCardSend, confirmCardSend, deflectCardSend, fetchDeflectCards, leaveRoom, Room, ExpiryType } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
@@ -12,6 +12,33 @@ import { getMyProfile } from '@/services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import CountdownTimer from '@/components/CountdownTimer';
+
+class ErrorBoundary extends React.Component<any, { hasError: boolean, error: Error | null }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Dashboard caught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ color: 'red', fontWeight: 'bold', fontSize: 18 }}>Dashboard Crashed</Text>
+          <Text style={{ color: 'black', marginTop: 10 }}>{this.state.error?.toString()}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const coupleCover = require('@/assets/images/couple_cover.jpeg');
 
@@ -120,12 +147,30 @@ export default function Dashboard() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
+  const [isLeavingRoom, setIsLeavingRoom] = useState(false);
   const [cardSends, setCardSends] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState('Alex');
   const [partnerName, setPartnerName] = useState('Partner');
   const [deflectCardsCount, setDeflectCardsCount] = useState(0);
   const [deflectCards, setDeflectCards] = useState<any[]>([]);
+  const [selectedReceivedCard, setSelectedReceivedCard] = useState<any | null>(null);
+  const [showDeflectDropdown, setShowDeflectDropdown] = useState(false);
+  const [dismissedCardIds, setDismissedCardIds] = useState<string[]>([]);
+
+  // Automatically open received cards popup
+  useEffect(() => {
+    if (!currentUserId || selectedReceivedCard) return;
+    
+    const unhandledReceivedCards = cardSends.filter(
+      c => c.status === 'SENT' && c.sender_id !== currentUserId && !c.id.toString().startsWith('dummy')
+    );
+    
+    const firstNewCard = unhandledReceivedCards.find(c => !dismissedCardIds.includes(c.id));
+    if (firstNewCard) {
+      setSelectedReceivedCard(firstNewCard);
+    }
+  }, [cardSends, currentUserId, selectedReceivedCard, dismissedCardIds]);
 
   // Load cached partner name when activeRoom changes
   useEffect(() => {
@@ -234,6 +279,21 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchActiveRoom();
+    const sub = DeviceEventEmitter.addListener('app:refreshDashboard', () => {
+      fetchActiveRoom(true);
+    });
+    const clearSub = DeviceEventEmitter.addListener('app:clearRoom', () => {
+      // Immediately reset all room state so UI shows 'No Room' card right away
+      setActiveRoom(null);
+      setCardSends([]);
+      setDeflectCardsCount(0);
+      setDeflectCards([]);
+      setLocalPendingChallenges([]);
+    });
+    return () => {
+      sub.remove();
+      clearSub.remove();
+    };
   }, [fetchActiveRoom]);
 
   // ── Socket Initialization & Lifecycle ───────────────────
@@ -332,67 +392,56 @@ export default function Dashboard() {
 
   // ── Card Game Engine Handlers ────────────────────────────
   const handleAcceptCard = async (sendId: string) => {
+    // Optimistic update
+    setSelectedReceivedCard(null);
+    setCardSends(prev => prev.map(s => s.id === sendId ? { ...s, status: 'ACCEPTED' } : s));
+    
     try {
       await acceptCardSend(sendId);
-      Alert.alert('Card Accepted', 'Get ready to complete this challenge!');
-      fetchActiveRoom(true);
+      fetchActiveRoom(false);
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to accept card');
+      fetchActiveRoom(true);
     }
   };
 
   const handleRejectCard = async (sendId: string, roomId: string) => {
-    Alert.alert(
-      'Reject Challenge?',
-      'Rejecting this challenge will trigger Penalty 3, transferring 1 card from your deck to your partner\'s deck as a penalty. Are you sure you want to proceed?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Reject', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await rejectCardSend(sendId, roomId);
-              Alert.alert('Challenge Rejected', 'The challenge has been rejected and 1 card was transferred to your partner.');
-              fetchActiveRoom(true);
-            } catch (e: any) {
-              Alert.alert('Error', e.response?.data?.message || 'Failed to reject card');
-            }
-          }
-        }
-      ]
-    );
+    // Optimistic update
+    setSelectedReceivedCard(null);
+    setCardSends(prev => prev.map(s => s.id === sendId ? { ...s, status: 'REJECTED' } : s));
+    
+    try {
+      await rejectCardSend(sendId, roomId);
+      fetchActiveRoom(false);
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.message || 'Failed to reject card');
+      fetchActiveRoom(true);
+    }
   };
 
-  const handleDeflectCard = async (sendId: string) => {
-    if (deflectCardsCount <= 0) {
-      Alert.alert(
-        'No Deflect Cards',
-        'You do not have any deflect cards available. Deflect cards can be earned by playing or through questionnaire achievements!'
-      );
+  const handleDeflectCard = async (sendId: string, deflectCardId?: string) => {
+    if (deflectCardsCount <= 0 || deflectCards.length === 0) {
+      Alert.alert('No Deflect Cards', 'You do not have any deflect cards available.');
       return;
     }
+    
+    const deflectCardToUse = deflectCardId ? deflectCards.find(c => c.id === deflectCardId) : deflectCards[0];
+    if (!deflectCardToUse) return;
 
-    Alert.alert(
-      'Use Deflect Card?',
-      `You have ${deflectCardsCount} deflect card(s) available. Do you want to use one to send this challenge back to your partner?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Use Deflect Card', 
-          style: 'default',
-          onPress: async () => {
-            try {
-              await deflectCardSend(sendId);
-              Alert.alert('Card Deflected', 'You successfully deflected this card back to your partner!');
-              fetchActiveRoom(true);
-            } catch (e: any) {
-              Alert.alert('Error', e.response?.data?.message || 'Failed to deflect card');
-            }
-          }
-        }
-      ]
-    );
+    // Optimistic update
+    setSelectedReceivedCard(null);
+    setShowDeflectDropdown(false);
+    setCardSends(prev => prev.map(s => s.id === sendId ? { ...s, status: 'DEFLECTED' } : s));
+    setDeflectCardsCount(prev => Math.max(0, prev - 1));
+    setDeflectCards(prev => prev.filter(c => c.id !== deflectCardToUse.id));
+
+    try {
+      await deflectCardSend(sendId, deflectCardToUse.id);
+      fetchActiveRoom(false);
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.message || 'Failed to deflect card');
+      fetchActiveRoom(true);
+    }
   };
 
   const handleCompleteCard = async (sendId: string) => {
@@ -428,12 +477,43 @@ export default function Dashboard() {
     }
   };
 
-  // ── Reset Room (Create New) ────────────────────────────
-  const handleNewRoom = () => {
-    setActiveRoom(null);
-    setRoomModalTab('create');
-    setRoomModalVisible(true);
-    setActionError('');
+  // ── Leave Room (Dashboard) ─────────────────────────────
+  const handleLeaveRoom = () => {
+    Alert.alert(
+      'Leave Room',
+      'Are you sure you want to leave this room? You will lose access to all current challenges.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Leave', 
+          style: 'destructive',
+          onPress: async () => {
+            setIsLeavingRoom(true);
+            try {
+              const currentRoomId = activeRoom?.id;
+              
+              // Optimistically update UI immediately so 'No Room' card appears right away
+              setActiveRoom(null);
+              setCardSends([]);
+              setDeflectCardsCount(0);
+              setDeflectCards([]);
+              setLocalPendingChallenges([]);
+              
+              if (currentRoomId) {
+                await leaveRoom(currentRoomId);
+                await AsyncStorage.removeItem('activeRoomId');
+                await AsyncStorage.removeItem('relationshipStats');
+              }
+            } catch (error) {
+              console.error('API Error during leaveRoom:', error);
+              // Do not revert the UI. If it failed, they are still 'left' locally.
+            } finally {
+              setIsLeavingRoom(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   // ── Open Modal ─────────────────────────────────────────
@@ -458,10 +538,16 @@ export default function Dashboard() {
     router.push(path as any);
   };
 
-  // ── Format Join Code Input ─────────────────────────────
+  // ── Format Join Code Input (auto-inserts dash after 3 chars) ────
   const formatJoinCode = (text: string) => {
-    const cleaned = text.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
-    setJoinCode(cleaned);
+    // Strip everything except letters and digits
+    const stripped = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    // Auto-format as XXX-XXXXXX
+    if (stripped.length <= 3) {
+      setJoinCode(stripped);
+    } else {
+      setJoinCode(stripped.slice(0, 3) + '-' + stripped.slice(3, 9));
+    }
   };
 
   // ── Expiry Label Helper ────────────────────────────────
@@ -488,6 +574,7 @@ export default function Dashboard() {
   };
 
   return (
+    <ErrorBoundary>
     <SafeAreaView className="flex-1 bg-rose-50 dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
       {/* Status bar configuration if needed */}
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff1f2"} />
@@ -497,8 +584,16 @@ export default function Dashboard() {
       {/* ═══════════════════════════════════════════════════════
           ROOM CREATE / JOIN OVERLAY
           ═══════════════════════════════════════════════════════ */}
-      {roomModalVisible && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, justifyContent: 'flex-end' }}>
+      <Modal
+        visible={roomModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setRoomModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+        >
           {/* Backdrop */}
           <TouchableOpacity
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
@@ -508,7 +603,18 @@ export default function Dashboard() {
           />
 
           {/* Bottom Sheet */}
-          <View className="bg-[#fff8f7] dark:bg-[#180D10] rounded-t-[36px] pt-4 pb-10 px-6 border-t border-[#ffeceb] dark:border-rose-950/20" style={{ zIndex: 201 }}>
+          <ScrollView
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+            style={{ zIndex: 201 }}
+          >
+            <TouchableOpacity 
+              style={{ flex: 1 }} 
+              activeOpacity={1} 
+              onPress={() => setRoomModalVisible(false)} 
+            />
+            <View className="bg-[#fff8f7] dark:bg-[#180D10] rounded-t-[36px] pt-4 pb-10 px-6 border-t border-[#ffeceb] dark:border-rose-950/20">
             {/* Handle Bar */}
             <View className="w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full self-center mb-6" />
 
@@ -600,6 +706,11 @@ export default function Dashboard() {
                     style={{ letterSpacing: 8 }}
                     maxLength={10}
                     autoCapitalize="characters"
+                    keyboardType="default"
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
+                    autoCorrect={false}
+                    autoFocus={roomModalTab === 'join'}
                   />
                 </View>
 
@@ -634,13 +745,14 @@ export default function Dashboard() {
             {/* Cancel */}
             <TouchableOpacity
               className="mt-4 py-3 items-center"
-              onPress={() => setRoomModalVisible(false)}
+              onPress={() => { setRoomModalVisible(false); Keyboard.dismiss(); }}
             >
               <Text className="text-slate-400 dark:text-slate-500 font-bold text-[14px]">Cancel</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
         {/* Header */}
@@ -831,10 +943,11 @@ export default function Dashboard() {
                 )}
 
                 <TouchableOpacity
-                  className="py-2 items-center"
-                  onPress={handleNewRoom}
+                  className="py-2 items-center flex-row justify-center mt-1"
+                  onPress={handleLeaveRoom}
                 >
-                  <Text className="text-slate-400 dark:text-slate-400 font-bold text-[11px] tracking-wide">Create New Room</Text>
+                  <Ionicons name="exit-outline" size={13} color={isDark ? "#f87171" : "#ef4444"} />
+                  <Text className="text-red-500 dark:text-red-400 font-bold text-[11px] tracking-wide ml-1.5">Leave Room</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1084,26 +1197,10 @@ export default function Dashboard() {
                     ) : (
                       <View className="flex-row gap-1.5">
                         <TouchableOpacity 
-                          className="flex-1 bg-red-500 dark:bg-red-600 py-3 rounded-xl items-center shadow-sm dark:shadow-none"
-                          onPress={() => handleRejectCard(cardSend.id, cardSend.room_id || activeRoom?.id || '')}
+                          className="flex-1 bg-gradient-to-r from-[#0d5f5a] to-teal-600 bg-teal-600 dark:bg-teal-700 py-3.5 rounded-xl items-center shadow-md dark:shadow-none"
+                          onPress={() => setSelectedReceivedCard(cardSend)}
                         >
-                          <Text className="text-white font-bold text-[12.5px]">Reject</Text>
-                        </TouchableOpacity>
-                        
-                        {activeRoom?.expiry_type === '30_DAYS' && (
-                          <TouchableOpacity 
-                            className="flex-1 bg-indigo-600 dark:bg-indigo-700 py-3 rounded-xl items-center shadow-md dark:shadow-none"
-                            onPress={() => handleDeflectCard(cardSend.id)}
-                          >
-                            <Text className="text-white font-bold text-[12.5px]">Deflect ({deflectCardsCount})</Text>
-                          </TouchableOpacity>
-                        )}
-
-                        <TouchableOpacity 
-                          className="flex-1 bg-emerald-500 dark:bg-emerald-600 py-3 rounded-xl items-center shadow-md dark:shadow-none"
-                          onPress={() => handleAcceptCard(cardSend.id)}
-                        >
-                          <Text className="text-white font-bold text-[12.5px]">Accept</Text>
+                          <Text className="text-white font-bold text-[13px] tracking-wide">Open Challenge</Text>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -1195,7 +1292,157 @@ export default function Dashboard() {
         </View>
       </ScrollView>
 
+      {/* FULL-SCREEN LOADING SPINNER */}
+      {isLeavingRoom && (
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
+          className="bg-[#180D10]/90 items-center justify-center"
+        >
+          <View className="bg-[#241117] p-8 rounded-[32px] items-center border border-rose-950/40 shadow-rose-900/20">
+            <ActivityIndicator size="large" color="#e11d48" />
+            <Text className="text-white font-bold mt-6 text-lg tracking-wide">
+              Leaving Room...
+            </Text>
+            <Text className="text-rose-400/80 text-xs font-medium mt-2">
+              Disconnecting from partner
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
+          CARD RECEIVED POPUP MODAL
+          ═══════════════════════════════════════════════════════ */}
+      <Modal
+        visible={!!selectedReceivedCard}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (selectedReceivedCard) setDismissedCardIds(prev => [...prev, selectedReceivedCard.id]);
+          setSelectedReceivedCard(null);
+          setShowDeflectDropdown(false);
+        }}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' }}>
+          <View className="bg-white dark:bg-[#180D10] w-[85%] rounded-[32px] p-7 items-center shadow-2xl border border-rose-100 dark:border-rose-900/40">
+            {selectedReceivedCard?.card?.image_url ? (
+              <View className="w-full h-40 rounded-[20px] mb-5 overflow-hidden shadow-sm dark:border dark:border-rose-950/40 relative">
+                <Image source={{ uri: selectedReceivedCard.card.image_url }} className="w-full h-full" resizeMode="cover" />
+                <View className="absolute inset-0 bg-black/30" />
+                <View className="absolute top-3 left-3 bg-white/95 dark:bg-black/70 px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
+                  <Ionicons name="mail-unread" size={12} color={isDark ? "#fda4af" : "#e11d48"} />
+                  <Text className="font-bold text-[9px] tracking-widest uppercase ml-1.5 text-rose-600 dark:text-rose-400">
+                    New Dare
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-900/30 items-center justify-center mb-5 shadow-sm dark:shadow-none border border-rose-100 dark:border-rose-900/20">
+                <Ionicons name="mail-unread" size={32} color="#e11d48" />
+              </View>
+            )}
+            
+            <Text className="text-2xl font-black text-slate-900 dark:text-white mb-2 text-center tracking-tight px-2">
+              {selectedReceivedCard?.card?.title || 'New Challenge!'}
+            </Text>
+            
+            <Text className="text-slate-500 dark:text-slate-400 text-center mb-4 font-medium leading-5 px-3 text-[14px]">
+              {selectedReceivedCard?.card?.description || 'Your partner has sent you a new intimacy dare. What would you like to do?'}
+            </Text>
+
+            {selectedReceivedCard?.message ? (
+              <View className="bg-rose-50/50 dark:bg-rose-950/20 px-4 py-3.5 rounded-xl border border-rose-100/30 dark:border-rose-950/40 mb-6 w-full shadow-sm dark:shadow-none">
+                <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[10px] uppercase tracking-wider mb-1">Note from partner</Text>
+                <Text className="text-slate-700 dark:text-slate-300 text-[13px] italic font-medium leading-5">
+                  &quot;{selectedReceivedCard.message}&quot;
+                </Text>
+              </View>
+            ) : (
+              <View className="h-2" />
+            )}
+            
+            <View className="w-full gap-3.5">
+              <TouchableOpacity 
+                className="w-full bg-emerald-500 dark:bg-emerald-600 py-4 rounded-2xl items-center shadow-sm dark:shadow-none"
+                onPress={() => selectedReceivedCard && handleAcceptCard(selectedReceivedCard.id)}
+              >
+                <Text className="text-white font-black text-[15px] tracking-wide">Accept Challenge</Text>
+              </TouchableOpacity>
+
+              {activeRoom?.expiry_type === '30_DAYS' && (
+                <View className="w-full">
+                  <TouchableOpacity 
+                    className={`w-full bg-indigo-500 dark:bg-indigo-600 py-4 items-center shadow-sm dark:shadow-none flex-row justify-center ${showDeflectDropdown ? 'rounded-t-2xl' : 'rounded-2xl'}`}
+                    onPress={() => {
+                      if (deflectCardsCount > 0) {
+                        setShowDeflectDropdown(!showDeflectDropdown);
+                      } else {
+                        Alert.alert('No Deflect Cards', 'You do not have any deflect cards available.');
+                      }
+                    }}
+                  >
+                    <Ionicons name="return-up-back" size={18} color="white" style={{ marginRight: 8 }} />
+                    <Text className="text-white font-bold text-[15px] tracking-wide">Deflect ({deflectCardsCount} left)</Text>
+                    {deflectCardsCount > 0 && (
+                      <Ionicons name={showDeflectDropdown ? "chevron-up" : "chevron-down"} size={16} color="white" style={{ marginLeft: 8 }} />
+                    )}
+                  </TouchableOpacity>
+
+                  {showDeflectDropdown && deflectCards.length > 0 && (
+                    <View className="w-full bg-indigo-50/80 dark:bg-indigo-950/30 rounded-b-2xl border-x border-b border-indigo-100 dark:border-indigo-900/40 overflow-hidden">
+                      {deflectCards.slice(0, 5).map((deflectCard, idx) => (
+                        <TouchableOpacity
+                          key={deflectCard.id}
+                          className={`w-full p-4 flex-row justify-between items-center ${idx !== 0 ? 'border-t border-indigo-100 dark:border-indigo-900/30' : ''}`}
+                          onPress={() => {
+                            if (selectedReceivedCard) {
+                              handleDeflectCard(selectedReceivedCard.id, deflectCard.id);
+                            }
+                          }}
+                        >
+                          <View className="flex-1 pr-3">
+                            <Text className="text-indigo-900 dark:text-indigo-100 font-bold text-[14px] mb-0.5">
+                              {deflectCard.cards?.name || deflectCard.card?.title || deflectCard.card?.name || deflectCard.deflect_card?.title || deflectCard.deflect_card?.name || deflectCard.title || deflectCard.name || 'Deflect Card'}
+                            </Text>
+                            <Text className="text-indigo-600 dark:text-indigo-400 text-[11px] font-medium" numberOfLines={1}>
+                              {deflectCard.cards?.power_description || deflectCard.cards?.description || deflectCard.card?.description || deflectCard.card?.power_description || deflectCard.deflect_card?.description || deflectCard.deflect_card?.power_description || deflectCard.description || deflectCard.power_description || 'Send this challenge back!'}
+                            </Text>
+                          </View>
+                          <View className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/50 items-center justify-center">
+                            <Ionicons name="send" size={12} color="#4f46e5" />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              <TouchableOpacity 
+                className="w-full bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 py-4 rounded-2xl items-center flex-row justify-center"
+                onPress={() => selectedReceivedCard && handleRejectCard(selectedReceivedCard.id, selectedReceivedCard.room_id || activeRoom?.id || '')}
+              >
+                <Ionicons name="warning-outline" size={16} color={isDark ? "#f87171" : "#dc2626"} style={{ marginRight: 6 }} />
+                <Text className="text-red-600 dark:text-red-400 font-bold text-[14px]">Reject (Penalty: 1 Card)</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                className="w-full py-2 items-center mt-1"
+                onPress={() => {
+                  if (selectedReceivedCard) setDismissedCardIds(prev => [...prev, selectedReceivedCard.id]);
+                  setSelectedReceivedCard(null);
+                  setShowDeflectDropdown(false);
+                }}
+              >
+                <Text className="text-slate-400 dark:text-slate-500 font-bold text-[14px]">Decide Later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
 
     </SafeAreaView>
+    </ErrorBoundary>
   );
 }

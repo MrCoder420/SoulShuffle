@@ -7,45 +7,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Index = () => {
   const [mode, setMode] = useState('signin');
-  const [isChecking, setIsChecking] = useState(true);
 
-  // useFocusEffect runs every time the screen comes into focus — including
-  // after a logout redirect. This prevents the black screen bug where
-  // useEffect([]) only ran on the first mount and never re-checked the token.
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      setIsChecking(true);
-
       const checkToken = async () => {
         try {
+          console.log('[INDEX] useFocusEffect: checking token...');
           const token = await AsyncStorage.getItem('accessToken');
-          if (!active) return;
+          console.log('[INDEX] Token found:', token ? 'YES (redirecting to tabs)' : 'NO (showing login)');
           if (token) {
-            // Still logged in — go to tabs
             const { router } = await import('expo-router');
             router.replace('/(tabs)');
-          } else {
-            // No token — show login form
-            setIsChecking(false);
           }
-        } catch {
-          if (active) setIsChecking(false);
+        } catch (e) {
+          console.error('[INDEX] Token check error:', e);
         }
       };
 
       checkToken();
-
-      return () => {
-        active = false;
-      };
-    }, [])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
   );
-
-  // Show a blank screen while checking — same background as the app
-  if (isChecking) {
-    return <View className='flex-1 bg-rose-50 dark:bg-[#0F0608]' />;
-  }
 
   return (
     <View className='flex-1 bg-rose-50 dark:bg-[#0F0608]'>

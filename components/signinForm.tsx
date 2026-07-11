@@ -1,9 +1,12 @@
-import { Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, Alert, Modal, ActivityIndicator } from 'react-native'
+import { Text, View, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import React, { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
-import { signIn, forgotPassword, resetPassword } from '../services/authService'
+import { signIn, forgotPassword, resetPassword, googleLogin, appleLogin } from '../services/authService'
 import { useRouter } from 'expo-router'
 import { useColorScheme } from '@/hooks/use-color-scheme'
+import * as AppleAuthentication from 'expo-apple-authentication'
+import Constants from 'expo-constants'
 
 const SigninForm = () => {
         const [email, setEmail] = useState('')
@@ -21,6 +24,59 @@ const SigninForm = () => {
         const [otp, setOtp] = useState('')
         const [newPassword, setNewPassword] = useState('')
         const [isSubmitting, setIsSubmitting] = useState(false)
+
+        const handleGoogleLogin = async () => {
+          if (Constants.appOwnership === 'expo') {
+            Alert.alert(
+              'Notice', 
+              'Google Sign-In uses native modules that do not work inside Expo Go. This will work perfectly in your final APK build!'
+            );
+            return;
+          }
+
+          try {
+            setIsLoading(true);
+            setErrorMessage('');
+            
+            // Lazily require to prevent crashing Expo Go
+            const { GoogleSignin, statusCodes } = require('@react-native-google-signin/google-signin');
+
+            // Configure here instead of top-level
+            GoogleSignin.configure({
+              webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '950734388938-qm61e894mghl4dnsi2jb27aglo1eqhbm.apps.googleusercontent.com',
+              offlineAccess: false,
+            });
+            
+            // Initiate Native Google Sign-in
+            await GoogleSignin.hasPlayServices();
+            const userInfo = await GoogleSignin.signIn();
+            const idToken = userInfo.data?.idToken;
+
+            if (idToken) {
+              await googleLogin(idToken);
+              // @ts-ignore
+              router.replace('/(tabs)');
+            } else {
+              throw new Error('Google Sign-In failed: No ID Token returned');
+            }
+          } catch (error: any) {
+            const { statusCodes } = require('@react-native-google-signin/google-signin');
+            console.log('Google Sign-In Error:', error);
+            if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+              // user cancelled the login flow
+            } else if (error.code === statusCodes.IN_PROGRESS) {
+              // operation (e.g. sign in) is in progress already
+            } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+              Alert.alert('Error', 'Google Play Services not available or outdated.');
+            } else {
+              const message = error?.response?.data?.message || error?.message || "Google Sign-In failed";
+              Alert.alert("Login Failed", message);
+              setErrorMessage(message);
+            }
+          } finally {
+            setIsLoading(false);
+          }
+        };
 
         const handleSignIn = async () => {
             setErrorMessage('');
@@ -44,6 +100,48 @@ const SigninForm = () => {
                 if (Platform.OS === 'web') {
                     setErrorMessage(message);
                 } else {
+                    Alert.alert("Login Failed", message);
+                }
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+
+
+        const handleAppleLogin = async () => {
+            try {
+                setIsLoading(true);
+                setErrorMessage('');
+                
+                if (Platform.OS === 'web') {
+                    setErrorMessage("Apple Sign-In is only supported on the mobile app.");
+                    setIsLoading(false);
+                    return;
+                }
+                
+                const credential = await AppleAuthentication.signInAsync({
+                    requestedScopes: [
+                        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                    ],
+                });
+                
+                const idToken = credential.identityToken;
+                
+                if (idToken) {
+                    await appleLogin(idToken);
+                    // @ts-ignore
+                    router.replace('/(tabs)');
+                } else {
+                    throw new Error("Apple Sign-In failed: No Identity Token returned");
+                }
+            } catch (error: any) {
+                if (error.code === 'ERR_REQUEST_CANCELED') {
+                    // User canceled the sign-in flow
+                } else {
+                    console.log('Apple Sign-In Error:', error);
+                    const message = error?.response?.data?.message || error?.message || "Apple Sign-In failed";
                     Alert.alert("Login Failed", message);
                 }
             } finally {
@@ -94,7 +192,7 @@ const SigninForm = () => {
 
                 <SafeAreaView className="flex-1">
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         className="flex-1 justify-center px-6"
                     >
                         <View className="items-center mb-6 mt-16">
@@ -108,7 +206,7 @@ const SigninForm = () => {
                         <View className="bg-white/90 dark:bg-[#271318]/90 rounded-[32px] p-6 shadow-rose-100 border border-white/60 dark:border-rose-950/20">
 
                             <View className="mb-5">
-                                <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Email or Phone</Text>
+                                <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Email</Text>
                                 <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
                                     <Ionicons name="mail-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
                                     <TextInput
@@ -164,11 +262,23 @@ const SigninForm = () => {
                         <View className="mt-8 items-center">
                             <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mb-5">Or continue with</Text>
                             <View className="flex-row gap-4 w-full">
-                                <TouchableOpacity className="flex-1 bg-white/90 dark:bg-[#271318] border border-slate-100 dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center" activeOpacity={0.7}>
-                                    <Ionicons name="logo-google" size={20} color="#ea4335" />
+
+                                <TouchableOpacity 
+                                    className="flex-1 bg-white dark:bg-[#180D10] border border-slate-200 dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center shadow-sm" 
+                                    activeOpacity={0.7}
+                                    onPress={handleGoogleLogin}
+                                    disabled={isLoading}
+                                >
+                                    <Ionicons name="logo-google" size={20} color={isDark ? "#ffffff" : "#DB4437"} />
                                     <Text className="text-slate-700 dark:text-white font-bold ml-2">Google</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity className="flex-1 bg-[#1A1A1A] dark:bg-[#180D10] border border-transparent dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center" activeOpacity={0.7}>
+
+                                <TouchableOpacity 
+                                    className="flex-1 bg-[#1A1A1A] dark:bg-[#180D10] border border-transparent dark:border-rose-950/20 rounded-2xl h-14 flex-row items-center justify-center" 
+                                    activeOpacity={0.7}
+                                    onPress={handleAppleLogin}
+                                    disabled={isLoading}
+                                >
                                     <Ionicons name="logo-apple" size={20} color="#ffffff" />
                                     <Text className="text-white font-bold ml-2">Apple</Text>
                                 </TouchableOpacity>
@@ -187,9 +297,19 @@ const SigninForm = () => {
                     onRequestClose={() => setForgotPasswordModalVisible(false)}
                 >
                     <KeyboardAvoidingView 
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+                        behavior="padding" 
                         className="flex-1 justify-end bg-black/50"
                     >
+                        <ScrollView
+                            bounces={false}
+                            keyboardShouldPersistTaps="handled"
+                            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
+                        >
+                        <TouchableOpacity 
+                            style={{ flex: 1 }} 
+                            activeOpacity={1} 
+                            onPress={() => setForgotPasswordModalVisible(false)} 
+                        />
                         <View className="bg-white dark:bg-[#1f0f13] rounded-t-[32px] p-6 pb-24">
                             <View className="flex-row justify-between items-center mb-6">
                                 <Text className="text-xl font-bold text-slate-800 dark:text-white">
@@ -261,6 +381,7 @@ const SigninForm = () => {
                                 </View>
                             )}
                         </View>
+                        </ScrollView>
                     </KeyboardAvoidingView>
                 </Modal>
             </View>

@@ -1,4 +1,5 @@
 import api from './api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -28,10 +29,33 @@ export interface AnswerPayload {
   text_value?: string | null;
 }
 
+const CACHE_KEY = 'questionnaire_cache';
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
 // ─── FETCH QUESTIONNAIRE ─────────────────────────────────
 export const fetchQuestionnaire = async (): Promise<Question[]> => {
+  try {
+    const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+    if (cachedData) {
+      const { timestamp, data } = JSON.parse(cachedData);
+      if (Date.now() - timestamp < CACHE_TTL) {
+        return data;
+      }
+    }
+  } catch (e) {
+    // Ignore cache read errors
+  }
+
   const response = await api.get('/questionnaire');
-  return response.data.data.questions;
+  const questions = response.data.data.questions || [];
+  
+  try {
+    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: questions }));
+  } catch (e) {
+    // Ignore cache write errors
+  }
+  
+  return questions;
 };
 
 // ─── SUBMIT ANSWERS ──────────────────────────────────────

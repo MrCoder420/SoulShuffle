@@ -4,17 +4,16 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   StatusBar,
   ActivityIndicator,
   Alert,
   Image,
   Modal,
-  StyleSheet,
   useWindowDimensions,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -26,26 +25,27 @@ import {
   CardBundle,
   BundlePlan,
   PurchaseRecord,
+  bypassStorePurchase,
 } from '@/services/storeService';
 import { getActiveRoom } from '@/services/roomService';
 
 const getBundleImage = (bundleName: string, defaultUrl?: string | null) => {
   const name = (bundleName || '').toLowerCase();
   if (name.includes('spicy') || name.includes('spark') || name.includes('nights')) {
-    return require('../../assets/images/bundle_spicy.png');
+    return require('../../assets/images/bundle_spicy.jpg');
   }
   if (name.includes('romantic') || name.includes('getaway') || name.includes('adventure') || name.includes('travel') || name.includes('weekend')) {
-    return require('../../assets/images/bundle_romantic.png');
+    return require('../../assets/images/bundle_romantic.jpg');
   }
   if (name.includes('cozy') || name.includes('connection') || name.includes('night') || name.includes('indoor') || name.includes('winter')) {
-    return require('../../assets/images/bundle_cozy.png');
+    return require('../../assets/images/bundle_cozy.jpg');
   }
   
   if (defaultUrl && defaultUrl.trim() !== '') {
     return { uri: defaultUrl };
   }
   
-  return require('../../assets/images/bundle_cozy.png');
+  return require('../../assets/images/bundle_cozy.jpg');
 };
 
 export default function StoreScreen() {
@@ -56,6 +56,19 @@ export default function StoreScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const textInputStyle = {
+    backgroundColor: isDark ? 'rgba(39,19,24,0.4)' : '#f8fafc',
+    borderColor: isDark ? 'rgba(76,5,25,0.2)' : '#e2e8f0',
+    borderWidth: 1,
+    color: isDark ? '#fff' : '#0f172a',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 14,
+    fontWeight: '600' as const,
+  };
 
   // Tab State: 'browse' | 'history'
   const [activeTab, setActiveTab] = useState<'browse' | 'history'>('browse');
@@ -74,17 +87,9 @@ export default function StoreScreen() {
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
-  // Payment multi-step flow state
-  const [paymentStep, setPaymentStep] = useState<'details' | 'select_method' | 'card_form' | 'upi_form' | 'net_banking_form' | 'processing' | 'otp'>('details');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCVV, setCardCVV] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [upiId, setUpiId] = useState('');
-  const [selectedBank, setSelectedBank] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [processingStatus, setProcessingStatus] = useState('Securing connection to bank...');
-  const [otpResendSeconds, setOtpResendSeconds] = useState(30);
+  // Bypass Payment State
+  const [paymentStep, setPaymentStep] = useState<'details' | 'processing'>('details');
+  const [processingStatus, setProcessingStatus] = useState('Unlocking bundle...');
 
   // Fallback Dummy Bundles for Sandbox Preview
   const DUMMY_BUNDLES: CardBundle[] = [
@@ -138,12 +143,7 @@ export default function StoreScreen() {
 
       // Load purchase history
       const fetchedPurchases = await fetchPurchaseHistory();
-
-      // Load local mock purchases from AsyncStorage to merge
-      const localMockPurchasesStr = await AsyncStorage.getItem('local_mock_purchases');
-      const localMockPurchases = localMockPurchasesStr ? JSON.parse(localMockPurchasesStr) : [];
-      
-      setPurchases([...localMockPurchases, ...fetchedPurchases]);
+      setPurchases(fetchedPurchases);
     } catch (e) {
       console.log('Failed to load store data:', e);
       setBundles(DUMMY_BUNDLES);
@@ -176,10 +176,16 @@ export default function StoreScreen() {
       return;
     }
     setSelectedBundle(bundle);
-    if (bundle.bundle_plans && bundle.bundle_plans.length > 0) {
-      setSelectedPlan(bundle.bundle_plans[0]);
+    const plans = bundle.bundle_plans || bundle.plans || [];
+    if (plans && plans.length > 0) {
+      setSelectedPlan(plans[0]);
     } else {
-      setSelectedPlan(null);
+      setSelectedPlan({
+        id: 'mock-plan-id',
+        bundle_id: bundle.id,
+        price: 99,
+        card_count: 10
+      });
     }
     setCheckoutVisible(true);
     setPurchaseSuccess(false);
@@ -202,105 +208,33 @@ export default function StoreScreen() {
     setPaymentStep('details');
   };
 
-  // Helper formatting functions
-  const formatCardNumber = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
-    const match = cleaned.match(/.{1,4}/g);
-    return match ? match.join(' ').substring(0, 19) : cleaned;
-  };
-
-  const formatExpiry = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
-    if (cleaned.length >= 3) {
-      return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`.substring(0, 5);
-    }
-    return cleaned.substring(0, 5);
-  };
-
-  const startPaymentProcessing = async () => {
-    setBuying(true);
-    setPaymentStep('processing');
-    
-    // Simulate payment gateway loading phases
-    setProcessingStatus('Securing connection to banking server...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setProcessingStatus('Authorizing amount with card issuer...');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setProcessingStatus('Awaiting secure verification code (OTP)...');
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Open OTP screen
-    setPaymentStep('otp');
-    setOtpCode('');
-    setOtpResendSeconds(30);
-    setBuying(false);
-  };
-
-  // OTP resend timer effect
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (paymentStep === 'otp' && otpResendSeconds > 0) {
-      timer = setTimeout(() => {
-        setOtpResendSeconds(prev => prev - 1);
-      }, 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [paymentStep, otpResendSeconds]);
-
-  const handleConfirmOTP = async () => {
-    if (otpCode.length < 6) {
-      Alert.alert('Invalid Security Code', 'Please enter a valid 6-digit OTP code.');
+  const handleBypassPayment = async () => {
+    if (!selectedBundle || !selectedPlan) {
+      Alert.alert('Error', 'Please select a valid bundle and plan before unlocking.');
+      setPaymentStep('details');
       return;
     }
 
     setBuying(true);
-    // Simulate verifying code
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
+    setPaymentStep('processing');
+    setProcessingStatus('Bypassing payment and unlocking bundle...');
+    
     try {
-      // Create a mock purchase record to persist in AsyncStorage
-      const newPurchase: PurchaseRecord = {
-        id: `mock-purchase-${Date.now()}`,
-        user_id: 'current-user',
-        bundle_id: selectedBundle!.id,
-        plan_id: selectedPlan!.id,
-        transaction_id: `TXN${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-        amount_paid: selectedPlan!.price,
-        currency: 'INR',
-        status: 'SUCCESS',
-        created_at: new Date().toISOString(),
-        store_product_id: selectedBundle!.id,
-        card_bundle: {
-          name: selectedBundle!.name
-        }
-      };
-
-      const localMockPurchasesStr = await AsyncStorage.getItem('local_mock_purchases');
-      const localMockPurchases = localMockPurchasesStr ? JSON.parse(localMockPurchasesStr) : [];
-      localMockPurchases.unshift(newPurchase);
-      await AsyncStorage.setItem('local_mock_purchases', JSON.stringify(localMockPurchases));
-
+      // Call the backend API to securely mock the purchase and assign cards
+      const result = await bypassStorePurchase(selectedBundle.id, selectedPlan.id);
+      
       setPurchaseSuccess(true);
       
       // Automatically close success screen after 2.5s and reload data
       setTimeout(() => {
         setCheckoutVisible(false);
         setPaymentStep('details');
-        setCardNumber('');
-        setCardExpiry('');
-        setCardCVV('');
-        setCardName('');
-        setUpiId('');
-        setSelectedBank('');
-        setOtpCode('');
         loadData();
       }, 2500);
     } catch (e) {
       console.log('Failed to save mock purchase:', e);
       Alert.alert('Transaction Failed', 'We could not complete your mock transaction. Please try again.');
-      setPaymentStep('select_method');
+      setPaymentStep('details');
     } finally {
       setBuying(false);
     }
@@ -310,8 +244,9 @@ export default function StoreScreen() {
     return (
       <View className="flex-row flex-wrap justify-between px-6 mt-4">
         {bundles.map((bundle) => {
-          const startingPrice = bundle.bundle_plans && bundle.bundle_plans.length > 0
-            ? Math.min(...bundle.bundle_plans.map(p => p.price))
+          const plans = bundle.bundle_plans || bundle.plans || [];
+          const startingPrice = plans.length > 0
+            ? Math.min(...plans.map(p => p.price))
             : 99;
 
           return (
@@ -329,7 +264,7 @@ export default function StoreScreen() {
                 {/* Cards badge */}
                 <View className="absolute top-2 right-2 bg-black/60 dark:bg-rose-950/70 px-2 py-0.5 rounded-full">
                   <Text className="text-white text-[8px] font-black uppercase tracking-wider">
-                    {bundle.bundle_plans?.[0]?.card_count || 10} Cards
+                    {plans?.[0]?.card_count || 10} Cards
                   </Text>
                 </View>
               </View>
@@ -359,61 +294,10 @@ export default function StoreScreen() {
     );
   };
 
-  const renderHistory = () => {
-    if (purchases.length === 0) {
-      return (
-        <View className="items-center justify-center py-20 px-6">
-          <View className="bg-rose-50 dark:bg-rose-950/10 p-6 rounded-full mb-4">
-            <Ionicons name="receipt-outline" size={48} color={isDark ? "#f43f5e" : "#af2c3b"} />
-          </View>
-          <Text className="text-lg font-bold text-slate-800 dark:text-white">
-            No Purchases Yet
-          </Text>
-          <Text className="text-slate-400 dark:text-slate-400 text-xs font-semibold mt-2 text-center max-w-[80%] leading-5">
-            Your unlocked card bundles will appear here once purchased.
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <View className="px-6 mt-4">
-        {purchases.map((purchase) => (
-          <View
-            key={purchase.id}
-            className="bg-white dark:bg-[#271318] rounded-2xl border border-slate-100 dark:border-rose-950/20 p-5 mb-4 shadow-sm dark:shadow-none flex-row items-center justify-between"
-          >
-            <View className="flex-1 mr-4">
-              <Text className="text-sm font-black text-slate-900 dark:text-white">
-                {purchase.card_bundle?.name || 'Card Bundle'}
-              </Text>
-              <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-bold mt-1 uppercase tracking-wider">
-                ID: {purchase.transaction_id.slice(0, 12)}...
-              </Text>
-              <Text className="text-slate-500 dark:text-slate-400 text-xs font-medium mt-2">
-                {new Date(purchase.created_at).toLocaleDateString()}
-              </Text>
-            </View>
-            <View className="items-end">
-              <Text className="text-slate-900 dark:text-white font-extrabold text-[15px]">
-                ₹{purchase.amount_paid}
-              </Text>
-              <View className="bg-emerald-100 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full mt-1.5">
-                <Text className="text-emerald-700 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wider">
-                  {purchase.status}
-                </Text>
-              </View>
-            </View>
-          </View>
-        ))}
-      </View>
-    );
-  };
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-[#fdfaf9] dark:bg-[#0F0608]"
-      style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}
+    <View
+      style={{ flex: 1, backgroundColor: isDark ? '#0F0608' : '#fdfaf9', paddingTop: insets.top }}
     >
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
@@ -460,41 +344,6 @@ export default function StoreScreen() {
           </Text>
         </View>
 
-        {/* Segmented control */}
-        <View className="flex-row bg-slate-100 dark:bg-[#271318]/50 p-1.5 rounded-2xl mx-6 mt-6 border border-slate-200/20 dark:border-rose-950/20">
-          <TouchableOpacity
-            className={`flex-1 py-3 rounded-xl items-center ${
-              activeTab === 'browse' ? 'bg-white dark:bg-rose-950/60 shadow-sm' : ''
-            }`}
-            onPress={() => setActiveTab('browse')}
-          >
-            <Text
-              className={`font-black text-xs ${
-                activeTab === 'browse'
-                  ? 'text-[#af2c3b] dark:text-white'
-                  : 'text-slate-400 dark:text-slate-500'
-              }`}
-            >
-              Browse Bundles
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className={`flex-1 py-3 rounded-xl items-center ${
-              activeTab === 'history' ? 'bg-white dark:bg-rose-950/60 shadow-sm' : ''
-            }`}
-            onPress={() => setActiveTab('history')}
-          >
-            <Text
-              className={`font-black text-xs ${
-                activeTab === 'history'
-                  ? 'text-[#af2c3b] dark:text-white'
-                  : 'text-slate-400 dark:text-slate-500'
-              }`}
-            >
-              Unlocked Items
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         {loading ? (
           <View className="py-20 justify-center items-center">
@@ -503,10 +352,8 @@ export default function StoreScreen() {
               Loading store details...
             </Text>
           </View>
-        ) : activeTab === 'browse' ? (
-          renderBundles()
         ) : (
-          renderHistory()
+          renderBundles()
         )}
       </ScrollView>
 
@@ -554,13 +401,8 @@ export default function StoreScreen() {
                       </TouchableOpacity>
                     )}
                     <Text className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                      {paymentStep === 'details' && 'Confirm Purchase'}
-                      {paymentStep === 'select_method' && 'Choose Payment Method'}
-                      {paymentStep === 'card_form' && 'Enter Card Details'}
-                      {paymentStep === 'upi_form' && 'Pay via UPI'}
-                      {paymentStep === 'net_banking_form' && 'Select Bank'}
+                      {paymentStep === 'details' && 'Unlock Bundle'}
                       {paymentStep === 'processing' && 'Processing...'}
-                      {paymentStep === 'otp' && 'Enter Secure OTP'}
                     </Text>
                   </View>
                   {paymentStep !== 'processing' && (
@@ -638,329 +480,26 @@ export default function StoreScreen() {
 
                     <TouchableOpacity
                       className="bg-[#af2c3b] dark:bg-rose-600 rounded-2xl py-4 items-center shadow-lg dark:shadow-none"
-                      onPress={() => setPaymentStep('select_method')}
-                    >
-                      <Text className="text-white font-extrabold text-[15px]">
-                        Proceed to Payment (₹{selectedPlan?.price})
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* STEP 2: Choose Payment Method */}
-                {paymentStep === 'select_method' && (
-                  <View className="gap-3.5 mb-2">
-                    <TouchableOpacity
-                      className="bg-slate-50 dark:bg-[#271318]/50 border border-slate-100 dark:border-rose-950/20 rounded-2xl p-4 flex-row items-center justify-between active:opacity-80"
-                      onPress={() => setPaymentStep('card_form')}
-                    >
-                      <View className="flex-row items-center">
-                        <View className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/30 items-center justify-center mr-4">
-                          <Ionicons name="card-outline" size={22} color="#e11d48" />
-                        </View>
-                        <View>
-                          <Text className="text-[15px] font-black text-slate-800 dark:text-white">Credit / Debit Card</Text>
-                          <Text className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5">Visa, Mastercard, RuPay, Maestro</Text>
-                        </View>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      className="bg-slate-50 dark:bg-[#271318]/50 border border-slate-100 dark:border-rose-950/20 rounded-2xl p-4 flex-row items-center justify-between active:opacity-80"
-                      onPress={() => setPaymentStep('upi_form')}
-                    >
-                      <View className="flex-row items-center">
-                        <View className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/30 items-center justify-center mr-4">
-                          <Ionicons name="phone-portrait-outline" size={22} color="#0d6e67" />
-                        </View>
-                        <View>
-                          <Text className="text-[15px] font-black text-slate-800 dark:text-white">UPI Payment</Text>
-                          <Text className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5">Google Pay, PhonePe, Paytm, BHIM</Text>
-                        </View>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      className="bg-slate-50 dark:bg-[#271318]/50 border border-slate-100 dark:border-rose-950/20 rounded-2xl p-4 flex-row items-center justify-between active:opacity-80"
-                      onPress={() => setPaymentStep('net_banking_form')}
-                    >
-                      <View className="flex-row items-center">
-                        <View className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/30 items-center justify-center mr-4">
-                          <Ionicons name="business-outline" size={22} color="#0284c7" />
-                        </View>
-                        <View>
-                          <Text className="text-[15px] font-black text-slate-800 dark:text-white">Net Banking</Text>
-                          <Text className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5">All major Indian retail banks</Text>
-                        </View>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* STEP 3: Card Details Form */}
-                {paymentStep === 'card_form' && (
-                  <View>
-                    <View className="mb-4">
-                      <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-widest mb-1.5">Cardholder Name</Text>
-                      <TextInput
-                        placeholder="e.g. John Doe"
-                        placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "#94a3b8"}
-                        className="bg-slate-50 dark:bg-[#271318]/40 border border-slate-150 dark:border-rose-950/20 text-slate-900 dark:text-white rounded-2xl px-4 py-3.5 text-[14px] font-semibold"
-                        value={cardName}
-                        onChangeText={setCardName}
-                        autoCapitalize="words"
-                      />
-                    </View>
-
-                    <View className="mb-4">
-                      <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-widest mb-1.5">Card Number</Text>
-                      <View className="relative">
-                        <TextInput
-                          placeholder="0000 0000 0000 0000"
-                          placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "#94a3b8"}
-                          keyboardType="numeric"
-                          maxLength={19}
-                          className="bg-slate-50 dark:bg-[#271318]/40 border border-slate-150 dark:border-rose-950/20 text-slate-900 dark:text-white rounded-2xl pl-4 pr-12 py-3.5 text-[14px] font-semibold tracking-wider"
-                          value={cardNumber}
-                          onChangeText={(t) => setCardNumber(formatCardNumber(t))}
-                        />
-                        <View className="absolute right-4 top-3.5">
-                          <Ionicons name="logo-visa" size={22} color={isDark ? "#fda4af" : "#94a3b8"} />
-                        </View>
-                      </View>
-                    </View>
-
-                    <View className="flex-row gap-4 mb-8">
-                      <View className="flex-1">
-                        <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-widest mb-1.5">Expiry Date</Text>
-                        <TextInput
-                          placeholder="MM/YY"
-                          placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "#94a3b8"}
-                          keyboardType="numeric"
-                          maxLength={5}
-                          className="bg-slate-50 dark:bg-[#271318]/40 border border-slate-150 dark:border-rose-950/20 text-slate-900 dark:text-white rounded-2xl px-4 py-3.5 text-[14px] font-semibold text-center"
-                          value={cardExpiry}
-                          onChangeText={(t) => setCardExpiry(formatExpiry(t))}
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-widest mb-1.5">CVV Code</Text>
-                        <TextInput
-                          placeholder="***"
-                          placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "#94a3b8"}
-                          keyboardType="numeric"
-                          secureTextEntry
-                          maxLength={3}
-                          className="bg-slate-50 dark:bg-[#271318]/40 border border-slate-150 dark:border-rose-950/20 text-slate-900 dark:text-white rounded-2xl px-4 py-3.5 text-[14px] font-semibold text-center"
-                          value={cardCVV}
-                          onChangeText={(t) => setCardCVV(t.replace(/\D/g, ''))}
-                        />
-                      </View>
-                    </View>
-
-                    <TouchableOpacity
-                      className="bg-[#af2c3b] dark:bg-rose-600 rounded-2xl py-4 items-center shadow-lg dark:shadow-none"
-                      onPress={() => {
-                        if (!cardName.trim() || cardNumber.length < 19 || cardExpiry.length < 5 || cardCVV.length < 3) {
-                          Alert.alert('Incomplete Details', 'Please enter valid credit card details.');
-                          return;
-                        }
-                        startPaymentProcessing();
-                      }}
+                      onPress={handleBypassPayment}
                       disabled={buying}
                     >
                       <Text className="text-white font-extrabold text-[15px]">
-                        Pay Securely ₹{selectedPlan?.price}
+                        Unlock Now (Bypass Payment)
                       </Text>
                     </TouchableOpacity>
                   </View>
                 )}
 
-                {/* STEP 4: UPI Form */}
-                {paymentStep === 'upi_form' && (
-                  <View>
-                    {/* Quick Launch Apps */}
-                    <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-widest mb-3">Quick Pay using UPI Apps</Text>
-                    <View className="flex-row justify-between gap-3 mb-6">
-                      {[
-                        { name: 'Google Pay', icon: 'logo-google', bg: 'bg-[#e8f0fe] dark:bg-sky-950/30', color: '#1a73e8' },
-                        { name: 'PhonePe', icon: 'wallet', bg: 'bg-[#f3e8ff] dark:bg-purple-950/30', color: '#5f259f' },
-                        { name: 'Paytm', icon: 'send', bg: 'bg-[#e0f2fe] dark:bg-[#1e152a]', color: '#002e6e' }
-                      ].map((app) => (
-                        <TouchableOpacity
-                          key={app.name}
-                          className="flex-1 items-center justify-center py-3.5 rounded-2xl border border-slate-100 dark:border-rose-950/20 bg-slate-50 dark:bg-[#271318]/20 active:opacity-80"
-                          onPress={() => {
-                            setUpiId(`couple.${app.name.toLowerCase().replace(' ', '')}@upi`);
-                          }}
-                        >
-                          <View className={`w-8 h-8 rounded-full ${app.bg} items-center justify-center mb-1.5`}>
-                            <Ionicons name={app.icon as any} size={15} color={app.color} />
-                          </View>
-                          <Text className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{app.name}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-
-                    <View className="mb-8">
-                      <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-widest mb-1.5">Or Enter Custom UPI ID</Text>
-                      <TextInput
-                        placeholder="e.g. username@upi"
-                        placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "#94a3b8"}
-                        className="bg-slate-50 dark:bg-[#271318]/40 border border-slate-150 dark:border-rose-950/20 text-slate-900 dark:text-white rounded-2xl px-4 py-3.5 text-[14px] font-semibold"
-                        value={upiId}
-                        onChangeText={setUpiId}
-                        autoCapitalize="none"
-                      />
-                    </View>
-
-                    <TouchableOpacity
-                      className="bg-[#af2c3b] dark:bg-rose-600 rounded-2xl py-4 items-center shadow-lg dark:shadow-none"
-                      onPress={() => {
-                        if (!upiId.trim() || !upiId.includes('@')) {
-                          Alert.alert('Invalid UPI ID', 'Please enter a valid UPI address (e.g. name@bank).');
-                          return;
-                        }
-                        startPaymentProcessing();
-                      }}
-                      disabled={buying}
-                    >
-                      <Text className="text-white font-extrabold text-[15px]">
-                        Verify and Pay ₹{selectedPlan?.price}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* STEP 5: Net Banking Selection */}
-                {paymentStep === 'net_banking_form' && (
-                  <View>
-                    <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-widest mb-3">Popular Retail Banks</Text>
-                    <View className="flex-row flex-wrap justify-between gap-y-3.5 mb-8">
-                      {[
-                        { name: 'SBI', label: 'State Bank of India', code: 'sbi' },
-                        { name: 'HDFC', label: 'HDFC Bank', code: 'hdfc' },
-                        { name: 'ICICI', label: 'ICICI Bank', code: 'icici' },
-                        { name: 'AXIS', label: 'Axis Bank', code: 'axis' }
-                      ].map((bank) => {
-                        const isSelected = selectedBank === bank.label;
-                        return (
-                          <TouchableOpacity
-                            key={bank.code}
-                            className={`w-[48%] py-3 px-4 border rounded-2xl flex-row items-center active:opacity-85 ${
-                              isSelected
-                                ? 'bg-[#ffe4e6] dark:bg-rose-950/40 border-[#e11d48] dark:border-rose-500'
-                                : 'bg-slate-50 dark:bg-[#271318]/30 border-slate-100 dark:border-rose-950/20'
-                            }`}
-                            onPress={() => setSelectedBank(bank.label)}
-                          >
-                            <View className={`w-4 h-4 rounded-full items-center justify-center mr-2.5 ${
-                              isSelected ? 'bg-[#e11d48]' : 'bg-slate-300 dark:bg-[#4A232A]'
-                            }`}>
-                              <Ionicons name="checkmark" size={10} color="white" />
-                            </View>
-                            <View>
-                              <Text className="text-slate-900 dark:text-white font-extrabold text-[12px]">{bank.name}</Text>
-                              <Text className="text-slate-400 dark:text-slate-500 text-[8px] font-bold mt-0.5">{bank.label}</Text>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-
-                    <TouchableOpacity
-                      className="bg-[#af2c3b] dark:bg-rose-600 rounded-2xl py-4 items-center shadow-lg dark:shadow-none"
-                      onPress={() => {
-                        if (!selectedBank) {
-                          Alert.alert('Select a Bank', 'Please select a retail bank to continue.');
-                          return;
-                        }
-                        startPaymentProcessing();
-                      }}
-                      disabled={buying}
-                    >
-                      <Text className="text-white font-extrabold text-[15px]">
-                        Pay via Net Banking ({selectedBank ? selectedBank.split(' ')[0] : ''})
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* STEP 6: Secure Processing overlay */}
+                {/* STEP 2: Processing overlay */}
                 {paymentStep === 'processing' && (
                   <View className="items-center py-10 justify-center">
-                    <ActivityIndicator size="large" color="#af2c3b" className="mb-6" />
+                    <ActivityIndicator size="large" color="#af2c3b" style={{ marginBottom: 24 }} />
                     <Text className="text-[15px] font-black text-slate-800 dark:text-white tracking-tight text-center">
-                      Payment Verification
+                      Payment Bypass
                     </Text>
                     <Text className="text-slate-400 dark:text-slate-500 text-xs font-semibold mt-2.5 text-center leading-5 max-w-[85%]">
                       {processingStatus}
                     </Text>
-                  </View>
-                )}
-
-                {/* STEP 7: Security OTP Verification Screen */}
-                {paymentStep === 'otp' && (
-                  <View>
-                    <View className="items-center mb-6">
-                      <View className="w-12 h-12 bg-rose-50 dark:bg-rose-950/20 rounded-full items-center justify-center mb-3">
-                        <Ionicons name="shield-checkmark" size={24} color="#e11d48" />
-                      </View>
-                      <Text className="text-[15px] font-black text-slate-900 dark:text-white tracking-tight">
-                        3D Secure Verification
-                      </Text>
-                      <Text className="text-slate-400 dark:text-slate-500 text-[11px] font-semibold text-center mt-1.5 leading-4 max-w-[80%]">
-                        We sent a 6-digit OTP code to your registered mobile number for this payment of ₹{selectedPlan?.price}.
-                      </Text>
-                    </View>
-
-                    <View className="mb-6">
-                      <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-extrabold uppercase tracking-widest mb-2 text-center">Enter 6-Digit OTP Code</Text>
-                      <TextInput
-                        placeholder="0 0 0 0 0 0"
-                        placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "#94a3b8"}
-                        keyboardType="numeric"
-                        maxLength={6}
-                        className="bg-slate-50 dark:bg-[#271318]/40 border border-slate-150 dark:border-rose-950/20 text-slate-900 dark:text-white rounded-2xl px-4 py-4 text-[18px] font-black text-center tracking-[12px]"
-                        value={otpCode}
-                        onChangeText={(t) => setOtpCode(t.replace(/\D/g, ''))}
-                      />
-                    </View>
-
-                    <View className="flex-row items-center justify-between mb-8">
-                      {otpResendSeconds > 0 ? (
-                        <Text className="text-slate-400 dark:text-slate-500 text-xs font-semibold">
-                          Resend OTP in <Text className="font-extrabold text-[#e11d48]">{otpResendSeconds}s</Text>
-                        </Text>
-                      ) : (
-                        <TouchableOpacity
-                          onPress={() => {
-                            setOtpResendSeconds(30);
-                            Alert.alert('OTP Sent', 'A new mock security code has been sent to your phone.');
-                          }}
-                        >
-                          <Text className="text-[#e11d48] dark:text-rose-400 text-xs font-extrabold uppercase tracking-wider">Resend OTP Code</Text>
-                        </TouchableOpacity>
-                      )}
-                      <Text className="text-slate-300 dark:text-slate-600 text-xs font-semibold">Test Code: Any 6 digits</Text>
-                    </View>
-
-                    <TouchableOpacity
-                      className="bg-[#af2c3b] dark:bg-rose-600 rounded-2xl py-4 items-center shadow-lg dark:shadow-none"
-                      onPress={handleConfirmOTP}
-                      disabled={buying}
-                    >
-                      {buying ? (
-                        <ActivityIndicator size="small" color="white" />
-                      ) : (
-                        <Text className="text-white font-extrabold text-[15px]">
-                          Submit OTP Code
-                        </Text>
-                      )}
-                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -968,6 +507,6 @@ export default function StoreScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }

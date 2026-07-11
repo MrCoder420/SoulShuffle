@@ -1,26 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, Modal, Platform, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { usePathname, useRouter } from 'expo-router';
 import { useSidebar } from '@/context/SidebarContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logout } from '@/services/authService';
+import { leaveRoom, getActiveRoom } from '@/services/roomService';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Modal, Platform, Text, TouchableOpacity, View, DeviceEventEmitter } from 'react-native';
+import api from '@/services/api';
 
 export default function Sidebar() {
   const { isOpen, closeSidebar } = useSidebar();
-  const router = useRouter();
-  const pathname = usePathname();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const [isLogoutModalVisible, setLogoutModalVisible] = React.useState(false);
+
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [userName, setUserName] = useState('User');
   const [partnerName, setPartnerName] = useState<string | null>(null);
+  const [connectionString, setConnectionString] = useState('Connected since 2022');
 
   // Load names from cache on open — instant, no API call
   useEffect(() => {
     if (!isOpen) return;
-    const loadNames = async () => {
+    const loadNamesAndStats = async () => {
       const cachedName = await AsyncStorage.getItem('cachedUserName');
       if (cachedName) setUserName(cachedName);
 
@@ -29,14 +30,32 @@ export default function Sidebar() {
         const cachedPartner = await AsyncStorage.getItem(`partnerName_${activeRoomId}`);
         if (cachedPartner) setPartnerName(cachedPartner);
       }
+
+      // Load cached stats first for instant rendering
+      const cachedStats = await AsyncStorage.getItem('relationshipStats');
+      if (cachedStats) {
+        setConnectionString(`Connected for ${cachedStats}`);
+      }
+
+      // Fetch fresh stats from API in the background
+      api.get('/profile/relationship-stats').then(async (response) => {
+        const stats = response.data?.data?.stats;
+        if (stats && stats.formattedTime) {
+          setConnectionString(`Connected for ${stats.formattedTime}`);
+          await AsyncStorage.setItem('relationshipStats', stats.formattedTime);
+        }
+      }).catch((err) => {
+        console.log('Failed to fetch relationship stats in background');
+      });
     };
-    loadNames();
+    loadNamesAndStats();
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const navigateTo = (path: string) => {
+  const navigateTo = async (path: string) => {
     closeSidebar();
+    const { router } = await import('expo-router');
     router.push(path as any);
   };
 
@@ -49,75 +68,78 @@ export default function Sidebar() {
   };
 
   const handleLogout = () => {
-    setLogoutModalVisible(true);
+    Alert.alert(
+      'Ready to leave?',
+      'Are you sure you want to log out of your Love Dare account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            console.log('[LOGOUT] Step 1: User confirmed logout');
+            setIsLoggingOut(true);
+            closeSidebar();
+            try {
+              console.log('[LOGOUT] Step 2: Clearing ALL AsyncStorage data...');
+              await AsyncStorage.clear();
+              const tokenCheck = await AsyncStorage.getItem('accessToken');
+              console.log('[LOGOUT] Step 3: Token after clear =', tokenCheck, '(must be null)');
+
+              console.log('[LOGOUT] Step 4: Emitting app:logout for root layout to navigate...');
+              DeviceEventEmitter.emit('app:logout');
+              console.log('[LOGOUT] Step 5: Done.');
+            } catch (e) {
+              console.error('[LOGOUT] ERROR:', e);
+              setIsLoggingOut(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
-  const confirmLogout = async () => {
-    // Close UI immediately so there's no visual delay
-    setLogoutModalVisible(false);
-    closeSidebar();
-
-    // Clear ALL storage — tokens, cached names, room data
-    try {
-      await logout();
-    } catch (e) {}
-
-    // Navigate to login. Use replace so the tabs stack is destroyed and
-    // the index.tsx mounts fresh, re-running its token check correctly.
-    if (Platform.OS === 'web') {
-      window.location.href = '/';
-    } else {
-      router.replace('/');
-    }
-  };
-
-  // Helper to determine if a route is active
-  const isRouteActive = (route: string) => {
-    if (route === '/' && (pathname === '/' || pathname === '/index')) {
-      return true;
-    }
-    return pathname === route;
-  };
 
   const getLinkStyle = (route: string) => {
-    const active = isRouteActive(route);
-    if (active) {
-      return 'flex-row items-center bg-[#e4525f] py-4 px-6 rounded-full mb-2 shadow-red-200';
-    }
     return 'flex-row items-center py-4 px-6 mb-2 rounded-full';
   };
 
   const getIconColor = (route: string) => {
-    const active = isRouteActive(route);
-    if (active) return '#fff';
     return isDark ? '#fda4af' : '#857169';
   };
 
   const getTextColor = (route: string) => {
-    const active = isRouteActive(route);
-    if (active) return 'text-white';
     return 'text-[#857169] dark:text-slate-300';
   };
+
+  // Full-screen logout loading overlay
+  if (isLoggingOut) {
+    return (
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#f43f5e" />
+        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16, marginTop: 16 }}>Logging out...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
       <View className="flex-1 flex-row">
         {/* Backdrop Overlay */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          className="bg-black/30 dark:bg-black/50" 
-          activeOpacity={1} 
-          onPress={closeSidebar} 
+          className="bg-black/30 dark:bg-black/50"
+          onPress={() => !isLoggingOut && closeSidebar()}
         />
-        
+
         {/* Menu Panel */}
         <View className="bg-[#fff8f7] dark:bg-[#180D10] w-[80%] h-full pt-16 rounded-tr-[40px] rounded-br-[40px] shadow-slate-900/40 dark:shadow-black/60 border-r border-[#ffeceb] dark:border-rose-950/20" style={{ zIndex: 1001 }}>
           <View className="px-8 pb-8 flex-1">
-            
+
             {/* Avatar Section */}
             <View className="relative w-20 h-20 mb-4">
-              <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop' }} 
+              <Image
+                source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop' }}
                 className="w-full h-full rounded-full border-[3px] border-[#e24e5d] dark:border-rose-400"
               />
               <View className="absolute -bottom-1 -right-2 bg-[#0d6e67] dark:bg-teal-600 w-8 h-8 rounded-full items-center justify-center border-2 border-white dark:border-[#180D10]">
@@ -129,10 +151,10 @@ export default function Sidebar() {
               {partnerName ? `${userName} & ${partnerName}` : userName}
             </Text>
             <Text className="text-[10px] font-bold text-[#e18e8e] dark:text-rose-400/60 tracking-[0.15em] uppercase mt-2">Level 14 Romantic</Text>
-            <Text className="text-[14px] font-medium text-slate-600 dark:text-slate-400 mt-1 mb-10">Connected since 2022</Text>
+            <Text className="text-[14px] font-medium text-slate-600 dark:text-slate-400 mt-1 mb-10">{connectionString}</Text>
 
             {/* Menu Links */}
-            <TouchableOpacity 
+            <TouchableOpacity
               className={getLinkStyle('/')}
               onPress={() => navigateTo('/')}
             >
@@ -140,7 +162,7 @@ export default function Sidebar() {
               <Text className={`${getTextColor('/')} font-bold text-[15px] ml-5`}>Home</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               className={getLinkStyle('/dares')}
               onPress={() => navigateTo('/dares')}
             >
@@ -148,7 +170,7 @@ export default function Sidebar() {
               <Text className={`${getTextColor('/dares')} font-bold text-[15px] ml-5`}>Challenges</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               className={getLinkStyle('/history')}
               onPress={() => navigateTo('/history')}
             >
@@ -156,15 +178,15 @@ export default function Sidebar() {
               <Text className={`${getTextColor('/history')} font-bold text-[15px] ml-5`}>History</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              className="flex-row items-center py-4 px-6 mb-2 rounded-full"
-              onPress={() => showComingSoon('Memory Book')}
+            <TouchableOpacity
+              className={getLinkStyle('/store')}
+              onPress={() => navigateTo('/store')}
             >
-              <Ionicons name="book" size={20} color={isDark ? "#fda4af" : "#857169"} />
-              <Text className="text-[#857169] dark:text-slate-300 font-bold text-[15px] ml-5">Memory Book</Text>
+              <Ionicons name="cart" size={20} color={getIconColor('/store')} />
+              <Text className={`${getTextColor('/store')} font-bold text-[15px] ml-5`}>Store</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               className={getLinkStyle('/coin-toss')}
               onPress={() => navigateTo('/coin-toss')}
             >
@@ -174,13 +196,14 @@ export default function Sidebar() {
 
             {/* Bottom Menu Items */}
             <View className="mt-auto">
-              <TouchableOpacity 
+              <TouchableOpacity
                 className={getLinkStyle('/profile')}
                 onPress={() => navigateTo('/profile')}
               >
                 <Ionicons name="settings" size={20} color={getIconColor('/profile')} />
                 <Text className={`${getTextColor('/profile')} font-bold text-[15px] ml-5`}>Settings</Text>
               </TouchableOpacity>
+
 
               {/* Logout Button */}
               <TouchableOpacity
@@ -201,48 +224,23 @@ export default function Sidebar() {
         </View>
       </View>
 
-      {/* Beautiful Custom Logout Confirmation Modal */}
-      <Modal
-        visible={isLogoutModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setLogoutModalVisible(false)}
-      >
-        <View className="flex-1 justify-center items-center bg-black/60 px-6">
-          <View className="bg-white dark:bg-[#1f0f13] w-full rounded-[32px] p-6 items-center">
-            
-            {/* Warning Icon Container */}
-            <View className="w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-950/50 items-center justify-center mb-5">
-              <Ionicons name="log-out-outline" size={32} color="#e11d48" />
-            </View>
-
-            {/* Texts */}
-            <Text className="text-xl font-black text-slate-800 dark:text-white mb-2 text-center">Ready to leave?</Text>
-            <Text className="text-slate-500 dark:text-slate-400 text-center mb-8 px-4 font-medium leading-5">
-              Are you sure you want to log out of your Love Dare account?
+      {/* FULL-SCREEN LOADING SPINNER */}
+      {isLoggingOut && (
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
+          className="bg-[#180D10]/90 items-center justify-center"
+        >
+          <View className="bg-[#241117] p-8 rounded-[32px] items-center border border-rose-950/40 shadow-rose-900/20">
+            <ActivityIndicator size="large" color="#e11d48" />
+            <Text className="text-white font-bold mt-6 text-lg tracking-wide">
+              Signing Out...
             </Text>
-
-            {/* Buttons */}
-            <View className="w-full flex-row gap-3">
-              <TouchableOpacity 
-                className="flex-1 h-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800/50"
-                onPress={() => setLogoutModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Text className="font-bold text-slate-600 dark:text-slate-300">Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                className="flex-1 h-14 items-center justify-center rounded-2xl bg-rose-500 shadow-rose-500/30"
-                onPress={confirmLogout}
-                activeOpacity={0.7}
-              >
-                <Text className="font-bold text-white">Yes, Log Out</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-rose-400/80 text-xs font-medium mt-2">
+              Securing your session
+            </Text>
           </View>
         </View>
-      </Modal>
+      )}
     </View>
   );
 }

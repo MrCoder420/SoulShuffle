@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "package": "com.soulshuffle.CoupleGame"
     },
@@ -67,7 +68,8 @@
           "androidMode": "default",
           "androidCollapsedTitle": "SoulShuffle"
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -76,7 +78,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a15e2398-022e-400a-8222-02f100453a03"
+        "projectId": "75231063-db0f-42e1-9654-e92a69abe55d"
       }
     }
   }

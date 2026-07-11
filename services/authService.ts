@@ -47,6 +47,16 @@ export const googleLogin = async (googleIdToken: string) => {
   return response.data.data;
 };
 
+// ── APPLE LOGIN ─────────────────────────────────────────
+export const appleLogin = async (appleIdentityToken: string) => {
+  const response = await api.post('/auth/apple', { token: appleIdentityToken });
+  await saveTokens(response.data.data.accessToken, response.data.data.refreshToken);
+  const firstName = response.data.data?.user?.first_name || 'User';
+  if (firstName) await AsyncStorage.setItem('cachedUserName', firstName);
+  if (response.data.data?.user?.id) await AsyncStorage.setItem('cachedUserId', response.data.data.user.id);
+  return response.data.data;
+};
+
 // ── FORGOT PASSWORD ──────────────────────────────────────
 export const forgotPassword = async (email: string) => {
   const response = await api.post('/auth/forgot-password', { email });
