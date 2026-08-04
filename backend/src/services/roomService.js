@@ -68,12 +68,21 @@ const createRoom = async (hostId, expiryType = '7_DAYS') => {
 };
 
 const joinRoom = async (partnerId, code) => {
+    const rawCode = (code || '').toUpperCase().trim();
+    const codeVariants = [rawCode];
+    if (rawCode.startsWith('SSF-')) {
+        codeVariants.push(rawCode.replace(/^SSF-/, 'ELV-'));
+    } else if (rawCode.startsWith('ELV-')) {
+        codeVariants.push(rawCode.replace(/^ELV-/, 'SSF-'));
+    }
+
     // 1. Find room
-    const { data: room, error: findError } = await supabase
+    const { data: rooms, error: findError } = await supabase
         .from('rooms')
         .select('*')
-        .eq('code', code.toUpperCase())
-        .single();
+        .in('code', codeVariants);
+
+    const room = (rooms && rooms.length > 0) ? rooms[0] : null;
 
     if (findError || !room) {
         const err = new Error('Invalid room code.');

@@ -14,6 +14,18 @@ const Index = () => {
         try {
           console.log('[INDEX] useFocusEffect: checking token...');
           const token = await AsyncStorage.getItem('accessToken');
+          const rememberMe = await AsyncStorage.getItem('rememberMe');
+
+          // If user previously chose NOT to be remembered, clear session
+          if (token && rememberMe === 'false') {
+            console.log('[INDEX] Remember Me was OFF — clearing session');
+            await AsyncStorage.removeItem('accessToken');
+            await AsyncStorage.removeItem('refreshToken');
+            await AsyncStorage.removeItem('rememberMe');
+            // Stay on login screen
+            return;
+          }
+
           console.log('[INDEX] Token found:', token ? 'YES (redirecting to tabs)' : 'NO (showing login)');
           if (token) {
             const { router } = await import('expo-router');

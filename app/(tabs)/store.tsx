@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useUserAvatar } from '@/hooks/use-user-avatar';
 import { useSidebar } from '@/context/SidebarContext';
 import {
   fetchStoreBundles,
@@ -50,6 +51,7 @@ const getBundleImage = (bundleName: string, defaultUrl?: string | null) => {
 
 export default function StoreScreen() {
   const router = useRouter();
+  const userAvatar = useUserAvatar();
   const params = useLocalSearchParams();
   const buyBundleId = params.buyBundleId as string | undefined;
   const { openSidebar } = useSidebar();
@@ -400,9 +402,7 @@ export default function StoreScreen() {
           </View>
           <TouchableOpacity onPress={() => router.push('/profile')}>
             <Image
-              source={{
-                uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop',
-              }}
+              source={{ uri: userAvatar }}
               className="w-10 h-10 rounded-full border border-rose-200 dark:border-rose-950/30"
             />
           </TouchableOpacity>

@@ -4,18 +4,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getActiveRoom, fetchRoomHistory, SentChallenge } from '@/services/roomService';
+import { getMyProfileCached } from '@/services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
+import { useUserAvatar } from '@/hooks/use-user-avatar';
 
 type FilterType = 'ALL' | 'THIS_WEEK' | 'LAST_MONTH';
 
 export default function History() {
   const { openSidebar } = useSidebar();
+  const userAvatar = useUserAvatar();
   const router = useRouter();
   const [challengeHistory, setChallengeHistory] = useState<SentChallenge[]>([]);
   const [stats, setStats] = useState({ completionRate: 0, currentStreak: 0, daresMastered: 0 });
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -24,6 +29,12 @@ export default function History() {
 
     const loadHistory = async () => {
       try {
+        // Fetch current user ID to distinguish sender vs receiver
+        const profile = await getMyProfileCached();
+        if (profile?.id && isMounted) {
+          setMyUserId(profile.id);
+        }
+
         // 1. Load from Cache for instant UI
         const cached = await AsyncStorage.getItem('cachedRoomHistory');
         if (cached && isMounted) {
@@ -37,11 +48,32 @@ export default function History() {
         // 2. Fetch fresh data in background
         const room = await getActiveRoom();
         if (room) {
-          const freshHistory = await fetchRoomHistory(room.id);
-          if (isMounted) {
-            setChallengeHistory(freshHistory);
-            calculateStats(freshHistory);
-            await AsyncStorage.setItem('cachedRoomHistory', JSON.stringify(freshHistory));
+          let historyItems: SentChallenge[] = [];
+          try {
+            const freshHistory = await fetchRoomHistory(room.id);
+            if (Array.isArray(freshHistory) && freshHistory.length > 0) {
+              historyItems = freshHistory;
+            }
+          } catch (err) {
+            // Fallback to room.game_state
+          }
+
+          // If freshHistory wasn't returned from API, assemble from game_state
+          if (historyItems.length === 0 && room.game_state) {
+            const gameStateHistory = room.game_state.challenge_history || [];
+            const activeChallenge = room.game_state.active_challenge;
+            if (activeChallenge) {
+              const exists = gameStateHistory.some((c: any) => c.id === activeChallenge.id);
+              historyItems = exists ? gameStateHistory : [activeChallenge, ...gameStateHistory];
+            } else {
+              historyItems = gameStateHistory;
+            }
+          }
+
+          if (isMounted && historyItems.length > 0) {
+            setChallengeHistory(historyItems);
+            calculateStats(historyItems);
+            await AsyncStorage.setItem('cachedRoomHistory', JSON.stringify(historyItems));
           }
         }
       } catch (error) {
@@ -50,7 +82,7 @@ export default function History() {
     };
 
     loadHistory();
-    const intervalId = setInterval(loadHistory, 30000);
+    const intervalId = setInterval(loadHistory, 15000);
 
     return () => {
       isMounted = false;
@@ -81,7 +113,9 @@ export default function History() {
   };
 
   const calculateStats = (history: SentChallenge[]) => {
-    const daresMastered = history.filter(c => c.status === 'COMPLETED' || c.status === 'CONFIRMED').length;
+    const daresMastered = history.filter(
+      c => (c.status || '').toUpperCase() === 'COMPLETED' || (c.status || '').toUpperCase() === 'CONFIRMED'
+    ).length;
     const completionRate = history.length > 0 ? Math.round((daresMastered / history.length) * 100) : 0;
     
     let currentStreak = 0;
@@ -109,6 +143,73 @@ export default function History() {
     setStats({ completionRate, currentStreak, daresMastered });
   };
 
+  const getChallengeStatusInfo = (challenge: SentChallenge, userId: string | null, darkScheme: boolean) => {
+    const rawStatus = (challenge.status || 'SENT').toUpperCase();
+    const isSender = challenge.sender_id ? challenge.sender_id === userId : true;
+
+    if (rawStatus === 'COMPLETED' || rawStatus === 'CONFIRMED') {
+      return {
+        statusText: 'Completed',
+        statusIcon: 'checkmark-circle',
+        statusColor: darkScheme ? '#2dd4bf' : '#0d6e67',
+        dotColor: '#2dd4bf',
+      };
+    }
+
+    if (rawStatus === 'ACCEPTED' || rawStatus === 'ACTIVE' || rawStatus === 'IN_PROGRESS' || rawStatus === 'COMPLETED_BY_RECEIVER') {
+      return {
+        statusText: 'Active',
+        statusIcon: 'flame',
+        statusColor: darkScheme ? '#f43f5e' : '#e11d48',
+        dotColor: '#ff2d55',
+      };
+    }
+
+    if (rawStatus === 'DEFLECTED') {
+      return {
+        statusText: 'Deflected',
+        statusIcon: 'shield-checkmark',
+        statusColor: darkScheme ? '#818cf8' : '#4f46e5',
+        dotColor: '#6366f1',
+      };
+    }
+
+    if (rawStatus === 'REJECTED' || rawStatus === 'DECLINED') {
+      return {
+        statusText: 'Declined',
+        statusIcon: 'close-circle',
+        statusColor: darkScheme ? '#f87171' : '#dc2626',
+        dotColor: '#ef4444',
+      };
+    }
+
+    if (rawStatus === 'EXPIRED') {
+      return {
+        statusText: 'Expired',
+        statusIcon: 'time',
+        statusColor: darkScheme ? '#94a3b8' : '#857169',
+        dotColor: darkScheme ? '#475569' : '#cbd5e1',
+      };
+    }
+
+    // Default / Pending state
+    if (isSender) {
+      return {
+        statusText: 'Sent',
+        statusIcon: 'paper-plane',
+        statusColor: darkScheme ? '#38bdf8' : '#0284c7',
+        dotColor: '#0284c7',
+      };
+    } else {
+      return {
+        statusText: 'Received',
+        statusIcon: 'download',
+        statusColor: darkScheme ? '#fbbf24' : '#d97706',
+        dotColor: '#fbbf24',
+      };
+    }
+  };
+
   const filterPills: { label: string; value: FilterType }[] = [
     { label: 'All', value: 'ALL' },
     { label: 'This Week', value: 'THIS_WEEK' },
@@ -130,7 +231,7 @@ export default function History() {
         </View>
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
+            source={{ uri: userAvatar }} 
             className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
           />
         </TouchableOpacity>
@@ -218,15 +319,9 @@ export default function History() {
           <View className="absolute left-[5px] top-4 bottom-10 w-[1px]" style={{ borderStyle: 'dotted', borderWidth: 1, borderColor: isDark ? '#4c1d24' : '#eec5c5', opacity: 0.6 }} />
 
           {filteredHistory.map((challenge, index) => {
-            const isCompleted = challenge.status === 'COMPLETED' || challenge.status === 'CONFIRMED';
-            const isExpired = challenge.status === 'EXPIRED';
-            const isDeflected = challenge.status === 'DEFLECTED';
-            
-            const statusIcon = isCompleted ? "checkmark-circle" : (isExpired ? "remove-circle" : (isDeflected ? "shield-checkmark" : "paper-plane"));
-            const statusColor = isCompleted ? (isDark ? "#2dd4bf" : "#0d6e67") : (isExpired ? (isDark ? "#94a3b8" : "#857169") : (isDeflected ? (isDark ? "#818cf8" : "#4f46e5") : (isDark ? "#2dd4bf" : "#0d6e67")));
-            const statusText = isCompleted ? "Completed" : (isExpired ? "Expired" : (isDeflected ? "Deflected" : "Sent"));
-            const dotColor = isDeflected ? '#6366f1' : (isExpired ? '#eec5c5' : '#ab2f33');
-            
+            const { statusText, statusIcon, statusColor, dotColor } = getChallengeStatusInfo(challenge, myUserId, isDark);
+            const isExpired = (challenge.status || '').toUpperCase() === 'EXPIRED';
+
             return (
               <View key={`${challenge.id}-${challenge.sent_at || index}`} className="mb-6 relative flex-row">
                 <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: dotColor, position: 'absolute', left: 0, top: 20 }} />
@@ -235,17 +330,22 @@ export default function History() {
                   backgroundColor: isDark ? '#271318' : '#ffffff',
                   borderRadius: 28, overflow: 'hidden',
                   borderWidth: 1, borderColor: isDark ? 'rgba(136,19,55,0.2)' : 'rgba(248,240,240,0.8)',
-                  opacity: isExpired ? 0.9 : 1,
+                  opacity: isExpired ? 0.8 : 1,
                 }}>
-                  {challenge.image && !isExpired && <Image source={{ uri: challenge.image }} className="w-full h-32" />}
+                  {challenge.image && !isExpired && (
+                    <Image 
+                      source={typeof challenge.image === 'string' ? { uri: challenge.image } : challenge.image} 
+                      className="w-full h-32" 
+                    />
+                  )}
                   <View className="p-6">
                     <View className="flex-row justify-between items-center mb-3">
                       <Text style={{ color: isDark ? '#94a3b8' : '#94a3b8', fontSize: 9, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase' }}>
                         {formatChallengeDate(challenge.sent_at)}
                       </Text>
                       <View className="flex-row items-center">
-                        <Ionicons name={statusIcon} size={12} color={statusColor} />
-                        <Text style={{ color: statusColor }} className="text-[9px] font-bold tracking-widest uppercase ml-1">{statusText}</Text>
+                        <Ionicons name={statusIcon as any} size={13} color={statusColor} />
+                        <Text style={{ color: statusColor }} className="text-[9px] font-bold tracking-widest uppercase ml-1.5">{statusText}</Text>
                       </View>
                     </View>
                     <Text style={{ color: isDark ? '#ffffff' : '#0f172a' }} className="text-xl font-bold tracking-tight mb-2">{challenge.title}</Text>
@@ -274,7 +374,7 @@ export default function History() {
                 </Text>
                 <Text style={{ color: isDark ? '#94a3b8' : '#64748b' }} className="text-[13px] leading-5 font-medium">
                   {activeFilter === 'ALL' 
-                    ? 'Challenges that are completed or expired will appear here.'
+                    ? 'Challenges that are active, completed, or expired will appear here.'
                     : 'Try switching to "All" to see your full history.'}
                 </Text>
               </View>
@@ -287,4 +387,3 @@ export default function History() {
     </SafeAreaView>
   );
 }
-

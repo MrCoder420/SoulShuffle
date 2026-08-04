@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSequence, withDelay, runOnJS } from 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
+import { useUserAvatar } from '@/hooks/use-user-avatar';
 import { getActiveRoom, Room } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 
@@ -21,6 +22,7 @@ interface HistoryItem {
 
 export default function CoinToss() {
   const { openSidebar } = useSidebar();
+  const userAvatar = useUserAvatar();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -186,7 +188,7 @@ export default function CoinToss() {
         </View>
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
+            source={{ uri: userAvatar }} 
             className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
           />
         </TouchableOpacity>

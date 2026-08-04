@@ -3,12 +3,13 @@ import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, T
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { createRoom, joinRoom, getActiveRoom, fetchCardSends, acceptCardSend, rejectCardSend, completeCardSend, confirmCardSend, deflectCardSend, fetchDeflectCards, leaveRoom, Room, ExpiryType } from '@/services/roomService';
+import { createRoom, joinRoom, getActiveRoom, fetchCardSends, acceptCardSend, rejectCardSend, completeCardSend, confirmCardSend, deflectCardSend, fetchDeflectCards, leaveRoom, Room, ExpiryType, fetchRoomHistory } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
 import { useNotifications } from '@/context/NotificationContext';
-import { getMyProfile } from '@/services/authService';
+import { getMyProfile, getMyProfileCached } from '@/services/authService';
+import { useUserAvatar } from '@/hooks/use-user-avatar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import CountdownTimer from '@/components/CountdownTimer';
@@ -40,7 +41,8 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean, error: Err
   }
 }
 
-const coupleCover = require('@/assets/images/couple_cover.jpeg');
+import { COUPLE_PHOTOS, getDailyCouplePhotoIndex } from '@/constants/couplePhotos';
+const coupleCover = COUPLE_PHOTOS[0].source;
 
 // Helper to normalize the card send records from the backend API
 const normalizeSendRecord = (send: any) => {
@@ -132,6 +134,7 @@ const calculateStreak = (sends: any[]) => {
 export default function Dashboard() {
   const { openSidebar } = useSidebar();
   const { unreadCount } = useNotifications();
+  const userAvatar = useUserAvatar();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { width } = useWindowDimensions();
@@ -150,13 +153,34 @@ export default function Dashboard() {
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
   const [cardSends, setCardSends] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [userName, setUserName] = useState('Alex');
+  const [userName, setUserName] = useState('');
   const [partnerName, setPartnerName] = useState('Partner');
+
+  // ── Load cached profile instantly on mount ───────────────────
+  useEffect(() => {
+    const loadCachedProfile = async () => {
+      try {
+        const cached = await getMyProfileCached();
+        if (cached?.firstName) {
+          setUserName(cached.firstName);
+        }
+      } catch (e) {
+        console.log('Failed to load cached profile in dashboard:', e);
+      }
+    };
+    loadCachedProfile();
+  }, []);
   const [deflectCardsCount, setDeflectCardsCount] = useState(0);
   const [deflectCards, setDeflectCards] = useState<any[]>([]);
   const [selectedReceivedCard, setSelectedReceivedCard] = useState<any | null>(null);
   const [showDeflectDropdown, setShowDeflectDropdown] = useState(false);
   const [dismissedCardIds, setDismissedCardIds] = useState<string[]>([]);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(() => getDailyCouplePhotoIndex());
+  const [roomHistoryData, setRoomHistoryData] = useState<any[]>([]);
+
+  const handleNextCouplePhoto = useCallback(() => {
+    setCurrentPhotoIndex((prev) => (prev + 1) % COUPLE_PHOTOS.length);
+  }, []);
 
   // Automatically open received cards popup
   useEffect(() => {
@@ -224,6 +248,7 @@ export default function Dashboard() {
   const currentStreak = calculateStreak(cardSends);
   
   const displayPendingChallenges = pendingChallenges;
+  const cardHistoryList = roomHistoryData.length > 0 ? roomHistoryData : (completedChallenges.length > 0 ? completedChallenges : cardSends);
 
   // ── Fetch Active Room on Mount ─────────────────────────
   const fetchActiveRoom = useCallback(async (silent = false) => {
@@ -249,6 +274,13 @@ export default function Dashboard() {
           setCardSends(rawSends.map(normalizeSendRecord).filter(Boolean));
         } catch (e) {
           console.log('Failed to fetch card sends:', e);
+        }
+
+        try {
+          const historyData = await fetchRoomHistory(room.id);
+          setRoomHistoryData(Array.isArray(historyData) ? historyData : []);
+        } catch (e) {
+          console.log('Failed to fetch room history:', e);
         }
         
         if (room.expiry_type === '30_DAYS') {
@@ -538,6 +570,11 @@ export default function Dashboard() {
     router.push(path as any);
   };
 
+  const formatRoomCodeForDisplay = (code: string | undefined | null) => {
+    if (!code) return '';
+    return code.replace(/^ELV-/i, 'SSF-');
+  };
+
   // ── Format Join Code Input (auto-inserts dash after 3 chars) ────
   const formatJoinCode = (text: string) => {
     // Strip everything except letters and digits
@@ -698,7 +735,7 @@ export default function Dashboard() {
                 {/* Code Input */}
                 <View className="bg-white dark:bg-[#271318] rounded-2xl border-2 border-slate-100 dark:border-rose-950/40 px-5 py-1 mb-4">
                   <TextInput
-                    placeholder="ELV-A9B3C1"
+                    placeholder="SSF-A9B3C1"
                     placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.2)" : "#cbd5e1"}
                     value={joinCode}
                     onChangeText={formatJoinCode}
@@ -775,7 +812,7 @@ export default function Dashboard() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigateTo('/profile')}>
               <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
+                source={{ uri: userAvatar }} 
                 className="w-8 h-8 rounded-full border border-rose-200 dark:border-slate-800"
               />
             </TouchableOpacity>
@@ -783,23 +820,37 @@ export default function Dashboard() {
         </View>
 
         {/* Welcome Section */}
-        <View className="px-6 mt-4">
-          <Text className="text-[32px] leading-10 font-black text-slate-900 dark:text-white tracking-tight">
-            Welcome back, {userName}{activeRoom?.status === 'ACTIVE' ? `\n& ${partnerName}` : ''} 💕
-          </Text>
-          <Text className="text-slate-500 dark:text-slate-400 font-semibold text-sm mt-3">
-            {activeRoom?.created_at 
-              ? `Room Active for ${Math.max(1, Math.ceil(Math.abs(new Date().getTime() - new Date(activeRoom.created_at).getTime()) / (1000 * 60 * 60 * 24)))} days` 
-              : 'Happy Together'} • Level 14 Romantic
+        <View className="px-6 mt-4 items-center justify-center">
+          <Text 
+            style={{ fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }) }}
+            className="text-[34px] leading-[42px] font-semibold italic text-center text-[#9f1239] dark:text-rose-300 tracking-wide"
+          >
+            Welcome back{userName ? `, ${userName}` : ''}{activeRoom?.status === 'ACTIVE' ? `\n& ${partnerName}` : ''} 💕
           </Text>
         </View>
 
-        {/* Couple Image */}
+        {/* Couple Image with Daily Rotation */}
         <View className="px-6 mt-6">
-          <Image 
-            source={coupleCover} 
-            className="w-full h-52 rounded-[36px]"
-          />
+          <TouchableOpacity 
+            activeOpacity={0.92} 
+            onPress={handleNextCouplePhoto}
+            className="relative overflow-hidden rounded-[36px] shadow-sm bg-rose-100 dark:bg-rose-950/20"
+          >
+            <Image 
+              source={COUPLE_PHOTOS[currentPhotoIndex].source} 
+              className="w-full h-56 rounded-[36px]"
+              resizeMode="cover"
+            />
+            {/* Bottom dots indicator */}
+            <View className="absolute bottom-3.5 right-4 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full flex-row items-center space-x-1">
+              {COUPLE_PHOTOS.map((_, idx) => (
+                <View 
+                  key={idx} 
+                  className={`h-1.5 rounded-full ${idx === currentPhotoIndex ? 'w-3.5 bg-rose-400' : 'w-1.5 bg-white/40'}`} 
+                />
+              ))}
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Stats Section */}
@@ -853,10 +904,10 @@ export default function Dashboard() {
                 {/* Room Code Display */}
                 <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 tracking-widest uppercase mb-1.5">Room Code</Text>
                 <View className="flex-row items-center justify-between bg-[#f5eeed]/60 dark:bg-[#180D10] dark:border dark:border-rose-950/40 rounded-2xl px-4 py-3 mb-4">
-                  <Text className="text-lg font-black text-[#af2c3b] dark:text-rose-400 tracking-widest flex-1 mr-2">{activeRoom.code}</Text>
+                  <Text className="text-lg font-black text-[#af2c3b] dark:text-rose-400 tracking-widest flex-1 mr-2">{formatRoomCodeForDisplay(activeRoom.code)}</Text>
                   <TouchableOpacity 
                     className={`px-3 py-2 rounded-xl flex-row items-center ${copiedCode ? 'bg-[#0d5f5a]' : 'bg-[#af2c3b] dark:bg-rose-600'}`}
-                    onPress={() => handleCopyCode(activeRoom.code)}
+                    onPress={() => handleCopyCode(formatRoomCodeForDisplay(activeRoom.code))}
                   >
                     <Ionicons name={copiedCode ? "checkmark" : "copy"} size={13} color="white" />
                     <Text className="text-white font-bold text-[10px] ml-1">
@@ -873,7 +924,7 @@ export default function Dashboard() {
                       activeRoom.status === 'ACTIVE' ? 'border-teal-500' : 'border-rose-500'
                     }`}>
                       <Image 
-                        source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
+                        source={{ uri: userAvatar }} 
                         className="w-full h-full"
                       />
                     </View>
@@ -1211,23 +1262,7 @@ export default function Dashboard() {
           </View>
         )}
 
-        {/* Today's Dare Section */}
-        <View className="mx-6 mt-6 bg-white dark:bg-[#271318] dark:border dark:border-rose-950/40 rounded-[36px] p-7 shadow-lg dark:shadow-none relative">
-          <View className="absolute top-7 right-7 bg-[#dfb15b] dark:bg-amber-500 w-8 h-8 rounded-full items-center justify-center shadow-sm">
-            <Ionicons name="star" size={14} color="white" />
-          </View>
-          <Text className="text-[11px] font-bold text-rose-500 dark:text-rose-400 tracking-widest uppercase">Today&apos;s Intimacy Dare</Text>
-          <Text className="text-2xl font-black text-slate-900 dark:text-white mt-4 pr-12 leading-8">
-            Write a 3-sentence love note and hide it.
-          </Text>
-          <Text className="text-slate-500 dark:text-slate-300 mt-4 leading-6 text-[15px] font-medium">
-            Find a place they&apos;ll discover later today—a coffee mug, a laptop, or a coat pocket.
-          </Text>
-          <TouchableOpacity className="bg-rose-500 dark:bg-rose-600 rounded-full py-[18px] items-center mt-7 flex-row justify-center shadow-md dark:shadow-none" activeOpacity={0.8}>
-            <Text className="text-white font-bold text-[15px] mr-2">Start Challenge</Text>
-            <Ionicons name="play" size={16} color="white" />
-          </TouchableOpacity>
-        </View>
+
 
         {/* Coin Toss Decision Maker Section */}
         <View className="mx-6 mt-6 bg-white dark:bg-[#271318] dark:border dark:border-rose-950/40 rounded-[36px] p-7 shadow-lg dark:shadow-none relative overflow-hidden">
@@ -1258,37 +1293,111 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* Recent Memories Section */}
-        <View className="mt-10 mb-6">
-          <View className="flex-row items-center justify-between px-6">
-            <Text className="text-xl font-black text-slate-900 dark:text-rose-100 tracking-tight">Recent Memories</Text>
-            <TouchableOpacity>
-              <Text className="text-[11px] font-bold text-red-700 dark:text-rose-300 uppercase tracking-widest">View Book</Text>
+        {/* Card History Section */}
+        <View className="mt-10 mb-8 px-6">
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center">
+              <View className="bg-rose-100 dark:bg-rose-900/30 w-8 h-8 rounded-full items-center justify-center mr-2.5">
+                <Ionicons name="time" size={16} color={isDark ? "#f43f5e" : "#e11d48"} />
+              </View>
+              <Text className="text-xl font-black text-slate-900 dark:text-rose-100 tracking-tight">
+                Card History
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => navigateTo('/history')}>
+              <Text className="text-[11px] font-bold text-red-700 dark:text-rose-300 uppercase tracking-widest">
+                View All →
+              </Text>
             </TouchableOpacity>
           </View>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-5 px-6 pb-2" contentContainerStyle={{ paddingRight: 48 }}>
-            <View className="w-[260px] h-44 mr-4 rounded-[32px] overflow-hidden relative shadow-sm">
-              <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1517263904808-5dc91e3e7044?w=600&h=400&fit=crop' }} 
-                className="w-full h-full"
-              />
-              <View className="absolute inset-0 bg-black/20" />
-              <View className="absolute bottom-0 left-0 right-0 p-5 pt-10 bg-gradient-to-t from-black/80 to-transparent">
-                <Text className="text-white font-bold text-[13px] tracking-wide">Coffee Date • 2 days ago</Text>
+
+          {cardHistoryList.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              className="-mx-6 px-6 pb-2" 
+              contentContainerStyle={{ paddingRight: 48, gap: 14 }}
+            >
+              {cardHistoryList.slice(0, 6).map((item: any, idx: number) => {
+                const title = item.title || item.card?.title || item.cards?.name || 'Completed Challenge';
+                const category = item.category || item.card?.category || item.cards?.card_categories?.name?.split('_')[0] || 'DARE';
+                const dateStr = item.sent_at || item.created_at || item.updated_at;
+                const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recently';
+                const isCompleted = item.status === 'COMPLETED' || item.status === 'CONFIRMED';
+                const isDeflected = item.status === 'DEFLECTED';
+                const isExpired = item.status === 'EXPIRED';
+
+                const statusBg = isCompleted 
+                  ? 'bg-emerald-500/90' 
+                  : isDeflected 
+                  ? 'bg-indigo-500/90' 
+                  : isExpired 
+                  ? 'bg-slate-500/90' 
+                  : 'bg-rose-500/90';
+
+                const statusLabel = isCompleted ? 'Completed' : isDeflected ? 'Deflected' : isExpired ? 'Expired' : 'Sent';
+                const imageUrl = item.image || item.card?.image_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&h=400&fit=crop';
+
+                return (
+                  <TouchableOpacity
+                    key={item.id || idx}
+                    activeOpacity={0.88}
+                    onPress={() => navigateTo('/history')}
+                    className="w-[240px] bg-white dark:bg-[#271318] rounded-[28px] overflow-hidden border border-slate-100 dark:border-rose-950/30 shadow-md dark:shadow-none"
+                  >
+                    <View className="h-32 relative">
+                      <Image source={{ uri: imageUrl }} className="w-full h-full" resizeMode="cover" />
+                      <View className="absolute inset-0 bg-black/30" />
+                      
+                      {/* Top Status Tag */}
+                      <View className={`absolute top-3 left-3 ${statusBg} px-2.5 py-1 rounded-full flex-row items-center`}>
+                        <Ionicons 
+                          name={isCompleted ? "checkmark-circle" : isDeflected ? "return-up-back" : "time"} 
+                          size={11} 
+                          color="white" 
+                        />
+                        <Text className="text-white font-bold text-[9px] uppercase tracking-wider ml-1">
+                          {statusLabel}
+                        </Text>
+                      </View>
+
+                      {/* Date Badge */}
+                      <View className="absolute bottom-2.5 right-3 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                        <Text className="text-white/90 text-[10px] font-semibold">{formattedDate}</Text>
+                      </View>
+                    </View>
+
+                    <View className="p-4">
+                      <Text className="text-[9px] font-bold text-rose-500 dark:text-rose-400 tracking-widest uppercase mb-1">{category}</Text>
+                      <Text className="text-base font-black text-slate-900 dark:text-white tracking-tight" numberOfLines={1}>
+                        {title}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <TouchableOpacity 
+              activeOpacity={0.85}
+              onPress={() => navigateTo('/dares')}
+              className="bg-white dark:bg-[#271318] border border-dashed border-rose-200 dark:border-rose-900/40 rounded-[28px] p-6 items-center justify-center"
+            >
+              <View className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/40 items-center justify-center mb-3">
+                <Ionicons name="card" size={22} color={isDark ? "#f43f5e" : "#e11d48"} />
               </View>
-            </View>
-            <View className="w-[260px] h-44 mr-4 rounded-[32px] overflow-hidden relative shadow-sm">
-              <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1531747118685-ca8fa6e08806?w=600&h=400&fit=crop' }} 
-                className="w-full h-full"
-              />
-              <View className="absolute inset-0 bg-black/20" />
-              <View className="absolute bottom-0 left-0 right-0 p-5 pt-10 bg-gradient-to-t from-black/80 to-transparent">
-                <Text className="text-white font-bold text-[13px] tracking-wide">Moonlight Walk • 5 days ago</Text>
+              <Text className="text-base font-bold text-slate-900 dark:text-white mb-1 text-center">
+                No Card History Yet
+              </Text>
+              <Text className="text-slate-500 dark:text-slate-400 text-xs font-medium text-center mb-4 leading-4 px-4">
+                Send your first dare card to your partner to start creating history together! 💕
+              </Text>
+              <View className="bg-rose-500 dark:bg-rose-600 px-5 py-2.5 rounded-full flex-row items-center">
+                <Text className="text-white font-bold text-xs">Send a Dare</Text>
+                <Ionicons name="arrow-forward" size={14} color="white" style={{ marginLeft: 4 }} />
               </View>
-            </View>
-          </ScrollView>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 

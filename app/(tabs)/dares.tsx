@@ -9,8 +9,63 @@ import GameSocket from '@/services/socketService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { fetchCards, fetchAvailableDeck, fetchSendLimits, SendLimits } from '@/services/cardService';
 import { useSidebar } from '@/context/SidebarContext';
+import { fetchStoreBundles, CardBundle } from '@/services/storeService';
+import { useUserAvatar } from '@/hooks/use-user-avatar';
 
 const sunsetPicnic = require('@/assets/images/sunset_picnic.jpeg');
+
+const getBundleImage = (bundleName: string, defaultUrl?: string | null) => {
+  const name = (bundleName || '').toLowerCase();
+  if (name.includes('spicy') || name.includes('spark') || name.includes('nights')) {
+    return require('../../assets/images/bundle_spicy.jpg');
+  }
+  if (name.includes('romantic') || name.includes('getaway') || name.includes('adventure') || name.includes('travel') || name.includes('weekend')) {
+    return require('../../assets/images/bundle_romantic.jpg');
+  }
+  if (name.includes('cozy') || name.includes('connection') || name.includes('night') || name.includes('indoor') || name.includes('winter')) {
+    return require('../../assets/images/bundle_cozy.jpg');
+  }
+  
+  if (defaultUrl && defaultUrl.trim() !== '') {
+    return { uri: defaultUrl };
+  }
+  
+  return require('../../assets/images/bundle_cozy.jpg');
+};
+
+const FALLBACK_STORE_BUNDLES: CardBundle[] = [
+  {
+    id: 'dummy-spicy',
+    name: 'Spicy Spark 🔥',
+    description: 'Ignite passion with bold, intimate, and adventurous dares designed to bring you closer.',
+    image_url: 'https://images.unsplash.com/photo-1543599538-a6c4f6cc5c05?w=500&h=400&fit=crop',
+    is_active: true,
+    bundle_plans: [
+      { id: 'plan-spicy-1', bundle_id: 'dummy-spicy', card_count: 10, price: 99 },
+      { id: 'plan-spicy-2', bundle_id: 'dummy-spicy', card_count: 25, price: 199 },
+    ],
+  },
+  {
+    id: 'dummy-romance',
+    name: 'Romantic Getaway ✈️',
+    description: 'Create unforgettable memories with outdoor dates, cute surprise tasks, and playful challenges.',
+    image_url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&h=400&fit=crop',
+    is_active: true,
+    bundle_plans: [
+      { id: 'plan-romance-1', bundle_id: 'dummy-romance', card_count: 15, price: 149 },
+    ],
+  },
+  {
+    id: 'dummy-cozy',
+    name: 'Cozy Connection 🕯️',
+    description: 'Warm, relaxing inside-the-house cards to connect deeply on lazy Sunday mornings or rainy evenings.',
+    image_url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500&h=400&fit=crop',
+    is_active: true,
+    bundle_plans: [
+      { id: 'plan-cozy-1', bundle_id: 'dummy-cozy', card_count: 20, price: 99 },
+    ],
+  },
+];
 
 type Dare = ChallengePayload & {
   id: string | number;
@@ -56,6 +111,7 @@ const mapCardToDare = (card: any): Dare => {
 
 export default function Dares() {
   const { openSidebar } = useSidebar();
+  const userAvatar = useUserAvatar();
   const router = useRouter();
   const [selectedDare, setSelectedDare] = useState<Dare | null>(null);
   const [isSending, setIsSending] = useState(false);
@@ -281,22 +337,29 @@ export default function Dares() {
     );
   };
 
-  const bundles = [
-    { id: 101, title: 'Weekend Getaway', count: 5, isPaid: true, image: require('../../assets/images/bundle_romantic.jpg'), price: 'Premium' },
-    { id: 102, title: 'Cozy Winter', count: 8, isPaid: false, image: require('../../assets/images/bundle_cozy.jpg'), price: 'Free' },
-    { id: 103, title: 'Spicy Nights', count: 10, isPaid: true, image: require('../../assets/images/bundle_spicy.jpg'), price: 'Premium' },
-  ];
+  const [realStoreBundles, setRealStoreBundles] = useState<CardBundle[]>([]);
 
-  const handleBundlePress = (bundle: any) => {
-    let storeBundleId = '';
-    if (bundle.id === 101) storeBundleId = 'dummy-romance';
-    else if (bundle.id === 103) storeBundleId = 'dummy-spicy';
-    else if (bundle.id === 102) storeBundleId = 'dummy-cozy';
+  useEffect(() => {
+    const loadRealStoreBundles = async () => {
+      try {
+        const fetched = await fetchStoreBundles();
+        if (fetched && fetched.length > 0) {
+          setRealStoreBundles(fetched);
+        } else {
+          setRealStoreBundles(FALLBACK_STORE_BUNDLES);
+        }
+      } catch (e) {
+        setRealStoreBundles(FALLBACK_STORE_BUNDLES);
+      }
+    };
+    loadRealStoreBundles();
+  }, []);
 
-    if (storeBundleId) {
+  const handleOpenStoreItem = (bundleId?: string) => {
+    if (bundleId) {
       router.push({
         pathname: '/store',
-        params: { buyBundleId: storeBundleId }
+        params: { buyBundleId: bundleId }
       });
     } else {
       router.push('/store');
@@ -379,7 +442,7 @@ export default function Dares() {
         </View>
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }} 
+            source={{ uri: userAvatar }} 
             className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
           />
         </TouchableOpacity>
@@ -431,51 +494,118 @@ export default function Dares() {
             ))}
           </ScrollView>
 
-          {/* Actions Row */}
-          <View className="flex-row items-center px-6 mb-8">
-            <TouchableOpacity className="bg-white dark:bg-[#271318] px-5 py-3 rounded-2xl flex-row items-center shadow-slate-100 border border-slate-50 dark:border-rose-950/20">
-              <Ionicons name="dice-outline" size={18} color={isDark ? "#fff" : "#000"} />
-              <Text className="text-slate-800 dark:text-white font-bold text-xs ml-2">Shuffle Cards</Text>
+          {/* SoulStore Showcase Section */}
+          <View className="mb-10 px-6">
+            {/* Header with Title and Visit Store Pill */}
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center">
+                <View className="bg-rose-100 dark:bg-rose-900/30 w-8 h-8 rounded-full items-center justify-center mr-2.5">
+                  <Ionicons name="cart" size={16} color={isDark ? "#f43f5e" : "#e11d48"} />
+                </View>
+                <Text className="text-xl font-black text-slate-900 dark:text-rose-100 tracking-tight">
+                  SoulStore
+                </Text>
+              </View>
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                onPress={() => router.push('/store')}
+                className="flex-row items-center bg-rose-500 dark:bg-rose-600 px-3.5 py-1.5 rounded-full shadow-sm"
+              >
+                <Text className="text-[11px] font-extrabold text-white uppercase tracking-wider mr-1">
+                  Visit Store
+                </Text>
+                <Ionicons name="arrow-forward" size={12} color="white" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Store Hero Banner */}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => router.push('/store')}
+              className="bg-gradient-to-r from-rose-500 via-rose-600 to-pink-600 dark:from-[#3a131c] dark:to-[#220b12] rounded-[28px] p-5 mb-5 overflow-hidden relative shadow-md border border-rose-400/20 dark:border-rose-900/40"
+            >
+              <View className="flex-row items-center justify-between z-10">
+                <View className="flex-1 pr-3">
+                  <View className="bg-white/20 dark:bg-rose-500/30 self-start px-2.5 py-1 rounded-full mb-2 flex-row items-center">
+                    <Ionicons name="sparkles" size={11} color="white" />
+                    <Text className="text-white font-extrabold text-[10px] uppercase tracking-widest ml-1">
+                      Exclusive Passes & Decks
+                    </Text>
+                  </View>
+                  <Text className="text-white font-black text-lg tracking-tight leading-6 mb-1">
+                    Unlock Premium Decks 🛍️
+                  </Text>
+                  <Text className="text-white/80 dark:text-rose-200/80 text-xs font-medium leading-4">
+                    Tap to explore spicy decks and intimate packs in our store.
+                  </Text>
+                </View>
+                
+                <View className="bg-white/20 dark:bg-rose-500/30 p-3.5 rounded-2xl items-center justify-center">
+                  <Ionicons name="bag-handle" size={26} color="white" />
+                </View>
+              </View>
             </TouchableOpacity>
-          </View>
 
-          {/* Bundles Section */}
-          <View className="mb-10">
-            <Text className="px-6 text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Dare Bundles</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6" contentContainerStyle={{ paddingRight: 40 }}>
-              {bundles.map((bundle) => (
-                <TouchableOpacity
-                  key={bundle.id}
-                  className="w-[280px] h-48 mr-4 rounded-[28px] overflow-hidden relative shadow-sm border border-slate-100 dark:border-rose-950/20 bg-white dark:bg-[#271318]"
-                  onPress={() => handleBundlePress(bundle)}
-                >
-                  <Image source={typeof bundle.image === 'string' ? { uri: bundle.image } : bundle.image} className="w-full h-[65%] absolute top-0" />
-                  <View className="absolute inset-0 bg-black/20" />
-                  
-                  {/* Bundle Ribbon & Premium Flag */}
-                  <View className="absolute top-4 left-4 bg-white/90 dark:bg-[#0F0608]/90 px-3 py-1.5 rounded-full flex-row items-center">
-                    <Ionicons name="albums" size={12} color={isDark ? "#f43f5e" : "#ab2f33"} />
-                    <Text className="text-[#ab2f33] dark:text-rose-400 font-bold text-[10px] ml-1.5 tracking-wider">{bundle.count} DARES</Text>
-                  </View>
+            {/* Store Highlights Horizontal Carousel */}
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              className="-mx-6 px-6" 
+              contentContainerStyle={{ paddingRight: 48, gap: 14 }}
+            >
+              {realStoreBundles.map((bundle) => {
+                const plans = bundle.bundle_plans || bundle.plans || [];
+                const minPrice = plans.length > 0 ? Math.min(...plans.map(p => p.price)) : null;
+                const priceText = minPrice ? `₹${minPrice}` : 'Store Deck';
+                
+                const cardCount = plans.length > 0 && plans[0].card_count ? `${plans[0].card_count} Dares` : 'Premium Deck';
+                const imageSource = getBundleImage(bundle.name, bundle.image_url);
 
-                  {bundle.isPaid && (
-                    <View className="absolute top-4 right-4 bg-[#fde047] px-2 py-1.5 rounded-full shadow-sm flex-row items-center">
-                      <Ionicons name="lock-closed" size={10} color="#854d0e" />
-                      <Text className="text-[#854d0e] font-bold text-[9px] ml-1 tracking-widest uppercase">Premium</Text>
+                return (
+                  <TouchableOpacity
+                    key={bundle.id}
+                    activeOpacity={0.88}
+                    className="w-[260px] h-52 bg-white dark:bg-[#271318] rounded-[28px] overflow-hidden relative shadow-md border border-slate-100 dark:border-rose-950/30"
+                    onPress={() => handleOpenStoreItem(bundle.id)}
+                  >
+                    <Image 
+                      source={typeof imageSource === 'string' ? { uri: imageSource } : imageSource} 
+                      className="w-full h-full absolute inset-0" 
+                      resizeMode="cover" 
+                    />
+                    <View className="absolute inset-0 bg-black/45" />
+                    
+                    {/* Top Badge */}
+                    <View className="absolute top-3 left-3 flex-row items-center gap-1.5">
+                      <View className="bg-rose-500/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex-row items-center shadow-sm">
+                        <Ionicons name="albums" size={11} color="white" />
+                        <Text className="text-white font-black text-[9px] uppercase tracking-wider ml-1">
+                          {cardCount}
+                        </Text>
+                      </View>
                     </View>
-                  )}
 
-                  <View className="absolute bottom-0 left-0 right-0 h-[45%] bg-white dark:bg-[#271318] p-4 justify-between border-t border-slate-100/50 dark:border-rose-950/20">
-                    <Text className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">{bundle.title}</Text>
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">Unlock full deck</Text>
-                      <Text className={`font-bold text-[12px] ${bundle.isPaid ? 'text-[#ab2f33] dark:text-rose-400' : 'text-[#0d6e67] dark:text-teal-400'}`}>
-                        {bundle.price}
+                    <View className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20">
+                      <Text className="text-white font-extrabold text-[10px]">{priceText}</Text>
+                    </View>
+
+                    {/* Card Bottom Info */}
+                    <View className="absolute bottom-0 left-0 right-0 p-4 justify-end bg-black/40">
+                      <Text className="text-white text-base font-black tracking-tight mb-0.5" numberOfLines={1}>
+                        {bundle.name}
                       </Text>
+                      <Text className="text-white/80 text-[11px] font-medium leading-4 mb-2.5" numberOfLines={1}>
+                        {bundle.description || 'Unlock exclusive dares in store'}
+                      </Text>
+
+                      <View className="bg-rose-500 px-3 py-1.5 rounded-full flex-row items-center justify-between">
+                        <Text className="text-white font-bold text-[11px]">Unlock in Store</Text>
+                        <Ionicons name="bag-check" size={13} color="white" />
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
 

@@ -2,11 +2,37 @@ import { useSidebar } from '@/context/SidebarContext';
 import { useThemeToggle } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
-import { Image, Platform, ScrollView, StatusBar, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StatusBar, Switch, Text, TextInput, TouchableOpacity, View, ActivityIndicator, DeviceEventEmitter, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getMyProfileCached } from '@/services/authService';
+import { getMyProfileCached, updateMyProfile } from '@/services/authService';
 import { getActiveRoom } from '@/services/roomService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ANIMATED_AVATARS, AVATAR_CATEGORIES, AnimatedAvatar } from '@/constants/avatars';
+
+const formatRoomActiveTime = (createdAt?: string | null) => {
+  if (!createdAt) return 'No Active Room';
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffMs = Math.max(0, now.getTime() - created.getTime());
+
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    if (hours > 0) {
+      return `Room Active for ${days}d ${hours}h`;
+    }
+    return `Room Active for ${days} ${days === 1 ? 'day' : 'days'}`;
+  }
+
+  if (hours > 0) {
+    return `Room Active for ${hours}h ${minutes}m`;
+  }
+
+  return `Room Active for ${minutes} ${minutes === 1 ? 'min' : 'mins'}`;
+};
 
 export default function Profile() {
   const { openSidebar } = useSidebar();
@@ -16,14 +42,71 @@ export default function Profile() {
   const [userName, setUserName] = useState('User');
   const [partnerName, setPartnerName] = useState('Partner');
   const [activeRoom, setActiveRoom] = useState<any>(null);
-  const [daysCount, setDaysCount] = useState<number | null>(null);
+  const [roomActiveTimeText, setRoomActiveTimeText] = useState<string>('');
+  const [userAvatar, setUserAvatar] = useState<string>(ANIMATED_AVATARS[0].url);
+  const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [selectedAvatarCategory, setSelectedAvatarCategory] = useState<string>('All');
+
+  useEffect(() => {
+    if (!activeRoom?.created_at) {
+      setRoomActiveTimeText('No Active Room');
+      return;
+    }
+
+    const updateActiveTime = () => {
+      setRoomActiveTimeText(formatRoomActiveTime(activeRoom.created_at));
+    };
+
+    updateActiveTime();
+    const interval = setInterval(updateActiveTime, 10000); // Live dynamic updates
+
+    return () => clearInterval(interval);
+  }, [activeRoom?.created_at]);
+
+  // ── Favorite Memory State ──────────────────────────
+  const [favoriteMemory, setFavoriteMemory] = useState<string>('');
+  const [isEditingMemory, setIsEditingMemory] = useState<boolean>(false);
+  const [tempMemoryText, setTempMemoryText] = useState<string>('');
+
+  useEffect(() => {
+    const loadFavoriteMemory = async () => {
+      try {
+        const savedMemory = await AsyncStorage.getItem('user_favorite_memory');
+        if (savedMemory) {
+          setFavoriteMemory(savedMemory);
+        }
+      } catch (err) {
+        console.log('Failed to load favorite memory:', err);
+      }
+    };
+    loadFavoriteMemory();
+  }, []);
+
+  const handleSaveFavoriteMemory = async () => {
+    const trimmed = tempMemoryText.trim();
+    setFavoriteMemory(trimmed);
+    setIsEditingMemory(false);
+    try {
+      if (trimmed) {
+        await AsyncStorage.setItem('user_favorite_memory', trimmed);
+      } else {
+        await AsyncStorage.removeItem('user_favorite_memory');
+      }
+    } catch (err) {
+      console.log('Failed to save favorite memory:', err);
+    }
+  };
 
   useEffect(() => {
     const loadProfileAndRoom = async () => {
-      // ── Step 1: Load user name from cache (instant, no API call) ──
+      // ── Step 1: Load user name & avatar from cache (instant, no API call) ──
       try {
-        const { firstName } = await getMyProfileCached();
+        const { firstName, avatarUrl } = await getMyProfileCached();
         setUserName(firstName);
+        if (avatarUrl) {
+          setUserAvatar(avatarUrl);
+        }
       } catch (err) {
         console.log('Profile cache read failed in profile.tsx:', err);
       }
@@ -43,13 +126,8 @@ export default function Profile() {
             await AsyncStorage.setItem(`partnerName_${room.id}`, room.partner_name);
           }
 
-          // Calculate connection duration in days
           if (room.created_at) {
-            const created = new Date(room.created_at);
-            const now = new Date();
-            const diffTime = Math.abs(now.getTime() - created.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            setDaysCount(diffDays);
+            setRoomActiveTimeText(formatRoomActiveTime(room.created_at));
           }
         }
       } catch (err) {
@@ -58,6 +136,31 @@ export default function Profile() {
     };
     loadProfileAndRoom();
   }, []);
+
+  // ── Animated Avatar Selection Handler ──────────────────────────
+  const handleSelectAnimatedAvatar = async (avatar: AnimatedAvatar) => {
+    try {
+      setIsUpdatingAvatar(true);
+      setUserAvatar(avatar.url);
+      await AsyncStorage.setItem('cachedUserAvatar', avatar.url);
+
+      try {
+        await updateMyProfile({ avatar_url: avatar.url });
+        DeviceEventEmitter.emit('profile:updated', { avatarUrl: avatar.url });
+      } catch (e) {
+        console.log('Failed to save profile avatar to backend:', e);
+      }
+    } catch (err) {
+      console.log('Error selecting avatar:', err);
+    } finally {
+      setIsUpdatingAvatar(false);
+      setIsAvatarModalOpen(false);
+    }
+  };
+
+  const filteredAvatars = selectedAvatarCategory === 'All'
+    ? ANIMATED_AVATARS
+    : ANIMATED_AVATARS.filter((av) => av.category === selectedAvatarCategory);
 
   // ── Suggestion form state ───────────────────────────────
   const CATEGORIES = ['Romantic 💕', 'Adventure 🏕️', 'Cozy 🕯️', 'Spicy 🔥', 'Creative 🎨'];
@@ -89,9 +192,9 @@ export default function Profile() {
             <Ionicons name="infinite" size={28} color={isDark ? "#fda4af" : "#be123c"} style={{ transform: [{ rotate: '-15deg' }] }} />
             <Text className="text-red-700 dark:text-rose-400 font-black text-xl tracking-tight">SoulShuffle</Text>
           </View>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => setIsAvatarModalOpen(true)}>
             <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' }}
+              source={{ uri: userAvatar }}
               className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
             />
           </TouchableOpacity>
@@ -100,15 +203,31 @@ export default function Profile() {
         {/* Profile Avatars Section */}
         <View className="items-center mt-4">
           <View className="flex-row justify-center relative w-full h-40">
-            {/* Left Image (Alex) */}
-            <View className="absolute right-1/2 mr-[-10px] bg-slate-800 rounded-t-[40px] rounded-br-[40px] rounded-bl-[10px] overflow-hidden w-40 h-40 z-10">
+            {/* Left Image (User's Animated Avatar with Edit Button) */}
+            <TouchableOpacity 
+              onPress={() => setIsAvatarModalOpen(true)}
+              activeOpacity={0.9}
+              className="absolute right-1/2 mr-[-10px] bg-slate-800 rounded-t-[40px] rounded-br-[40px] rounded-bl-[10px] overflow-hidden w-40 h-40 z-10 border-2 border-rose-400/30 shadow-lg"
+            >
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop' }}
+                source={{ uri: userAvatar }}
                 className="w-full h-full"
+                resizeMode="cover"
               />
-            </View>
+              {/* Overlay with animated avatar edit icon */}
+              <View className="absolute inset-0 bg-black/25 items-center justify-center">
+                {isUpdatingAvatar ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <View className="bg-rose-600/90 p-2 rounded-full shadow-md flex-row items-center gap-1 px-3">
+                    <Ionicons name="sparkles" size={13} color="white" />
+                    <Text className="text-white font-black text-[10px] tracking-wider uppercase">Avatars ✨</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
 
-            {/* Right Image (Sam) */}
+            {/* Right Image (Partner Avatar) */}
             <View className="absolute left-1/2 ml-[-20px] bg-[#669894] rounded-t-[40px] rounded-bl-[40px] rounded-br-[10px] overflow-hidden w-40 h-40">
               <Image
                 source={{ uri: 'https://plus.unsplash.com/premium_photo-1678120616858-54b35e2380f9?w=200&h=200&fit=crop' }}
@@ -127,7 +246,7 @@ export default function Profile() {
             {activeRoom ? `${userName} & ${partnerName}` : userName}
           </Text>
           <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
-            {daysCount !== null ? `Together for ${daysCount} ${daysCount === 1 ? 'day' : 'days'}` : 'Happy Together'}
+            {activeRoom ? roomActiveTimeText : 'No Active Room'}
           </Text>
         </View>
 
@@ -139,113 +258,98 @@ export default function Profile() {
             <Text className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">124 moments captured since 2021</Text>
           </View>
 
-          <View className="bg-[#fc6062] dark:bg-indigo-900/80 rounded-[24px] p-5 mb-4 flex-col justify-center">
-            <Ionicons name="trophy" size={18} color={isDark ? "#fff" : "#3c0c11"} className="mb-2" />
-            <Text className="text-lg font-black text-slate-900 dark:text-white tracking-tight mt-1">Level 14</Text>
-            <Text className="text-[10px] font-bold text-slate-900/60 dark:text-slate-200/60 mt-1 tracking-widest uppercase">Romantic Strategists</Text>
-          </View>
-
           <View className="bg-[#e4dad6]/30 dark:bg-[#271318]/80 rounded-[24px] p-6 border border-slate-100 dark:border-rose-950/30 overflow-hidden relative">
-            <Text className="text-base font-bold text-slate-800 dark:text-white tracking-tight mb-3">Favorite Memory</Text>
-            <Text className="text-sm font-medium italic text-slate-600 dark:text-slate-300 leading-6 pr-6">
-              &quot;That rainy afternoon in Kyoto when we got lost in the bamboo forest and ended up in that tiny tea house.&quot;
-            </Text>
-            <TouchableOpacity className="mt-4 flex-row items-center">
-              <Text className="text-xs font-bold text-[#af2c3b] dark:text-rose-400 tracking-wide uppercase">View All Memories</Text>
-              <Ionicons name="arrow-forward" size={12} color={isDark ? "#f43f5e" : "#af2c3b"} className="ml-1" />
-            </TouchableOpacity>
+            {isEditingMemory ? (
+              <View className="z-10">
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className="text-base font-bold text-slate-800 dark:text-white tracking-tight">Favorite Memory</Text>
+                  <TouchableOpacity onPress={() => setIsEditingMemory(false)}>
+                    <Ionicons name="close-circle" size={20} color={isDark ? "#94a3b8" : "#64748b"} />
+                  </TouchableOpacity>
+                </View>
+
+                <TextInput
+                  multiline
+                  numberOfLines={3}
+                  value={tempMemoryText}
+                  onChangeText={setTempMemoryText}
+                  placeholder="Share your favorite couple memory here... 💕"
+                  placeholderTextColor={isDark ? "rgba(255,255,255,0.4)" : "#94a3b8"}
+                  className="bg-white dark:bg-[#1a0c10] border border-rose-200 dark:border-rose-950/40 rounded-2xl p-3.5 text-sm font-medium text-slate-800 dark:text-white mb-3 min-h-[80px]"
+                  style={{ textAlignVertical: 'top' }}
+                  autoFocus
+                />
+
+                <View className="flex-row items-center justify-end gap-2">
+                  <TouchableOpacity 
+                    onPress={() => setIsEditingMemory(false)}
+                    className="px-4 py-2 rounded-full border border-slate-300 dark:border-slate-700"
+                  >
+                    <Text className="text-xs font-bold text-slate-600 dark:text-slate-300">Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={handleSaveFavoriteMemory}
+                    className="bg-[#af2c3b] dark:bg-rose-600 px-4 py-2 rounded-full flex-row items-center"
+                  >
+                    <Ionicons name="checkmark-circle" size={14} color="white" />
+                    <Text className="text-xs font-bold text-white ml-1">Save Memory</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View className="z-10">
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className="text-base font-bold text-slate-800 dark:text-white tracking-tight">Favorite Memory</Text>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setTempMemoryText(favoriteMemory);
+                      setIsEditingMemory(true);
+                    }}
+                    className="flex-row items-center bg-white/80 dark:bg-rose-950/50 px-3 py-1 rounded-full border border-rose-200/50 dark:border-rose-900/40"
+                  >
+                    <Ionicons name="pencil" size={12} color={isDark ? "#f43f5e" : "#af2c3b"} />
+                    <Text className="text-[11px] font-bold text-[#af2c3b] dark:text-rose-400 ml-1">
+                      {favoriteMemory ? 'Edit' : 'Add'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {favoriteMemory ? (
+                  <Text className="text-sm font-medium italic text-slate-600 dark:text-slate-300 leading-6 pr-6">
+                    &quot;{favoriteMemory}&quot;
+                  </Text>
+                ) : (
+                  <TouchableOpacity 
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setTempMemoryText('');
+                      setIsEditingMemory(true);
+                    }}
+                    className="py-1"
+                  >
+                    <Text className="text-sm font-medium italic text-slate-400 dark:text-slate-400 leading-6 pr-6">
+                      No favorite memory added yet. Tap here to write down your special moment together! 💕
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity 
+                  onPress={() => {
+                    setTempMemoryText(favoriteMemory);
+                    setIsEditingMemory(true);
+                  }} 
+                  className="mt-4 flex-row items-center"
+                >
+                  <Text className="text-xs font-bold text-[#af2c3b] dark:text-rose-400 tracking-wide uppercase">
+                    {favoriteMemory ? 'Update Memory' : '+ Add Favorite Memory'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={12} color={isDark ? "#f43f5e" : "#af2c3b"} className="ml-1" />
+                </TouchableOpacity>
+              </View>
+            )}
             <Ionicons name="images" size={80} color={isDark ? "#1e293b" : "#e5e5e5"} style={{ position: 'absolute', bottom: -20, right: -10, opacity: 0.8 }} />
           </View>
         </View>
-
-        {/* Couple Goals Section */}
-        <View className="mt-8 px-6">
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center">
-              <View className="bg-[#5ce1e6]/40 dark:bg-teal-950/60 w-8 h-8 rounded-full items-center justify-center mr-3">
-                <Ionicons name="flag" size={14} color={isDark ? "#2dd4bf" : "#000"} />
-              </View>
-              <Text className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight">Couple Goals</Text>
-            </View>
-            <TouchableOpacity>
-              <Text className="text-[10px] font-bold text-[#af2c3b] dark:text-rose-400 tracking-widest uppercase">Set New Goal</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View className="bg-[#f5eeed]/60 dark:bg-[#271318]/50 rounded-[32px] p-6 shadow-slate-100">
-            <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-400 tracking-widest uppercase mb-1">Current Milestone</Text>
-            <View className="flex-row items-end justify-between">
-              <Text className="text-lg font-bold text-slate-800 dark:text-white leading-6 max-w-[70%]">First International Trip Together</Text>
-              <Text className="text-xl font-black text-[#0d5f5a] dark:text-teal-400">75%</Text>
-            </View>
-
-            <View className="w-full h-3 bg-slate-200/80 dark:bg-[#0F0608]/80 rounded-full mt-4 flex-row">
-              <View className="w-[75%] h-full bg-[#0d5f5a] dark:bg-teal-500 rounded-full"></View>
-            </View>
-
-            <Text className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-3 mb-6">
-              Only 4 more dares to unlock the &quot;Traveler&quot; badge!
-            </Text>
-
-            <View className="flex-col gap-4">
-              <View className="flex-row">
-                <Ionicons name="checkmark-circle" size={22} color={isDark ? "#2dd4bf" : "#0d5f5a"} />
-                <View className="ml-3">
-                  <Text className="text-sm font-bold text-slate-800 dark:text-white">30 Dares Done</Text>
-                  <Text className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Level 1 Complete</Text>
-                </View>
-              </View>
-
-              <View className="flex-row">
-                <Ionicons name="ellipse-outline" size={22} color={isDark ? "#334155" : "#94a3b8"} />
-                <View className="ml-3">
-                  <Text className="text-sm font-bold text-slate-800 dark:text-white">6-Month Streak</Text>
-                  <Text className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">4 months current</Text>
-                </View>
-              </View>
-
-              <View className="flex-row">
-                <Ionicons name="checkmark-circle" size={22} color={isDark ? "#2dd4bf" : "#0d5f5a"} />
-                <View className="ml-3">
-                  <Text className="text-sm font-bold text-slate-800 dark:text-white">Photo Journal</Text>
-                  <Text className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">100+ photos added</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Dare Preferences Section */}
-        <View className="mt-8 px-6">
-          <Text className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Dare Preferences</Text>
-
-          <View className="bg-white dark:bg-[#271318] rounded-[32px] p-6 border border-slate-50/50 dark:border-rose-950/20">
-            <View className="flex-row items-center justify-between mb-6">
-              <View className="flex-row items-center">
-                <Ionicons name="restaurant" size={18} color={isDark ? "#f43f5e" : "#af2c3b"} />
-                <Text className="text-[15px] font-semibold text-slate-800 dark:text-white ml-4">Food & Dining</Text>
-              </View>
-              <Switch value={true} trackColor={{ false: "#e2e8f0", true: "#0d5f5a" }} thumbColor="#fff" />
-            </View>
-
-            <View className="flex-row items-center justify-between mb-6">
-              <View className="flex-row items-center">
-                <Ionicons name="compass" size={18} color={isDark ? "#f43f5e" : "#af2c3b"} />
-                <Text className="text-[15px] font-semibold text-slate-800 dark:text-white ml-4">Outdoor Adventures</Text>
-              </View>
-              <Switch value={true} trackColor={{ false: "#e2e8f0", true: "#0d5f5a" }} thumbColor="#fff" />
-            </View>
-
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                <Ionicons name="home" size={18} color={isDark ? "#c084fc" : "#857169"} />
-                <Text className="text-[15px] font-semibold text-slate-800 dark:text-white ml-4">Cozy Nights In</Text>
-              </View>
-              <Switch value={false} trackColor={{ false: "#e2e8f0", true: "#0d5f5a" }} thumbColor="#fff" />
-            </View>
-          </View>
-        </View>
-
 
         {/* ── Suggest a Card ───────────────────────────── */}
         <View className="px-6 mt-8">
@@ -449,7 +553,129 @@ export default function Profile() {
         </View>
 
       </ScrollView>
+
+      {/* ── Modern Animated Avatar Selector Modal ────────────────── */}
+      <Modal
+        visible={isAvatarModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsAvatarModalOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/70">
+          <TouchableOpacity
+            activeOpacity={1}
+            className="flex-1"
+            onPress={() => setIsAvatarModalOpen(false)}
+          />
+
+          <View className="bg-white dark:bg-[#1C0D12] rounded-t-[36px] max-h-[85%] p-6 pb-8 border-t border-rose-100 dark:border-rose-950/40 shadow-2xl">
+            {/* Grab Handle */}
+            <View className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-rose-950/60 self-center mb-4" />
+
+            {/* Header */}
+            <View className="flex-row items-center justify-between mb-1">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  Animated Avatars ✨
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsAvatarModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-rose-950/50 items-center justify-center"
+              >
+                <Ionicons name="close" size={20} color={isDark ? "#fda4af" : "#64748b"} />
+              </TouchableOpacity>
+            </View>
+            <Text className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4">
+              Select an animated avatar to represent you in SoulShuffle
+            </Text>
+
+            {/* Category Filter Pills */}
+            <View className="mb-5">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 10 }}>
+                {AVATAR_CATEGORIES.map((cat) => {
+                  const isActive = selectedAvatarCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      onPress={() => setSelectedAvatarCategory(cat)}
+                      activeOpacity={0.8}
+                      className={`px-4 py-2 rounded-full border ${
+                        isActive
+                          ? 'bg-rose-600 border-rose-600 dark:bg-rose-500 dark:border-rose-500'
+                          : 'bg-slate-100 border-slate-200 dark:bg-[#271318] dark:border-rose-950/40'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-extrabold ${
+                          isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Avatar Grid */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              <View className="flex-row flex-wrap justify-between">
+                {filteredAvatars.map((item) => {
+                  const isSelected = userAvatar === item.url;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => handleSelectAnimatedAvatar(item)}
+                      activeOpacity={0.85}
+                      className="w-[48%] mb-4"
+                    >
+                      <View
+                        className={`relative rounded-3xl overflow-hidden border-2 bg-slate-900 h-40 items-center justify-center shadow-md ${
+                          isSelected
+                            ? 'border-rose-500 dark:border-rose-400 ring-4 ring-rose-500/20'
+                            : 'border-slate-200 dark:border-rose-950/40'
+                        }`}
+                      >
+                        <Image
+                          source={{ uri: item.url }}
+                          className="w-full h-full"
+                          resizeMode="cover"
+                        />
+
+                        {/* GIF Tag */}
+                        <View className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full flex-row items-center gap-1">
+                          <Text className="text-[10px] font-black text-rose-300 uppercase tracking-widest">
+                            GIF {item.emoji}
+                          </Text>
+                        </View>
+
+                        {/* Selected Checkmark Badge */}
+                        {isSelected && (
+                          <View className="absolute top-2.5 right-2.5 bg-rose-600 rounded-full p-1 shadow-lg">
+                            <Ionicons name="checkmark" size={14} color="white" />
+                          </View>
+                        )}
+
+                        {/* Footer Name Overlay */}
+                        <View className="absolute bottom-0 left-0 right-0 bg-black/60 p-2.5 pt-4">
+                          <Text className="text-white font-bold text-xs text-center" numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
 

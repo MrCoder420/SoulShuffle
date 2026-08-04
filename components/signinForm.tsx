@@ -1,12 +1,13 @@
 import { Text, View, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { signIn, forgotPassword, resetPassword, googleLogin, appleLogin } from '../services/authService'
 import { useRouter } from 'expo-router'
 import { useColorScheme } from '@/hooks/use-color-scheme'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import Constants from 'expo-constants'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 const SigninForm = () => {
         const [email, setEmail] = useState('')
@@ -24,6 +25,19 @@ const SigninForm = () => {
         const [otp, setOtp] = useState('')
         const [newPassword, setNewPassword] = useState('')
         const [isSubmitting, setIsSubmitting] = useState(false)
+        const [rememberMe, setRememberMe] = useState(true)
+
+        // Load saved remember-me preference on mount
+        useEffect(() => {
+          const loadRememberMe = async () => {
+            try {
+              const saved = await AsyncStorage.getItem('rememberMe');
+              // Default to true if never set
+              if (saved !== null) setRememberMe(saved === 'true');
+            } catch {}
+          };
+          loadRememberMe();
+        }, []);
 
         const handleGoogleLogin = async () => {
           if (Constants.appOwnership === 'expo') {
@@ -54,6 +68,7 @@ const SigninForm = () => {
 
             if (idToken) {
               await googleLogin(idToken);
+              await AsyncStorage.setItem('rememberMe', 'true');
               // @ts-ignore
               router.replace('/(tabs)');
             } else {
@@ -88,6 +103,9 @@ const SigninForm = () => {
                 setIsLoading(true);
                 const data = await signIn(email, password);
                 console.log('Sign in successful:', data);
+
+                // Save remember-me preference
+                await AsyncStorage.setItem('rememberMe', rememberMe ? 'true' : 'false');
 
                 // @ts-ignore
                 router.replace('/(tabs)');
@@ -131,6 +149,7 @@ const SigninForm = () => {
                 
                 if (idToken) {
                     await appleLogin(idToken);
+                    await AsyncStorage.setItem('rememberMe', 'true');
                     // @ts-ignore
                     router.replace('/(tabs)');
                 } else {
@@ -236,9 +255,29 @@ const SigninForm = () => {
                                         <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
                                     </TouchableOpacity>
                                 </View>
-                                <TouchableOpacity className="mt-4 self-end" onPress={() => { setForgotPasswordEmail(email); setForgotPasswordStep(1); setForgotPasswordModalVisible(true); }}>
-                                    <Text className="text-rose-500 dark:text-rose-400 font-semibold text-sm">Forgot Password?</Text>
-                                </TouchableOpacity>
+                                <View className="flex-row items-center justify-between mt-4">
+                                    {/* Remember Me Toggle */}
+                                    <TouchableOpacity 
+                                        className="flex-row items-center" 
+                                        onPress={() => setRememberMe(!rememberMe)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={{
+                                            width: 20, height: 20, borderRadius: 6,
+                                            borderWidth: 2,
+                                            borderColor: rememberMe ? (isDark ? '#f43f5e' : '#e11d48') : (isDark ? '#475569' : '#cbd5e1'),
+                                            backgroundColor: rememberMe ? (isDark ? '#f43f5e' : '#e11d48') : 'transparent',
+                                            alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            {rememberMe && <Ionicons name="checkmark" size={14} color="#ffffff" />}
+                                        </View>
+                                        <Text className="text-slate-600 dark:text-slate-300 font-semibold text-[13px] ml-2">Remember Me</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => { setForgotPasswordEmail(email); setForgotPasswordStep(1); setForgotPasswordModalVisible(true); }}>
+                                        <Text className="text-rose-500 dark:text-rose-400 font-semibold text-sm">Forgot Password?</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
 
                             {errorMessage ? (

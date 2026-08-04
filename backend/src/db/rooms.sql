@@ -18,7 +18,7 @@ END $$;
 -- 2. Create the Rooms Table
 CREATE TABLE IF NOT EXISTS public.rooms (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  -- Publicly sharable code (e.g., ELV-X921)
+  -- Publicly sharable code (e.g., SSF-X921)
   code VARCHAR(12) UNIQUE NOT NULL,
   
   -- Participants

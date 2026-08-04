@@ -11,14 +11,12 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import {
   fetchQuestionnaire,
-  getMyAnswers,
   submitAnswers as submitAnswersApi,
   Question,
   AnswerPayload,
@@ -26,31 +24,106 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ─── Emoji mapping for known question types ───────────────
+// ─── Default High-Quality Couple Questions (with Gender) ───
+const DEFAULT_QUESTIONS: Question[] = [
+  {
+    id: 'q_gender',
+    text: 'What is your gender?',
+    input_type: 'SINGLE_CHOICE',
+    order_index: 1,
+    question_dependencies: [],
+    question_options: [
+      { id: 'opt_gender_m', option_text: '👨 Male', order_index: 1 },
+      { id: 'opt_gender_f', option_text: '👩 Female', order_index: 2 },
+      { id: 'opt_gender_nb', option_text: '✨ Non-binary', order_index: 3 },
+      { id: 'opt_gender_pns', option_text: '🤍 Prefer not to say', order_index: 4 },
+    ],
+  },
+  {
+    id: 'q_stage',
+    text: 'What is your relationship stage?',
+    input_type: 'SINGLE_CHOICE',
+    order_index: 2,
+    question_dependencies: [],
+    question_options: [
+      { id: 'opt_stage_new', option_text: '💕 Newly Dating (0 - 6 months)', order_index: 1 },
+      { id: 'opt_stage_strong', option_text: '🔥 Going Strong (6m - 2 years)', order_index: 2 },
+      { id: 'opt_stage_married', option_text: '💍 Engaged / Married (2+ years)', order_index: 3 },
+      { id: 'opt_stage_ldr', option_text: '✈️ Long Distance Lovers', order_index: 4 },
+    ],
+  },
+  {
+    id: 'q_vibe',
+    text: "What's your ideal couple vibe?",
+    input_type: 'SINGLE_CHOICE',
+    order_index: 3,
+    question_dependencies: [],
+    question_options: [
+      { id: 'opt_vibe_spicy', option_text: '🌶️ Bold, Spicy & Adventurous', order_index: 1 },
+      { id: 'opt_vibe_cozy', option_text: '🛋️ Cozy & Romantic Homebodies', order_index: 2 },
+      { id: 'opt_vibe_playful', option_text: '🎮 Playful, Fun & Competitive', order_index: 3 },
+      { id: 'opt_vibe_deep', option_text: '🍷 Deep Talks & Fine Dining', order_index: 4 },
+    ],
+  },
+  {
+    id: 'q_lovelang',
+    text: "What's your primary love language?",
+    input_type: 'SINGLE_CHOICE',
+    order_index: 4,
+    question_dependencies: [],
+    question_options: [
+      { id: 'opt_lang_touch', option_text: '🤗 Physical Touch & Intimacy', order_index: 1 },
+      { id: 'opt_lang_time', option_text: '🎁 Quality Time & Surprises', order_index: 2 },
+      { id: 'opt_lang_words', option_text: '💬 Words of Affirmation', order_index: 3 },
+      { id: 'opt_lang_acts', option_text: '🤝 Acts of Service & Care', order_index: 4 },
+    ],
+  },
+  {
+    id: 'q_spiciness',
+    text: 'How spicy do you want your game dares?',
+    input_type: 'SINGLE_CHOICE',
+    order_index: 5,
+    question_dependencies: [],
+    question_options: [
+      { id: 'opt_spice_sweet', option_text: '🍦 Sweet & Playful (Mild)', order_index: 1 },
+      { id: 'opt_spice_warm', option_text: '🔥 Warm & Flirty (Medium)', order_index: 2 },
+      { id: 'opt_spice_hot', option_text: '🌶️ Extra Spicy & Wild (Hot!)', order_index: 3 },
+    ],
+  },
+  {
+    id: 'q_living',
+    text: 'Do you live together with your partner?',
+    input_type: 'SINGLE_CHOICE',
+    order_index: 6,
+    question_dependencies: [],
+    question_options: [
+      { id: 'opt_live_yes', option_text: '🏡 Yes, we share a home', order_index: 1 },
+      { id: 'opt_live_no', option_text: '🚗 No, we live separately', order_index: 2 },
+    ],
+  },
+];
+
+// ─── Emoji mapping for known question steps ───────────────
 const QUESTION_EMOJIS: Record<number, string> = {
-  0: '💕',
-  1: '⏳',
-  2: '🎯',
+  0: '👤',
+  1: '💕',
+  2: '✨',
   3: '❤️‍🔥',
-  4: '✨',
-  5: '🌶️',
+  4: '🌶️',
+  5: '🏡',
 };
 
 const DEFAULT_EMOJI = '💬';
 
 export default function Questionnaire() {
-  const router = useRouter();
-
   // ─── State ─────────────────────────
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<Question[]>(DEFAULT_QUESTIONS);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isMaintenance, setIsMaintenance] = useState(false);
 
   const [history, setHistory] = useState<number[]>([0]);
   const currentStep = history[history.length - 1] ?? 0;
-  // answers keyed by question_id → selected_option_id (string) or array of option_ids or text_value
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [textValue, setTextValue] = useState('');
 
@@ -65,7 +138,17 @@ export default function Questionnaire() {
   const currentQuestion: Question | undefined = questions[currentStep];
   const progress = questions.length > 0 ? (currentStep + 1) / questions.length : 0;
 
-  // ─── Fetch questions from the backend on mount ──────────
+  const navigateToTabs = () => {
+    setTimeout(() => {
+      try {
+        router.replace('/(tabs)');
+      } catch (err) {
+        console.warn('Navigation error:', err);
+      }
+    }, 100);
+  };
+
+  // ─── Load questions on mount ──────────
   useEffect(() => {
     loadQuestions();
   }, []);
@@ -75,26 +158,37 @@ export default function Questionnaire() {
       setIsLoadingQuestions(true);
       setLoadError(null);
 
+      let loadedQuestions: Question[] = [];
       try {
-        const existingAnswers = await getMyAnswers();
-        if (existingAnswers?.length > 0) {
-          // @ts-ignore
-          router.replace('/');
-          return;
+        const data = await fetchQuestionnaire();
+        if (data && Array.isArray(data) && data.length >= 3) {
+          const validBackend = data.filter(
+            q =>
+              q.text &&
+              q.text.trim().length > 5 &&
+              !/^[a-z]+$/i.test(q.text.trim()) &&
+              q.question_options &&
+              q.question_options.length > 1
+          );
+
+          if (validBackend.length >= 3) {
+            loadedQuestions = validBackend;
+          }
         }
-      } catch (answerError: any) {
-        console.warn('Could not check existing questionnaire answers:', answerError?.response?.data || answerError?.message);
+      } catch (e) {
+        console.warn('Backend fetch questionnaire failed, using curated default questions:', e);
       }
 
-      const data = await fetchQuestionnaire();
-
-      if (!data || data.length === 0) {
-        setIsMaintenance(true);
-        return;
+      if (loadedQuestions.length === 0) {
+        loadedQuestions = DEFAULT_QUESTIONS;
+      } else {
+        const hasGender = loadedQuestions.some(q => q.text.toLowerCase().includes('gender'));
+        if (!hasGender) {
+          loadedQuestions = [DEFAULT_QUESTIONS[0], ...loadedQuestions];
+        }
       }
 
-      // Sort options within each question by order_index
-      const sorted = data.map(q => ({
+      const sorted = loadedQuestions.map(q => ({
         ...q,
         question_options: (q.question_options || []).sort(
           (a, b) => a.order_index - b.order_index
@@ -103,25 +197,22 @@ export default function Questionnaire() {
 
       setQuestions(sorted);
 
-      // Initialize option animations for each question
       optionAnimsRef.current = sorted.map(q =>
         Array(Math.max(q.question_options.length, 1))
           .fill(0)
           .map(() => new Animated.Value(0))
       );
 
-      // Start entrance animations
       Animated.timing(headerFadeAnim, {
         toValue: 1,
         duration: 600,
         useNativeDriver: true,
       }).start();
 
-      // Animate first question's options
       setTimeout(() => animateOptionsIn(0, sorted), 200);
     } catch (error: any) {
       console.error('Failed to load questionnaire:', error);
-      setLoadError(error.response?.data?.message || error.message || 'Failed to load questions');
+      setQuestions(DEFAULT_QUESTIONS);
     } finally {
       setIsLoadingQuestions(false);
     }
@@ -129,7 +220,6 @@ export default function Questionnaire() {
 
   useEffect(() => {
     if (questions.length === 0) return;
-    // Update progress bar
     Animated.spring(progressAnim, {
       toValue: progress,
       tension: 40,
@@ -137,17 +227,17 @@ export default function Questionnaire() {
       useNativeDriver: false,
     }).start();
 
-    // Safely trigger options animation for the new step
-    animateOptionsIn(currentStep);
+    animateOptionsIn(currentStep, questions);
   }, [currentStep, questions.length]);
 
-  const animateOptionsIn = (stepIndex: number) => {
+  const animateOptionsIn = (stepIndex: number, currentQuestionsList = questions) => {
+    if (!currentQuestionsList || currentQuestionsList.length === 0) return;
     const anims = optionAnimsRef.current[stepIndex];
     if (!anims) return;
 
     anims.forEach(anim => anim.setValue(0));
 
-    const optionCount = questions[stepIndex]?.question_options?.length || 1;
+    const optionCount = currentQuestionsList[stepIndex]?.question_options?.length || 1;
     const animations = anims.slice(0, optionCount).map((anim, index) =>
       Animated.spring(anim, {
         toValue: 1,
@@ -181,7 +271,7 @@ export default function Questionnaire() {
       }),
     ]).start(() => {
       slideAnim.setValue(direction === 'next' ? SCREEN_WIDTH * 0.3 : -SCREEN_WIDTH * 0.3);
-      callback(); // This triggers the useEffect for currentStep
+      callback();
 
       Animated.parallel([
         Animated.spring(fadeAnim, {
@@ -206,33 +296,13 @@ export default function Questionnaire() {
     });
   };
 
-  // ─── Determine input type (normalize casing) ────────────
   const getInputType = (q: Question): 'single_select' | 'multi_select' | 'text' | 'slider' | 'date_picker' => {
     const type = q.input_type?.toUpperCase() || 'SINGLE_CHOICE';
     if (type === 'MULTI_CHOICE') return 'multi_select';
     if (type === 'TEXT') return 'text';
     if (type === 'SLIDER') return 'slider';
     if (type === 'DATE_PICKER') return 'date_picker';
-    return 'single_select'; // SINGLE_CHOICE
-  };
-
-  const findNextQuestionIndex = (startIndex: number, currentAnswers: Record<string, string | string[]> = answers) => {
-    for (let i = startIndex + 1; i < questions.length; i++) {
-      const q = questions[i];
-      if (!q.question_dependencies || q.question_dependencies.length === 0) {
-        return i;
-      }
-      const meetsDependencies = q.question_dependencies.every(dep => {
-        const answer = currentAnswers[dep.parent_question_id];
-        if (!answer) return false;
-        if (Array.isArray(answer)) {
-          return answer.includes(dep.required_option_id);
-        }
-        return answer === dep.required_option_id;
-      });
-      if (meetsDependencies) return i;
-    }
-    return -1;
+    return 'single_select';
   };
 
   const handleSelectOption = (optionId: string) => {
@@ -242,17 +312,16 @@ export default function Questionnaire() {
     if (inputType === 'multi_select') {
       const current = (answers[currentQuestion.id] as string[]) || [];
       if (current.includes(optionId)) {
-        setAnswers({ ...answers, [currentQuestion.id]: current.filter(id => id !== optionId) });
+        setAnswers(prev => ({ ...prev, [currentQuestion.id]: current.filter(id => id !== optionId) }));
       } else {
-        setAnswers({ ...answers, [currentQuestion.id]: [...current, optionId] });
+        setAnswers(prev => ({ ...prev, [currentQuestion.id]: [...current, optionId] }));
       }
     } else {
       const newAnswers = { ...answers, [currentQuestion.id]: optionId };
       setAnswers(newAnswers);
-      // Auto-advance for single select after a brief delay
       setTimeout(() => {
         handleNext(newAnswers);
-      }, 400);
+      }, 250);
     }
   };
 
@@ -265,9 +334,7 @@ export default function Questionnaire() {
     if (inputType === 'date_picker' && textValue) {
        try {
          finalAnswer = new Date(textValue).toISOString();
-       } catch (e) {
-         // fallback if invalid date string
-       }
+       } catch (e) {}
     }
 
     if (inputType === 'text' || inputType === 'slider' || inputType === 'date_picker') {
@@ -275,9 +342,9 @@ export default function Questionnaire() {
       setAnswers({ ...currentAnswers });
     }
 
-    const nextIndex = findNextQuestionIndex(currentStep, currentAnswers);
+    const nextIndex = currentStep + 1;
 
-    if (nextIndex !== -1) {
+    if (nextIndex < questions.length) {
       animateTransition('next', () => {
         setHistory(prev => [...prev, nextIndex]);
         setTextValue('');
@@ -309,12 +376,11 @@ export default function Questionnaire() {
 
   const handleFinish = async (finalAnswersParam?: Record<string, string | string[]>) => {
     if (!currentQuestion) {
-      // @ts-ignore
-      router.replace('/');
+      navigateToTabs();
       return;
     }
 
-    // Save text answer for last question
+    setIsSubmitting(true);
     const inputType = getInputType(currentQuestion);
     let finalAnswers = { ...(finalAnswersParam || answers) };
     if (inputType === 'text' || inputType === 'slider' || inputType === 'date_picker') {
@@ -327,7 +393,6 @@ export default function Questionnaire() {
       finalAnswers[currentQuestion.id] = finalAnswer;
     }
 
-    // Build the payload matching the backend's expected format
     const payload: AnswerPayload[] = [];
     for (const q of questions) {
       const answer = finalAnswers[q.id];
@@ -336,7 +401,6 @@ export default function Questionnaire() {
       const qInputType = getInputType(q);
 
       if (qInputType === 'multi_select' && Array.isArray(answer)) {
-        // For multi-select, submit one answer per selected option
         for (const optId of answer) {
           payload.push({
             question_id: q.id,
@@ -351,7 +415,6 @@ export default function Questionnaire() {
           text_value: answer as string,
         });
       } else {
-        // single_select
         payload.push({
           question_id: q.id,
           selected_option_id: answer as string,
@@ -361,20 +424,16 @@ export default function Questionnaire() {
     }
 
     if (payload.length > 0) {
-      // Fire and forget: submit to AWS in the background
       submitAnswersApi(payload).catch((error: any) => {
-        console.error('Background submission failed:', error);
+        console.warn('Onboarding answers submission:', error?.message || error);
       });
     }
 
-    // Instantly transition to the tabs screen without blocking the UI
-    // @ts-ignore
-    router.replace('/');
+    navigateToTabs();
   };
 
   const handleSkip = () => {
-    // @ts-ignore
-    router.replace('/');
+    navigateToTabs();
   };
 
   const isNextDisabled = () => {
@@ -411,16 +470,16 @@ export default function Questionnaire() {
   if (isLoadingQuestions) {
     return (
       <SafeAreaView
-        className="flex-1 bg-rose-50 items-center justify-center"
+        className="flex-1 bg-[#0B0508] items-center justify-center"
         style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}
       >
-        <StatusBar barStyle="dark-content" backgroundColor="#fff1f2" />
-        <View className="bg-white/60 w-20 h-20 rounded-[28px] items-center justify-center mb-6 border border-white/40">
+        <StatusBar barStyle="light-content" backgroundColor="#0B0508" />
+        <View className="bg-[#1A0B13] w-20 h-20 rounded-[28px] items-center justify-center mb-6 border border-rose-500/20 shadow-lg shadow-rose-950/50">
           <Text className="text-4xl">💕</Text>
         </View>
-        <ActivityIndicator size="large" color="#f43f5e" />
-        <Text className="text-slate-500 font-semibold text-base mt-4">
-          Preparing your questions...
+        <ActivityIndicator size="large" color="#FF2D55" />
+        <Text className="text-slate-400 font-semibold text-base mt-4">
+          Preparing your onboarding...
         </Text>
       </SafeAreaView>
     );
@@ -430,22 +489,22 @@ export default function Questionnaire() {
   if (loadError) {
     return (
       <SafeAreaView
-        className="flex-1 bg-rose-50 items-center justify-center px-8"
+        className="flex-1 bg-[#0B0508] items-center justify-center px-8"
         style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}
       >
-        <StatusBar barStyle="dark-content" backgroundColor="#fff1f2" />
-        <View className="bg-white/60 w-20 h-20 rounded-[28px] items-center justify-center mb-6 border border-white/40">
-          <Ionicons name="alert-circle-outline" size={40} color="#f43f5e" />
+        <StatusBar barStyle="light-content" backgroundColor="#0B0508" />
+        <View className="bg-[#1A0B13] w-20 h-20 rounded-[28px] items-center justify-center mb-6 border border-rose-500/20 shadow-lg shadow-rose-950/50">
+          <Ionicons name="alert-circle-outline" size={40} color="#FF2D55" />
         </View>
-        <Text className="text-slate-800 font-bold text-lg text-center mb-2">
+        <Text className="text-white font-bold text-lg text-center mb-2">
           Could not load questions
         </Text>
-        <Text className="text-slate-500 font-medium text-sm text-center mb-8">
+        <Text className="text-slate-400 font-medium text-sm text-center mb-8">
           {loadError}
         </Text>
         <TouchableOpacity
           onPress={loadQuestions}
-          className="bg-rose-500 rounded-2xl px-8 py-4 mb-4"
+          className="bg-[#FF2D55] rounded-2xl px-8 py-4 mb-4"
           activeOpacity={0.8}
         >
           <Text className="text-white font-bold text-base">Try Again</Text>
@@ -457,34 +516,8 @@ export default function Questionnaire() {
     );
   }
 
-  // ─── Maintenance State ─────────────────────────────────────
-  if (isMaintenance) {
-    return (
-      <SafeAreaView
-        className="flex-1 bg-rose-50 items-center justify-center px-8"
-        style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}
-      >
-        <StatusBar barStyle="dark-content" backgroundColor="#fff1f2" />
-        <View className="bg-white/60 w-20 h-20 rounded-[28px] items-center justify-center mb-6 border border-white/40">
-          <Ionicons name="construct-outline" size={40} color="#f43f5e" />
-        </View>
-        <Text className="text-slate-800 font-bold text-xl text-center mb-2">
-          Maintenance Mode
-        </Text>
-        <Text className="text-slate-500 font-medium text-sm text-center mb-8">
-          The questionnaire is currently unavailable. Please try again later.
-        </Text>
-        <TouchableOpacity onPress={handleSkip} className="bg-rose-500 rounded-2xl px-8 py-4">
-          <Text className="text-white font-bold text-base">Go to Dashboard</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  // ─── No questions / empty state (shouldn't reach here, but guard) ───
   if (!currentQuestion) {
-    // @ts-ignore
-    router.replace('/');
+    navigateToTabs();
     return null;
   }
 
@@ -492,46 +525,48 @@ export default function Questionnaire() {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-rose-50"
+      className="flex-1 bg-[#0B0508]"
       style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#fff1f2" />
+      <StatusBar barStyle="light-content" backgroundColor="#0B0508" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        {/* Background Decorations */}
-        <View className="absolute w-[600px] h-[600px] bg-pink-100/30 rounded-full -top-60 -right-40" />
-        <View className="absolute w-[400px] h-[400px] bg-purple-100/20 rounded-full bottom-20 -left-40" />
-        <View className="absolute w-[200px] h-[200px] bg-rose-200/15 rounded-full top-40 left-20" />
+        {/* Dark Decorative Atmosphere Glows */}
+        <View className="absolute w-[600px] h-[600px] bg-rose-900/10 rounded-full -top-60 -right-40" />
+        <View className="absolute w-[400px] h-[400px] bg-pink-950/20 rounded-full bottom-20 -left-40" />
+        <View className="absolute w-[200px] h-[200px] bg-rose-600/10 rounded-full top-40 left-20" />
 
         {/* Header */}
         <Animated.View style={{ opacity: headerFadeAnim }} className="px-6 pt-4">
-          {/* Top Bar */}
+          {/* Top Navigation Bar */}
           <View className="flex-row items-center justify-between mb-6">
             <TouchableOpacity
               onPress={handleBack}
-              className="w-11 h-11 bg-white/70 rounded-full items-center justify-center border border-white/50"
+              className="w-11 h-11 bg-white/10 rounded-full items-center justify-center border border-white/15"
               style={{ opacity: history.length > 1 ? 1 : 0.3 }}
               disabled={history.length <= 1}
             >
-              <Ionicons name="chevron-back" size={22} color="#9f1239" />
+              <Ionicons name="chevron-back" size={22} color="#ffffff" />
             </TouchableOpacity>
+
             <View className="items-center">
-              <Text className="text-xs font-bold text-rose-400 tracking-widest uppercase">
+              <Text className="text-xs font-bold text-[#FF5C80] tracking-widest uppercase">
                 Step {currentStep + 1} of {questions.length}
               </Text>
             </View>
-            <TouchableOpacity onPress={handleSkip} className="px-4 py-2">
-              <Text className="text-rose-400 font-bold text-sm">Skip</Text>
+
+            <TouchableOpacity onPress={handleSkip} className="px-3 py-2">
+              <Text className="text-slate-400 font-semibold text-sm">Skip</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Progress Bar */}
-          <View className="h-[6px] bg-rose-100 rounded-full overflow-hidden mb-2">
+          {/* Glowing Progress Bar */}
+          <View className="h-[6px] bg-white/10 rounded-full overflow-hidden mb-2">
             <Animated.View
-              className="h-full bg-rose-500 rounded-full"
+              className="h-full bg-[#FF2D55] rounded-full"
               style={{
                 width: progressBarWidth,
               }}
@@ -539,7 +574,7 @@ export default function Questionnaire() {
           </View>
         </Animated.View>
 
-        {/* Question Content */}
+        {/* Question Body */}
         <ScrollView
           className="flex-1"
           showsVerticalScrollIndicator={false}
@@ -553,17 +588,19 @@ export default function Questionnaire() {
             }}
             className="px-6 pt-6"
           >
-            {/* Emoji Header */}
+            {/* Emoji & Question Header */}
             <View className="items-center mb-2">
-              <View className="bg-white/60 w-20 h-20 rounded-[28px] items-center justify-center mb-5 border border-white/40">
+              <View className="bg-[#1A0B13] w-20 h-20 rounded-[28px] items-center justify-center mb-5 border border-rose-500/20 shadow-lg shadow-rose-950/50">
                 <Text className="text-4xl">
                   {QUESTION_EMOJIS[currentStep] ?? DEFAULT_EMOJI}
                 </Text>
               </View>
-              <Text className="text-[28px] font-black text-slate-800 text-center leading-9 tracking-tight px-2">
+
+              <Text className="text-[26px] font-black text-white text-center leading-9 tracking-tight px-2">
                 {currentQuestion.text}
               </Text>
-              <Text className="text-slate-400 font-semibold text-sm mt-3 text-center">
+
+              <Text className="text-rose-300/70 font-semibold text-sm mt-3 text-center">
                 {inputType === 'multi_select'
                   ? 'Select all that apply'
                   : inputType === 'text'
@@ -572,7 +609,7 @@ export default function Questionnaire() {
               </Text>
             </View>
 
-            {/* Options */}
+            {/* Options List */}
             <View className="mt-8">
               {['text', 'slider', 'date_picker'].includes(inputType) ? (
                 <Animated.View
@@ -590,13 +627,13 @@ export default function Questionnaire() {
                     ],
                   }}
                 >
-                  <View className="bg-white/90 rounded-[28px] p-2 border border-white/60">
+                  <View className="bg-[#1A0B13] rounded-[28px] p-2 border border-rose-500/30">
                     <TextInput
                       placeholder={
                         inputType === 'slider' ? 'Enter a number...' : inputType === 'date_picker' ? 'YYYY-MM-DD' : 'Type here...'
                       }
-                      placeholderTextColor="#c4b5b3"
-                      className="text-slate-800 font-semibold text-lg px-5 py-5"
+                      placeholderTextColor="#64748b"
+                      className="text-white font-semibold text-lg px-5 py-5"
                       value={textValue}
                       onChangeText={setTextValue}
                       autoFocus
@@ -632,23 +669,24 @@ export default function Questionnaire() {
                         activeOpacity={0.7}
                         className={`flex-row items-center mb-3 rounded-[22px] px-5 py-[18px] border-2 ${
                           selected
-                            ? 'bg-rose-500 border-rose-500'
-                            : 'bg-white/90 border-white/40'
+                            ? 'bg-[#FF2D55] border-[#FF5C80] shadow-lg shadow-rose-900/60'
+                            : 'bg-[#1A0B13] border-white/10'
                         }`}
                       >
                         <Text
                           className={`text-[16px] font-bold flex-1 ${
-                            selected ? 'text-white' : 'text-slate-700'
+                            selected ? 'text-white' : 'text-slate-200'
                           }`}
                         >
                           {option.option_text}
                         </Text>
+
                         {inputType === 'multi_select' && (
                           <View
                             className={`w-6 h-6 rounded-lg items-center justify-center ${
                               selected
                                 ? 'bg-white/30'
-                                : 'bg-slate-100 border border-slate-200'
+                                : 'bg-white/5 border border-white/20'
                             }`}
                           >
                             {selected && (
@@ -656,8 +694,9 @@ export default function Questionnaire() {
                             )}
                           </View>
                         )}
+
                         {inputType === 'single_select' && selected && (
-                          <View className="w-6 h-6 rounded-full bg-white/30 items-center justify-center">
+                          <View className="w-6 h-6 rounded-full bg-white/20 items-center justify-center">
                             <View className="w-3 h-3 rounded-full bg-white" />
                           </View>
                         )}
@@ -670,18 +709,17 @@ export default function Questionnaire() {
           </Animated.View>
         </ScrollView>
 
-        {/* Bottom Action */}
+        {/* Bottom Action Footer */}
         <View className="px-6 pb-6 pt-3">
-          {/* Show continue button for multi-select, text, slider, and date_picker types */}
           {['multi_select', 'text', 'slider', 'date_picker'].includes(inputType) && (
             <TouchableOpacity
-              onPress={handleNext}
+              onPress={() => handleNext()}
               disabled={isNextDisabled() || isSubmitting}
               activeOpacity={0.8}
               className={`rounded-[20px] h-[60px] items-center justify-center flex-row ${
                 isNextDisabled() || isSubmitting
-                  ? 'bg-slate-200 shadow-transparent'
-                  : 'bg-rose-500'
+                  ? 'bg-slate-800/60'
+                  : 'bg-[#FF2D55] shadow-lg shadow-rose-950/80'
               }`}
             >
               {isSubmitting && currentStep === questions.length - 1 ? (
@@ -690,29 +728,28 @@ export default function Questionnaire() {
                 <>
                   <Text
                     className={`font-bold text-[17px] mr-2 ${
-                      isNextDisabled() || isSubmitting ? 'text-slate-400' : 'text-white'
+                      isNextDisabled() || isSubmitting ? 'text-slate-500' : 'text-white'
                     }`}
                   >
-                    {currentStep === questions.length - 1 ? "Let's Go!" : 'Continue'}
+                    {currentStep === questions.length - 1 ? "Let's Play!" : 'Continue'}
                   </Text>
                   <Ionicons
                     name={currentStep === questions.length - 1 ? 'heart' : 'arrow-forward'}
                     size={20}
-                    color={isNextDisabled() || isSubmitting ? '#94a3b8' : 'white'}
+                    color={isNextDisabled() || isSubmitting ? '#64748b' : 'white'}
                   />
                 </>
               )}
             </TouchableOpacity>
           )}
 
-          {/* Show continue button for single-select only when answered */}
           {inputType === 'single_select' && answers[currentQuestion.id] && (
             <TouchableOpacity
-              onPress={handleNext}
+              onPress={() => handleNext()}
               activeOpacity={0.8}
               disabled={isSubmitting}
               className={`rounded-[20px] h-[60px] items-center justify-center flex-row ${
-                isSubmitting ? 'bg-rose-400' : 'bg-rose-500'
+                isSubmitting ? 'bg-rose-800' : 'bg-[#FF2D55] shadow-lg shadow-rose-950/80'
               }`}
             >
               {isSubmitting && currentStep === questions.length - 1 ? (
@@ -720,7 +757,7 @@ export default function Questionnaire() {
               ) : (
                 <>
                   <Text className="text-white font-bold text-[17px] mr-2">
-                    {currentStep === questions.length - 1 ? "Let's Go!" : 'Continue'}
+                    {currentStep === questions.length - 1 ? "Let's Play!" : 'Continue'}
                   </Text>
                   <Ionicons
                     name={currentStep === questions.length - 1 ? 'heart' : 'arrow-forward'}
@@ -736,4 +773,3 @@ export default function Questionnaire() {
     </SafeAreaView>
   );
 }
-

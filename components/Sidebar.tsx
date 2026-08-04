@@ -8,6 +8,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, Text, TouchableOpacity, View, DeviceEventEmitter } from 'react-native';
 import api from '@/services/api';
 
+import { DEFAULT_AVATAR } from '@/hooks/use-user-avatar';
+
 export default function Sidebar() {
   const { isOpen, closeSidebar } = useSidebar();
   const colorScheme = useColorScheme();
@@ -17,13 +19,17 @@ export default function Sidebar() {
   const [userName, setUserName] = useState('User');
   const [partnerName, setPartnerName] = useState<string | null>(null);
   const [connectionString, setConnectionString] = useState('Connected since 2022');
+  const [userAvatar, setUserAvatar] = useState<string>(DEFAULT_AVATAR);
 
-  // Load names from cache on open — instant, no API call
+  // Load names & avatar from cache on open — instant, no API call
   useEffect(() => {
     if (!isOpen) return;
     const loadNamesAndStats = async () => {
       const cachedName = await AsyncStorage.getItem('cachedUserName');
       if (cachedName) setUserName(cachedName);
+
+      const cachedAvatar = await AsyncStorage.getItem('cachedUserAvatar');
+      if (cachedAvatar) setUserAvatar(cachedAvatar);
 
       const activeRoomId = await AsyncStorage.getItem('activeRoomId');
       if (activeRoomId) {
@@ -49,6 +55,18 @@ export default function Sidebar() {
       });
     };
     loadNamesAndStats();
+
+    const sub = DeviceEventEmitter.addListener('profile:updated', (data) => {
+      if (data?.avatarUrl) {
+        setUserAvatar(data.avatarUrl);
+      }
+      if (data?.firstName) {
+        setUserName(data.firstName);
+      }
+    });
+    return () => {
+      sub.remove();
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -139,7 +157,7 @@ export default function Sidebar() {
             {/* Avatar Section */}
             <View className="relative w-20 h-20 mb-4">
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop' }}
+                source={{ uri: userAvatar }}
                 className="w-full h-full rounded-full border-[3px] border-[#e24e5d] dark:border-rose-400"
               />
               <View className="absolute -bottom-1 -right-2 bg-[#0d6e67] dark:bg-teal-600 w-8 h-8 rounded-full items-center justify-center border-2 border-white dark:border-[#180D10]">
@@ -150,7 +168,6 @@ export default function Sidebar() {
             <Text className="text-[28px] font-black text-[#af2c3b] dark:text-slate-100 tracking-tight">
               {partnerName ? `${userName} & ${partnerName}` : userName}
             </Text>
-            <Text className="text-[10px] font-bold text-[#e18e8e] dark:text-rose-400/60 tracking-[0.15em] uppercase mt-2">Level 14 Romantic</Text>
             <Text className="text-[14px] font-medium text-slate-600 dark:text-slate-400 mt-1 mb-10">{connectionString}</Text>
 
             {/* Menu Links */}
@@ -218,8 +235,8 @@ export default function Sidebar() {
 
           {/* Footer */}
           <View className="px-8 pb-12 pt-4 border-t border-slate-100 dark:border-slate-800/20 bg-[#fffdfc] dark:bg-[#180D10]/40 rounded-br-[40px]">
-            <Text className="text-3xl font-black italic text-[#af2c3b] dark:text-slate-100 tracking-tight mb-2">Love Dare</Text>
-            <Text className="text-[8px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase">Version 2.4.0 • Made with love</Text>
+            <Text className="text-3xl font-black italic text-[#af2c3b] dark:text-slate-100 tracking-tight mb-2">Soul Shuffle</Text>
+            <Text className="text-[8px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase">Version 1.1.1 • Made with love</Text>
           </View>
         </View>
       </View>
