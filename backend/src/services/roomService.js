@@ -76,40 +76,79 @@ const joinRoom = async (partnerId, code) => {
         codeVariants.push(rawCode.replace(/^ELV-/, 'SSF-'));
     }
 
-    // 1. Find room
+    console.log('[joinRoom] Looking for code variants:', codeVariants);
+
+    // 1. Find room — only look for WAITING or ACTIVE rooms (not COMPLETED/EXPIRED)
     const { data: rooms, error: findError } = await supabase
         .from('rooms')
         .select('*')
-        .in('code', codeVariants);
+        .in('code', codeVariants)
+        .in('status', ['WAITING', 'ACTIVE'])
+        .order('created_at', { ascending: false })
+        .limit(1);
 
     const room = (rooms && rooms.length > 0) ? rooms[0] : null;
 
-    if (findError || !room) {
-        const err = new Error('Invalid room code.');
+    if (findError) {
+        console.error('[joinRoom] DB error finding room:', findError.message);
+        const err = new Error('Server error looking up room.');
+        err.status = 500;
+        throw err;
+    }
+
+    if (!room) {
+        // Check if the code exists but is expired/completed — give a better error
+        const { data: anyRoom } = await supabase
+            .from('rooms')
+            .select('status')
+            .in('code', codeVariants)
+            .order('created_at', { ascending: false })
+            .limit(1);
+        
+        const pastRoom = anyRoom && anyRoom[0];
+        if (pastRoom?.status === 'COMPLETED' || pastRoom?.status === 'EXPIRED') {
+            const err = new Error('This room has already ended or expired.');
+            err.status = 400;
+            throw err;
+        }
+        console.log('[joinRoom] No room found for codes:', codeVariants);
+        const err = new Error('Invalid room code. Make sure you typed it correctly.');
         err.status = 404;
         throw err;
     }
+
+    console.log('[joinRoom] Found room:', room.id, 'status:', room.status);
 
     // 2. Check if host is joining their own room (just return it)
     if (room.host_id === partnerId) {
         return await populateRoomNames(room);
     }
 
-    // 3. Check if room is full
+    // 3. Check if room is full (someone else already joined)
     if (room.partner_id && room.partner_id !== partnerId) {
-        const err = new Error('Room is already full.');
+        const err = new Error('Room is already full. Someone else has joined.');
         err.status = 400;
         throw err;
     }
 
     // 4. Check expiry
-    if (new Date(room.expires_at) < new Date() || room.status === 'EXPIRED') {
+    if (new Date(room.expires_at) < new Date()) {
+        // Auto-mark as expired
+        await supabase.from('rooms').update({ status: 'EXPIRED' }).eq('id', room.id);
         const err = new Error('Room has expired.');
         err.status = 400;
         throw err;
     }
 
-    // 5. Update room to ACTIVE
+    // 5. Archive any existing WAITING rooms for the partner (they're joining a new room)
+    await supabase
+        .from('rooms')
+        .update({ status: 'COMPLETED' })
+        .eq('host_id', partnerId)
+        .in('status', ['WAITING'])
+        .neq('id', room.id);
+
+    // 6. Update room to ACTIVE with partner
     const { data: updatedRoom, error: updateError } = await supabase
         .from('rooms')
         .update({ partner_id: partnerId, status: 'ACTIVE' })
