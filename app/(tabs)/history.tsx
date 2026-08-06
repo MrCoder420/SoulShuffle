@@ -135,7 +135,20 @@ export default function History() {
         try {
           const activeRoom = await getActiveRoom();
           if (activeRoom?.game_state?.challenge_history) {
-            freshHistory = activeRoom.game_state.challenge_history;
+            freshHistory = activeRoom.game_state.challenge_history.map((item: SentChallenge) => {
+              const isHost = activeRoom.host_id === myUserId;
+              const actualPartnerName = isHost ? activeRoom.partner_name : activeRoom.host_name;
+              const actualPartnerAvatar = isHost ? activeRoom.partner_avatar : activeRoom.host_avatar;
+              
+              return {
+                ...item,
+                room_id: activeRoom.id,
+                room_code: activeRoom.code,
+                room_status: activeRoom.status,
+                partner_name: actualPartnerName || 'Partner',
+                partner_avatar: actualPartnerAvatar || null,
+              };
+            });
           }
         } catch (e) {
           // ignore
