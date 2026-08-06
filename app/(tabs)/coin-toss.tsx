@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Platform, StatusBar, ScrollView, StyleSheet, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSequence, withDelay, runOnJS } from 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
@@ -57,22 +57,25 @@ export default function CoinToss() {
     };
   });
 
-  // Room & Socket Setup
-  useEffect(() => {
-    const initRoomAndSocket = async () => {
-      try {
-        const activeRoom = await getActiveRoom();
-        setRoom(activeRoom);
-        if (activeRoom) {
-          await GameSocket.initialize();
-          GameSocket.joinRoom(activeRoom.code);
-        }
-      } catch (err) {
-        console.log('Failed to fetch room or setup socket in CoinToss:', err);
+  // Room & Socket Setup — sync every time screen gains focus
+  const syncRoomAndSocket = useCallback(async () => {
+    try {
+      const activeRoom = await getActiveRoom();
+      setRoom(activeRoom);
+      if (activeRoom && activeRoom.code) {
+        await GameSocket.initialize();
+        GameSocket.joinRoom(activeRoom.code);
       }
-    };
-    initRoomAndSocket();
+    } catch (err) {
+      console.log('Failed to sync room or socket in CoinToss:', err);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      syncRoomAndSocket();
+    }, [syncRoomAndSocket])
+  );
 
   const onFlipComplete = useCallback((finalResult: CoinFace) => {
     setResult(finalResult);
@@ -136,16 +139,26 @@ export default function CoinToss() {
     );
   }, [triggerFlipComplete]);
 
-  const handleFlip = () => {
+  const handleFlip = async () => {
     if (isFlipping) return;
+
+    let activeRoom = room;
+    if (!activeRoom) {
+      try {
+        activeRoom = await getActiveRoom();
+        if (activeRoom) setRoom(activeRoom);
+      } catch (e) {
+        // ignore
+      }
+    }
 
     // Determine random outcome (50/50 chance)
     const outcomes: CoinFace[] = ['HEADS', 'TAILS'];
     const finalOutcome = outcomes[Math.floor(Math.random() * outcomes.length)];
 
     // Send to partner via socket if room is active
-    if (room && room.status === 'ACTIVE') {
-      GameSocket.sendGameEvent(room.code, 'COIN_TOSS', {
+    if (activeRoom && activeRoom.code) {
+      GameSocket.sendGameEvent(activeRoom.code, 'COIN_TOSS', {
         choice: userChoice,
         result: finalOutcome
       });

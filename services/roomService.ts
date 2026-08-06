@@ -21,6 +21,8 @@ export interface Room {
   created_at: string;
   host_name?: string;
   partner_name?: string | null;
+  host_avatar?: string | null;
+  partner_avatar?: string | null;
 }
 
 export interface ChallengePayload {

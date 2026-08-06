@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Alert, Platform, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import api from '@/services/api';
 import GameSocket from '@/services/socketService';
 
@@ -17,7 +19,7 @@ try {
     }),
   });
 } catch (e) {
-  console.warn('[Notifications] Not supported in this environment (likely Expo Go).');
+  console.warn('[Notifications] setNotificationHandler error:', e);
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -39,11 +41,13 @@ interface NotificationContextType {
   unreadCount: number;
   notifications: AppNotification[];
   isLoading: boolean;
+  expoPushToken: string | null;
   fetchUnreadCount: () => Promise<void>;
   fetchNotifications: (page?: number) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
+  registerPushTokenWithBackend: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -53,6 +57,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const listenerRegistered = useRef(false);
 
   // Fetch unread count from REST API
@@ -113,33 +118,29 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     } catch (e) {}
   }, []);
 
-  // ── Request Android notification permission on first launch ────────────────
-  useEffect(() => {
-    const requestNotificationPermission = async () => {
-      if (Platform.OS === 'web') return;
+  // Register push token with backend
+  const registerPushTokenWithBackend = useCallback(async () => {
+    if (Platform.OS === 'web') return;
 
-      try {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    try {
+      // 1. Android Notification Channel setup
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#e11d48',
+          sound: 'default',
+          enableVibrate: true,
+          showBadge: true,
+        });
+      }
 
-        if (existingStatus === 'granted') return; // Already allowed — do nothing
+      // 2. Request / verify permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-        if (existingStatus === 'denied') {
-          // User previously denied — can only fix via Settings now
-          Alert.alert(
-            'Notifications Disabled',
-            'SoulShuffle notifications are disabled. To get dare alerts and partner updates, please enable notifications in your device Settings.',
-            [
-              { text: 'Not Now', style: 'cancel' },
-              {
-                text: 'Open Settings',
-                onPress: () => Linking.openSettings(),
-              },
-            ]
-          );
-          return;
-        }
-
-        // First time — show the system permission dialog
+      if (existingStatus !== 'granted') {
         const { status } = await Notifications.requestPermissionsAsync({
           ios: {
             allowAlert: true,
@@ -147,21 +148,77 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             allowSound: true,
           },
         });
-
-        if (status !== 'granted') {
-          console.log('[Notifications] Permission not granted by user.');
-        } else {
-          console.log('[Notifications] Permission granted.');
-        }
-      } catch (error) {
-        console.warn('[Notifications] requestPermissionsAsync failed (Expo Go limitation).');
+        finalStatus = status;
       }
-    };
 
-    requestNotificationPermission();
+      if (finalStatus !== 'granted') {
+        console.log('[Notifications] Permission not granted.');
+        return;
+      }
+
+      // 3. Obtain Expo Push Token
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId ??
+        '75231063-db0f-42e1-9654-e92a69abe55d';
+
+      const tokenResult = await Notifications.getExpoPushTokenAsync({
+        projectId,
+      });
+
+      const pushToken = tokenResult.data;
+      console.log('[Notifications] Push Token obtained:', pushToken);
+      setExpoPushToken(pushToken);
+
+      if (pushToken) {
+        await AsyncStorage.setItem('expoPushToken', pushToken);
+
+        // 4. Send token to backend if user is logged in
+        const accessToken = await AsyncStorage.getItem('accessToken');
+        if (accessToken) {
+          try {
+            await api.post('/notifications/register-push-token', { pushToken });
+            console.log('[Notifications] Push token successfully registered on backend');
+          } catch (apiErr) {
+            console.warn('[Notifications] Failed to send push token to backend:', apiErr);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Notifications] registerPushTokenWithBackend error:', err);
+    }
   }, []);
 
-  // ── Socket: listen for new_notification event ──────────────────────────────
+  // ── Register Push Token on mount ───────────────────────────
+  useEffect(() => {
+    registerPushTokenWithBackend();
+  }, [registerPushTokenWithBackend]);
+
+  // ── Handle Tap on Push Notification (Foreground / Background / Killed) ──
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    // Handle interaction when app was opened by tapping a notification
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('[Notifications] Notification tapped by user:', response);
+      try {
+        const data = response.notification.request.content.data;
+        if (data?.room_id) {
+          router.push('/(tabs)');
+        } else {
+          router.push('/notifications');
+        }
+      } catch (err) {
+        console.warn('[Notifications] Notification navigation error:', err);
+      }
+    });
+
+    return () => {
+      responseSubscription.remove();
+    };
+  }, []);
+
+  // ── Socket: listen for new_notification event (foreground live count) ──
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
 
@@ -177,22 +234,6 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
         // Bump unread count
         setUnreadCount(prev => prev + 1);
-
-        // Trigger OS-level local notification
-        if (Platform.OS !== 'web') {
-          try {
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: notification.title,
-                body: notification.body,
-                data: notification.data || {},
-              },
-              trigger: null, // trigger immediately
-            });
-          } catch (e) {
-            console.warn('[Notifications] scheduleNotificationAsync failed (Expo Go limitation).');
-          }
-        }
       });
 
       listenerRegistered.current = true;
@@ -223,11 +264,13 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         unreadCount,
         notifications,
         isLoading,
+        expoPushToken,
         fetchUnreadCount,
         fetchNotifications,
         markAsRead,
         markAllAsRead,
         deleteNotification,
+        registerPushTokenWithBackend,
       }}
     >
       {children}

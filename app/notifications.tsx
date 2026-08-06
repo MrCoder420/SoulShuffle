@@ -160,7 +160,7 @@ export default function NotificationCenter() {
               <Text className={`text-[11px] font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                 {(() => {
                     try {
-                        return formatDistanceToNow(new Date(item.created_at), { addSuffix: true });
+                        return formatDistanceToNow(new Date(item.created_at));
                     } catch (e) {
                         return '';
                     }

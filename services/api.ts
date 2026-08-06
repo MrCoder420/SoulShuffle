@@ -62,6 +62,13 @@ const refreshAccessToken = async (): Promise<string | null> => {
   await AsyncStorage.setItem('accessToken', newAccessToken);
   await AsyncStorage.setItem('refreshToken', newRefreshToken);
 
+  try {
+    const GameSocket = (await import('./socketService')).default;
+    GameSocket.updateToken(newAccessToken);
+  } catch (e) {
+    // Ignore if socket not loaded
+  }
+
   return newAccessToken;
 };
 

@@ -8,6 +8,8 @@ import { useSidebar } from '@/context/SidebarContext';
 import { useUserAvatar } from '@/hooks/use-user-avatar';
 import { getMyProfileCached } from '@/services/authService';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ANIMATED_AVATARS } from '@/constants/avatars';
 
 export default function Chat() {
   const { openSidebar } = useSidebar();
@@ -15,6 +17,7 @@ export default function Chat() {
   const router = useRouter();
   const [message, setMessage] = useState('');
   const [activeChallenge, setActiveChallenge] = useState<SentChallenge | null>(null);
+  const [partnerAvatar, setPartnerAvatar] = useState<string>(ANIMATED_AVATARS[1].url);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -62,6 +65,19 @@ export default function Chat() {
         const room = await getActiveRoom();
         if (isMounted) {
           setActiveChallenge(room?.game_state?.active_challenge || null);
+
+          if (room) {
+            const profile = await getMyProfileCached();
+            const myUserId = profile?.id;
+            const cachedPartnerAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
+            const resolvedAvatar = (myUserId === room.host_id ? room.partner_avatar : room.host_avatar);
+            if (cachedPartnerAvatar) {
+              setPartnerAvatar(cachedPartnerAvatar);
+            } else if (resolvedAvatar) {
+              setPartnerAvatar(resolvedAvatar);
+              await AsyncStorage.setItem(`partnerAvatar_${room.id}`, resolvedAvatar);
+            }
+          }
         }
       } catch (error) {
         console.log('Failed to load active challenge:', error);
@@ -69,7 +85,7 @@ export default function Chat() {
     };
 
     loadActiveChallenge();
-    const intervalId = setInterval(loadActiveChallenge, 20000);
+    const intervalId = setInterval(loadActiveChallenge, 15000);
 
     return () => {
       isMounted = false;
@@ -117,8 +133,8 @@ export default function Chat() {
           {/* Partner Message (Text) */}
           <View className="flex-row mb-6 items-end relative">
             <Image 
-              source={{ uri: 'https://plus.unsplash.com/premium_photo-1678120616858-54b35e2380f9?w=100&h=100&fit=crop' }} 
-              className="w-8 h-8 rounded-full mr-3 mb-1"
+              source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }} 
+              className="w-8 h-8 rounded-full mr-3 mb-1 border border-teal-500/40"
             />
             <View className="bg-[#e4dad6]/20 dark:bg-[#271318] rounded-2xl rounded-bl-sm p-4 w-[75%] shadow-slate-100 border border-white/50 dark:border-rose-950/20 relative">
               <Text className="text-[#3c3a3a] dark:text-slate-200 text-[15px] leading-6 font-medium">

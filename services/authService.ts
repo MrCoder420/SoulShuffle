@@ -5,6 +5,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const saveTokens = async (accessToken: string, refreshToken: string) => {
   await AsyncStorage.setItem('accessToken', accessToken);
   await AsyncStorage.setItem('refreshToken', refreshToken);
+
+  // Sync push token to backend for the authenticated user
+  try {
+    const pushToken = await AsyncStorage.getItem('expoPushToken');
+    if (pushToken) {
+      await api.post('/notifications/register-push-token', { pushToken });
+    }
+  } catch (e) {
+    // silently fail
+  }
 };
 
 // Helper to clear user cache

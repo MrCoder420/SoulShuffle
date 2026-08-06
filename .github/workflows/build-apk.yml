@@ -1,0 +1,91 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java 17 (Required for Expo SDK 54 / RN 0.81)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 🤖 Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 📦 Install Dependencies
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+
+      - name: ⚙️ Generate Native Android Project (Expo Prebuild)
+        run: npx expo prebuild --platform android --clean
+
+      - name: 🔑 Configure Release Keystore
+        if: ${{ github.event.inputs.build_type == 'release' || github.event_name != 'workflow_dispatch' }}
+        run: |
+          cd android/app
+          # Generate signing keystore
+          keytool -genkeypair -v -keystore release.keystore -alias couplegame -keyalg RSA -keysize 2048 -validity 10000 -storepass couplegame123 -keypass couplegame123 -dname "CN=SoulShuffle, OU=Mobile, O=Elevora, L=City, S=State, C=IN"
+          
+          # Inject release signing config into android/app/build.gradle
+          node -e '
+            const fs = require("fs");
+            let gradle = fs.readFileSync("build.gradle", "utf8");
+            const releaseConfig = `
+                  release {
+                      storeFile file("release.keystore")
+                      storePassword "couplegame123"
+                      keyAlias "couplegame"
+                      keyPassword "couplegame123"
+                  }
+            `;
+            gradle = gradle.replace(/signingConfigs\s*\{/, "signingConfigs {\n" + releaseConfig);
+            gradle = gradle.replace(/signingConfig\s+signingConfigs\.debug/g, "signingConfig signingConfigs.release");
+            fs.writeFileSync("build.gradle", gradle, "utf8");
+          '
+
+      - name: 🔨 Build Standalone APK with Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          if [ "${{ github.event.inputs.build_type }}" = "debug" ]; then
+            ./gradlew assembleDebug --no-daemon
+          else
+            ./gradlew assembleRelease --no-daemon
+          fi
+
+      - name: 🔍 Find and Package Built APK
+        run: |
+          APK_FILE=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          echo "Built APK at: $APK_FILE"
+          mkdir -p output_apk
+          cp "$APK_FILE" output_apk/CoupleGame.apk
+
+      - name: 🚀 Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoulShuffle-CoupleGame-APK
+          path: output_apk/CoupleGame.apk
+          retention-days: 30

@@ -1,11 +1,13 @@
 import { useSidebar } from '@/context/SidebarContext';
 import { useThemeToggle } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Image, ScrollView, StatusBar, Switch, Text, TextInput, TouchableOpacity, View, ActivityIndicator, DeviceEventEmitter, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getMyProfileCached, updateMyProfile } from '@/services/authService';
 import { getActiveRoom } from '@/services/roomService';
+import GameSocket from '@/services/socketService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ANIMATED_AVATARS, AVATAR_CATEGORIES, AnimatedAvatar } from '@/constants/avatars';
 
@@ -41,6 +43,7 @@ export default function Profile() {
 
   const [userName, setUserName] = useState('User');
   const [partnerName, setPartnerName] = useState('Partner');
+  const [partnerAvatar, setPartnerAvatar] = useState<string>(ANIMATED_AVATARS[1].url);
   const [activeRoom, setActiveRoom] = useState<any>(null);
   const [roomActiveTimeText, setRoomActiveTimeText] = useState<string>('');
   const [userAvatar, setUserAvatar] = useState<string>(ANIMATED_AVATARS[0].url);
@@ -98,44 +101,84 @@ export default function Profile() {
     }
   };
 
-  useEffect(() => {
-    const loadProfileAndRoom = async () => {
-      // ── Step 1: Load user name & avatar from cache (instant, no API call) ──
-      try {
-        const { firstName, avatarUrl } = await getMyProfileCached();
-        setUserName(firstName);
-        if (avatarUrl) {
-          setUserAvatar(avatarUrl);
-        }
-      } catch (err) {
-        console.log('Profile cache read failed in profile.tsx:', err);
-      }
+  const loadProfileAndRoom = useCallback(async () => {
+    // ── Step 1: Load user name & avatar from cache (instant, no API call) ──
+    try {
+      const cachedAvatar = await AsyncStorage.getItem('cachedUserAvatar');
+      if (cachedAvatar) setUserAvatar(cachedAvatar);
 
-      // ── Step 2: Load room + partner name ──
-      try {
-        const room = await getActiveRoom();
-        setActiveRoom(room);
-        if (room) {
-          // Read partner name from cache first (set when room was joined/from socket)
-          const cachedPartner = await AsyncStorage.getItem(`partnerName_${room.id}`);
-          if (cachedPartner) {
-            setPartnerName(cachedPartner);
-          } else if (room.partner_name) {
-            setPartnerName(room.partner_name);
-            // Store it for next time
-            await AsyncStorage.setItem(`partnerName_${room.id}`, room.partner_name);
-          }
+      const cachedName = await AsyncStorage.getItem('cachedUserName');
+      if (cachedName) setUserName(cachedName);
 
-          if (room.created_at) {
-            setRoomActiveTimeText(formatRoomActiveTime(room.created_at));
-          }
-        }
-      } catch (err) {
-        console.log('Active room fetch failed in profile.tsx:', err);
+      const profile = await getMyProfileCached();
+      if (profile?.firstName) setUserName(profile.firstName);
+      if (profile?.avatarUrl) {
+        setUserAvatar(profile.avatarUrl);
+        await AsyncStorage.setItem('cachedUserAvatar', profile.avatarUrl);
       }
-    };
-    loadProfileAndRoom();
+    } catch (err) {
+      console.log('Profile cache read failed in profile.tsx:', err);
+    }
+
+    // ── Step 2: Load room + partner details ──
+    try {
+      const room = await getActiveRoom();
+      setActiveRoom(room);
+      if (room) {
+        const profile = await getMyProfileCached();
+        const myUserId = profile?.id;
+
+        // Partner Name
+        const cachedPartner = await AsyncStorage.getItem(`partnerName_${room.id}`);
+        const resolvedName = (myUserId === room.host_id ? room.partner_name : room.host_name);
+        if (cachedPartner) {
+          setPartnerName(cachedPartner);
+        } else if (resolvedName) {
+          setPartnerName(resolvedName);
+          await AsyncStorage.setItem(`partnerName_${room.id}`, resolvedName);
+        }
+
+        // Partner Avatar
+        const cachedPartnerAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
+        const resolvedAvatar = (myUserId === room.host_id ? room.partner_avatar : room.host_avatar);
+        if (cachedPartnerAvatar) {
+          setPartnerAvatar(cachedPartnerAvatar);
+        } else if (resolvedAvatar) {
+          setPartnerAvatar(resolvedAvatar);
+          await AsyncStorage.setItem(`partnerAvatar_${room.id}`, resolvedAvatar);
+        } else {
+          setPartnerAvatar(ANIMATED_AVATARS[1].url);
+        }
+
+        if (room.created_at) {
+          setRoomActiveTimeText(formatRoomActiveTime(room.created_at));
+        }
+      }
+    } catch (err) {
+      console.log('Active room fetch failed in profile.tsx:', err);
+    }
   }, []);
+
+  // Reload profile on mount
+  useEffect(() => {
+    loadProfileAndRoom();
+
+    const sub = DeviceEventEmitter.addListener('profile:updated', (data) => {
+      if (data?.avatarUrl) setUserAvatar(data.avatarUrl);
+      if (data?.firstName) setUserName(data.firstName);
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, [loadProfileAndRoom]);
+
+  // Reload dynamically whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadProfileAndRoom();
+    }, [loadProfileAndRoom])
+  );
 
   // ── Animated Avatar Selection Handler ──────────────────────────
   const handleSelectAnimatedAvatar = async (avatar: AnimatedAvatar) => {
@@ -149,6 +192,14 @@ export default function Profile() {
         DeviceEventEmitter.emit('profile:updated', { avatarUrl: avatar.url });
       } catch (e) {
         console.log('Failed to save profile avatar to backend:', e);
+      }
+
+      // Broadcast over socket if active room exists
+      if (activeRoom && activeRoom.code) {
+        GameSocket.sendGameEvent(activeRoom.code, 'PARTNER_INFO', {
+          first_name: userName,
+          avatar_url: avatar.url
+        });
       }
     } catch (err) {
       console.log('Error selecting avatar:', err);
@@ -228,10 +279,11 @@ export default function Profile() {
             </TouchableOpacity>
 
             {/* Right Image (Partner Avatar) */}
-            <View className="absolute left-1/2 ml-[-20px] bg-[#669894] rounded-t-[40px] rounded-bl-[40px] rounded-br-[10px] overflow-hidden w-40 h-40">
+            <View className="absolute left-1/2 ml-[-20px] bg-[#669894] rounded-t-[40px] rounded-bl-[40px] rounded-br-[10px] overflow-hidden w-40 h-40 border-2 border-teal-400/30 shadow-lg">
               <Image
-                source={{ uri: 'https://plus.unsplash.com/premium_photo-1678120616858-54b35e2380f9?w=200&h=200&fit=crop' }}
+                source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }}
                 className="w-full h-full"
+                resizeMode="cover"
               />
             </View>
 

@@ -10,6 +10,7 @@ import { useSidebar } from '@/context/SidebarContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { getMyProfile, getMyProfileCached } from '@/services/authService';
 import { useUserAvatar } from '@/hooks/use-user-avatar';
+import { ANIMATED_AVATARS } from '@/constants/avatars';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import CountdownTimer from '@/components/CountdownTimer';
@@ -155,20 +156,29 @@ export default function Dashboard() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
   const [partnerName, setPartnerName] = useState('Partner');
+  const [partnerAvatar, setPartnerAvatar] = useState<string>(ANIMATED_AVATARS[1].url);
 
-  // ── Load cached profile instantly on mount ───────────────────
+  // ── Load cached profile & active room instantly on mount ───────────────────
   useEffect(() => {
-    const loadCachedProfile = async () => {
+    const loadCachedState = async () => {
       try {
         const cached = await getMyProfileCached();
         if (cached?.firstName) {
           setUserName(cached.firstName);
         }
+        const cachedRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
+        if (cachedRoomStr) {
+          const cachedRoom = JSON.parse(cachedRoomStr);
+          if (cachedRoom && cachedRoom.id) {
+            setActiveRoom(cachedRoom);
+            setRoomLoading(false);
+          }
+        }
       } catch (e) {
-        console.log('Failed to load cached profile in dashboard:', e);
+        console.log('Failed to load cached profile or room in dashboard:', e);
       }
     };
-    loadCachedProfile();
+    loadCachedState();
   }, []);
   const [deflectCardsCount, setDeflectCardsCount] = useState(0);
   const [deflectCards, setDeflectCards] = useState<any[]>([]);
@@ -196,15 +206,15 @@ export default function Dashboard() {
     }
   }, [cardSends, currentUserId, selectedReceivedCard, dismissedCardIds]);
 
-  // Load cached partner name when activeRoom changes
+  // Load cached partner name & avatar when activeRoom changes
   useEffect(() => {
-    const loadCachedPartnerName = async () => {
+    const loadCachedPartnerDetails = async () => {
       if (activeRoom) {
-        const cached = await AsyncStorage.getItem(`partnerName_${activeRoom.id}`);
-        if (cached) {
-          setPartnerName(cached);
+        // 1. Partner Name
+        const cachedName = await AsyncStorage.getItem(`partnerName_${activeRoom.id}`);
+        if (cachedName) {
+          setPartnerName(cachedName);
         } else {
-          // Fallback to activeRoom fields if present
           const resolved = (currentUserId === activeRoom.host_id ? activeRoom.partner_name : activeRoom.host_name);
           if (resolved) {
             setPartnerName(resolved);
@@ -213,30 +223,45 @@ export default function Dashboard() {
             setPartnerName('Partner');
           }
         }
+
+        // 2. Partner Avatar
+        const resolvedAvatar = (currentUserId === activeRoom.host_id ? activeRoom.partner_avatar : activeRoom.host_avatar);
+        if (resolvedAvatar) {
+          setPartnerAvatar(resolvedAvatar);
+          await AsyncStorage.setItem(`partnerAvatar_${activeRoom.id}`, resolvedAvatar);
+        } else {
+          const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${activeRoom.id}`);
+          if (cachedAvatar) {
+            setPartnerAvatar(cachedAvatar);
+          } else {
+            setPartnerAvatar(ANIMATED_AVATARS[1].url);
+          }
+        }
       }
     };
-    loadCachedPartnerName();
-  }, [activeRoom?.id, currentUserId]);
+    loadCachedPartnerDetails();
+  }, [activeRoom?.id, activeRoom?.status, activeRoom?.partner_id, activeRoom?.host_avatar, activeRoom?.partner_avatar, currentUserId]);
 
-  // Share name callback
-  const shareNameWithPartner = useCallback(() => {
-    if (activeRoom && activeRoom.status === 'ACTIVE' && userName) {
-      console.log('Broadcasting partner name to partner:', userName);
+  // Share name & avatar callback
+  const shareInfoWithPartner = useCallback(() => {
+    if (activeRoom && activeRoom.status === 'ACTIVE' && (userName || userAvatar)) {
+      console.log('Broadcasting partner info to partner:', { userName, userAvatar });
       GameSocket.sendGameEvent(activeRoom.code, 'PARTNER_INFO', {
-        first_name: userName
+        first_name: userName,
+        avatar_url: userAvatar
       });
     }
-  }, [activeRoom?.code, activeRoom?.status, userName]);
+  }, [activeRoom?.code, activeRoom?.status, userName, userAvatar]);
 
-  // Trigger name share after room loads or joins
+  // Trigger name & avatar share after room loads or joins
   useEffect(() => {
-    if (activeRoom && activeRoom.status === 'ACTIVE' && userName) {
+    if (activeRoom && activeRoom.status === 'ACTIVE' && (userName || userAvatar)) {
       const timer = setTimeout(() => {
-        shareNameWithPartner();
-      }, 1500);
+        shareInfoWithPartner();
+      }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [activeRoom?.code, activeRoom?.status, userName, shareNameWithPartner]);
+  }, [activeRoom?.code, activeRoom?.status, userName, userAvatar, shareInfoWithPartner]);
   
   // Find pending challenges
   const pendingChallenges = cardSends.filter(c => c.status === 'SENT') || [];
@@ -265,9 +290,22 @@ export default function Dashboard() {
       } catch (err) {
         console.log('Failed to fetch profile in dashboard:', err);
       }
-      const room = await getActiveRoom();
+      
+      let room: Room | null = null;
+      try {
+        room = await getActiveRoom();
+      } catch (apiErr: any) {
+        console.log('Failed to fetch active room from API (keeping cached room):', apiErr?.message);
+        // Do NOT wipe active room on network failure/timeout!
+        return;
+      }
+
       setActiveRoom(room);
+
       if (room) {
+        await AsyncStorage.setItem('cachedActiveRoom', JSON.stringify(room));
+        await AsyncStorage.setItem('activeRoomId', room.id);
+
         try {
           const sends = await fetchCardSends(room.id);
           const rawSends = sends?.sends || sends || [];
@@ -296,6 +334,9 @@ export default function Dashboard() {
           setDeflectCards([]);
         }
       } else {
+        // Explicitly no room from server
+        await AsyncStorage.removeItem('cachedActiveRoom');
+        await AsyncStorage.removeItem('activeRoomId');
         setCardSends([]);
         setDeflectCardsCount(0);
         setDeflectCards([]);
@@ -341,21 +382,30 @@ export default function Dashboard() {
 
   useEffect(() => {
     const handlePartnerJoined = (payload: any) => {
-      console.log('Partner joined, re-fetching room!', payload);
+      console.log('Partner joined, re-fetching room immediately!', payload);
       fetchActiveRoom(true);
-      // Share name again when new partner joins
-      shareNameWithPartner();
+      if (payload?.partnerName) setPartnerName(payload.partnerName);
+      if (payload?.partnerAvatar) setPartnerAvatar(payload.partnerAvatar);
+      // Share our own info back to partner
+      shareInfoWithPartner();
     };
 
     const handleGameEvent = async (payload: any) => {
       console.log('Game event received:', payload);
       if (payload.eventType === 'PARTNER_INFO') {
-        const { first_name } = payload.data || {};
+        const { first_name, avatar_url } = payload.data || {};
         if (first_name) {
           console.log('Partner name received over socket:', first_name);
           setPartnerName(first_name);
           if (activeRoom) {
             await AsyncStorage.setItem(`partnerName_${activeRoom.id}`, first_name);
+          }
+        }
+        if (avatar_url) {
+          console.log('Partner avatar received over socket:', avatar_url);
+          setPartnerAvatar(avatar_url);
+          if (activeRoom) {
+            await AsyncStorage.setItem(`partnerAvatar_${activeRoom.id}`, avatar_url);
           }
         }
       } else {
@@ -364,23 +414,43 @@ export default function Dashboard() {
     };
 
     GameSocket.on('partner_joined', handlePartnerJoined);
+    GameSocket.on('room_updated', handlePartnerJoined);
     GameSocket.on('game_event', handleGameEvent);
 
     return () => {
       GameSocket.off('partner_joined', handlePartnerJoined);
+      GameSocket.off('room_updated', handlePartnerJoined);
       GameSocket.off('game_event', handleGameEvent);
     };
-  }, [fetchActiveRoom, activeRoom?.id, shareNameWithPartner]);
+  }, [fetchActiveRoom, activeRoom?.id, shareInfoWithPartner]);
+
+  // ── Automatic Polling when Waiting for Partner ────────────────
+  useEffect(() => {
+    if (!activeRoom || activeRoom.status !== 'WAITING') return;
+
+    console.log('[Dashboard] Room is in WAITING state, polling every 3s for partner to join...');
+    const pollInterval = setInterval(() => {
+      fetchActiveRoom(true);
+    }, 3000);
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [activeRoom?.status, activeRoom?.id, fetchActiveRoom]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
+    const subscription = AppState.addEventListener('change', async nextAppState => {
       if (nextAppState === 'active') {
         fetchActiveRoom(true);
+        if (activeRoom?.code) {
+          await GameSocket.initialize();
+          GameSocket.joinRoom(activeRoom.code);
+        }
       }
     });
 
     return () => subscription.remove();
-  }, [fetchActiveRoom]);
+  }, [fetchActiveRoom, activeRoom?.code]);
 
   // ── Create Room Handler ────────────────────────────────
   const handleCreateRoom = async () => {
@@ -966,7 +1036,7 @@ export default function Dashboard() {
                     {activeRoom.status === 'ACTIVE' ? (
                       <View className="w-10 h-10 rounded-full border-2 border-teal-500 overflow-hidden shadow-sm">
                         <Image 
-                          source={{ uri: 'https://plus.unsplash.com/premium_photo-1678120616858-54b35e2380f9?w=100&h=100&fit=crop' }} 
+                          source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }} 
                           className="w-full h-full"
                         />
                       </View>
