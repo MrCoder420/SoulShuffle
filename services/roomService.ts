@@ -37,9 +37,26 @@ export interface ChallengePayload {
 }
 
 export interface SentChallenge extends ChallengePayload {
+  room_id?: string;
+  room_code?: string;
+  room_status?: string;
+  partner_name?: string;
+  partner_avatar?: string | null;
   sender_id?: string;
+  receiver_id?: string;
+  sender_name?: string;
+  receiver_name?: string;
+  sender_avatar?: string | null;
+  receiver_avatar?: string | null;
+  is_sent_by_me?: boolean;
+  card_id?: string;
+  theme_color?: string;
+  card_type?: string;
   status?: string;
   sent_at?: string;
+  accepted_at?: string;
+  completed_at?: string;
+  deflected_at?: string;
 }
 
 // ── CLEAR ROOM CACHE ─────────────────────────────────────

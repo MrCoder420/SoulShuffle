@@ -1,114 +1,62 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { View, Text, ScrollView, Image, TouchableOpacity, StatusBar, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getActiveRoom, fetchRoomHistory, SentChallenge } from '@/services/roomService';
+import { fetchRoomHistory, getActiveRoom, SentChallenge } from '@/services/roomService';
 import { getMyProfileCached } from '@/services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
 import { useUserAvatar } from '@/hooks/use-user-avatar';
 
-type FilterType = 'ALL' | 'THIS_WEEK' | 'LAST_MONTH';
+type FilterType = 'ALL' | 'SENT_BY_ME' | 'RECEIVED' | 'COMPLETED';
+
+interface RoomGroup {
+  roomId: string;
+  roomCode: string;
+  roomStatus: string;
+  partnerName: string;
+  partnerAvatar?: string | null;
+  dateGroups: {
+    dateLabel: string;
+    items: SentChallenge[];
+  }[];
+}
 
 export default function History() {
   const { openSidebar } = useSidebar();
   const userAvatar = useUserAvatar();
   const router = useRouter();
   const [challengeHistory, setChallengeHistory] = useState<SentChallenge[]>([]);
-  const [stats, setStats] = useState({ completionRate: 0, currentStreak: 0, daresMastered: 0 });
+  const [stats, setStats] = useState({ completionRate: 0, currentStreak: 0, daresMastered: 0, totalCards: 0 });
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  useEffect(() => {
-    let isMounted = true;
+  // Format date helper for WhatsApp-like date pills
+  const getDateLabel = (dateStr?: string) => {
+    if (!dateStr) return 'Recent';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Recent';
 
-    const loadHistory = async () => {
-      try {
-        // Fetch current user ID to distinguish sender vs receiver
-        const profile = await getMyProfileCached();
-        if (profile?.id && isMounted) {
-          setMyUserId(profile.id);
-        }
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
 
-        // 1. Load from Cache for instant UI
-        const cached = await AsyncStorage.getItem('cachedRoomHistory');
-        if (cached && isMounted) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed)) {
-            setChallengeHistory(parsed);
-            calculateStats(parsed);
-          }
-        }
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
 
-        // 2. Fetch fresh data in background
-        const room = await getActiveRoom();
-        if (room) {
-          let historyItems: SentChallenge[] = [];
-          try {
-            const freshHistory = await fetchRoomHistory(room.id);
-            if (Array.isArray(freshHistory) && freshHistory.length > 0) {
-              historyItems = freshHistory;
-            }
-          } catch (err) {
-            // Fallback to room.game_state
-          }
+    if (isToday) return 'Today';
+    if (isYesterday) return 'Yesterday';
 
-          // If freshHistory wasn't returned from API, assemble from game_state
-          if (historyItems.length === 0 && room.game_state) {
-            const gameStateHistory = room.game_state.challenge_history || [];
-            const activeChallenge = room.game_state.active_challenge;
-            if (activeChallenge) {
-              const exists = gameStateHistory.some((c: any) => c.id === activeChallenge.id);
-              historyItems = exists ? gameStateHistory : [activeChallenge, ...gameStateHistory];
-            } else {
-              historyItems = gameStateHistory;
-            }
-          }
-
-          if (isMounted && historyItems.length > 0) {
-            setChallengeHistory(historyItems);
-            calculateStats(historyItems);
-            await AsyncStorage.setItem('cachedRoomHistory', JSON.stringify(historyItems));
-          }
-        }
-      } catch (error) {
-        console.log('Failed to load history:', error);
-      }
-    };
-
-    loadHistory();
-    const intervalId = setInterval(loadHistory, 15000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  const filteredHistory = useMemo(() => {
-    const now = new Date();
-    if (activeFilter === 'THIS_WEEK') {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      return challengeHistory.filter(c => c.sent_at ? new Date(c.sent_at) >= weekAgo : false);
-    }
-    if (activeFilter === 'LAST_MONTH') {
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return challengeHistory.filter(c => c.sent_at ? new Date(c.sent_at) >= monthAgo : false);
-    }
-    return challengeHistory;
-  }, [challengeHistory, activeFilter]);
-
-  const formatChallengeDate = (value?: string) => {
-    if (!value) return 'Recently';
-    return new Date(value).toLocaleDateString(undefined, {
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
+      year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
     });
   };
 
@@ -116,22 +64,25 @@ export default function History() {
     const daresMastered = history.filter(
       c => (c.status || '').toUpperCase() === 'COMPLETED' || (c.status || '').toUpperCase() === 'CONFIRMED'
     ).length;
-    const completionRate = history.length > 0 ? Math.round((daresMastered / history.length) * 100) : 0;
-    
+    const total = history.length;
+    const completionRate = total > 0 ? Math.round((daresMastered / total) * 100) : 0;
+
     let currentStreak = 0;
     if (history.length > 0) {
       const dates = history
         .filter(c => c.sent_at)
-        .map(c => new Date(c.sent_at!).setHours(0,0,0,0))
+        .map(c => new Date(c.sent_at!).setHours(0, 0, 0, 0))
+        .filter(t => !isNaN(t))
         .sort((a, b) => b - a);
+
       const uniqueDates = [...new Set(dates)];
-      const today = new Date().setHours(0,0,0,0);
+      const today = new Date().setHours(0, 0, 0, 0);
       const yesterday = today - 86400000;
-      
-      if (uniqueDates[0] === today || uniqueDates[0] === yesterday) {
+
+      if (uniqueDates.length > 0 && (uniqueDates[0] === today || uniqueDates[0] === yesterday)) {
         currentStreak = 1;
         for (let i = 0; i < uniqueDates.length - 1; i++) {
-          if (uniqueDates[i] - uniqueDates[i+1] === 86400000) {
+          if (uniqueDates[i] - uniqueDates[i + 1] === 86400000) {
             currentStreak++;
           } else {
             break;
@@ -139,28 +90,172 @@ export default function History() {
         }
       }
     }
-    
-    setStats({ completionRate, currentStreak, daresMastered });
+
+    setStats({ completionRate, currentStreak, daresMastered, totalCards: total });
   };
+
+  const loadHistory = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true);
+    try {
+      // 1. Get current user ID
+      const profile = await getMyProfileCached();
+      const currentUserId = profile?.id || null;
+      if (currentUserId) {
+        setMyUserId(currentUserId);
+      }
+
+      const cacheKey = currentUserId ? `cached_account_history_${currentUserId}` : 'cachedRoomHistory';
+
+      // 2. Read instant cache if not already refreshing
+      if (!showRefreshing) {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setChallengeHistory(parsed);
+              calculateStats(parsed);
+            }
+          } catch (e) {
+            console.log('Cache parse error:', e);
+          }
+        }
+      }
+
+      // 3. Fetch comprehensive multi-room account history from backend
+      let freshHistory: SentChallenge[] = [];
+      try {
+        freshHistory = await fetchRoomHistory(); // Multi-room account-wide query
+      } catch (err) {
+        console.log('Fetch room history API error:', err);
+      }
+
+      // 4. Also check active room game_state as safety fallback
+      if (!Array.isArray(freshHistory) || freshHistory.length === 0) {
+        try {
+          const activeRoom = await getActiveRoom();
+          if (activeRoom?.game_state?.challenge_history) {
+            freshHistory = activeRoom.game_state.challenge_history;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (Array.isArray(freshHistory) && freshHistory.length > 0) {
+        setChallengeHistory(freshHistory);
+        calculateStats(freshHistory);
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(freshHistory));
+      }
+    } catch (error) {
+      console.log('Failed to load history:', error);
+    } finally {
+      if (showRefreshing) setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+    const interval = setInterval(() => loadHistory(false), 20000);
+    return () => clearInterval(interval);
+  }, [loadHistory]);
+
+  // Filter history
+  const filteredHistory = useMemo(() => {
+    return challengeHistory.filter(item => {
+      const isSentByMe = item.is_sent_by_me ?? (myUserId ? item.sender_id === myUserId : true);
+      const rawStatus = (item.status || 'SENT').toUpperCase();
+
+      if (activeFilter === 'SENT_BY_ME') return isSentByMe;
+      if (activeFilter === 'RECEIVED') return !isSentByMe;
+      if (activeFilter === 'COMPLETED') return rawStatus === 'COMPLETED' || rawStatus === 'CONFIRMED';
+      return true; // 'ALL'
+    });
+  }, [challengeHistory, activeFilter, myUserId]);
+
+  // Group by Room Session, then by Date (WhatsApp style)
+  const roomGroups = useMemo<RoomGroup[]>(() => {
+    const groupsMap = new Map<string, {
+      roomId: string;
+      roomCode: string;
+      roomStatus: string;
+      partnerName: string;
+      partnerAvatar?: string | null;
+      items: SentChallenge[];
+    }>();
+
+    filteredHistory.forEach(item => {
+      const roomId = item.room_id || 'active_session';
+      const roomCode = item.room_code || 'ROOM';
+      const roomStatus = item.room_status || 'ACTIVE';
+      const partnerName = item.partner_name || (item.is_sent_by_me ? (item.receiver_name || 'Partner') : (item.sender_name || 'Partner'));
+      const partnerAvatar = item.partner_avatar || (item.is_sent_by_me ? item.receiver_avatar : item.sender_avatar) || null;
+
+      if (!groupsMap.has(roomId)) {
+        groupsMap.set(roomId, {
+          roomId,
+          roomCode,
+          roomStatus,
+          partnerName,
+          partnerAvatar,
+          items: []
+        });
+      }
+
+      groupsMap.get(roomId)!.items.push(item);
+    });
+
+    const result: RoomGroup[] = [];
+
+    groupsMap.forEach(group => {
+      // Group cards in this room by Date
+      const dateMap = new Map<string, SentChallenge[]>();
+      group.items.forEach(item => {
+        const dateKey = getDateLabel(item.sent_at);
+        if (!dateMap.has(dateKey)) {
+          dateMap.set(dateKey, []);
+        }
+        dateMap.get(dateKey)!.push(item);
+      });
+
+      const dateGroups = Array.from(dateMap.entries()).map(([dateLabel, items]) => ({
+        dateLabel,
+        items
+      }));
+
+      result.push({
+        roomId: group.roomId,
+        roomCode: group.roomCode,
+        roomStatus: group.roomStatus,
+        partnerName: group.partnerName,
+        partnerAvatar: group.partnerAvatar,
+        dateGroups
+      });
+    });
+
+    return result;
+  }, [filteredHistory]);
 
   const getChallengeStatusInfo = (challenge: SentChallenge, userId: string | null, darkScheme: boolean) => {
     const rawStatus = (challenge.status || 'SENT').toUpperCase();
-    const isSender = challenge.sender_id ? challenge.sender_id === userId : true;
+    const isSender = challenge.is_sent_by_me ?? (challenge.sender_id ? challenge.sender_id === userId : true);
 
     if (rawStatus === 'COMPLETED' || rawStatus === 'CONFIRMED') {
       return {
         statusText: 'Completed',
         statusIcon: 'checkmark-circle',
         statusColor: darkScheme ? '#2dd4bf' : '#0d6e67',
+        statusBg: darkScheme ? 'rgba(45,212,191,0.15)' : '#e6f7f5',
         dotColor: '#2dd4bf',
       };
     }
 
     if (rawStatus === 'ACCEPTED' || rawStatus === 'ACTIVE' || rawStatus === 'IN_PROGRESS' || rawStatus === 'COMPLETED_BY_RECEIVER') {
       return {
-        statusText: 'Active',
+        statusText: 'In Progress',
         statusIcon: 'flame',
         statusColor: darkScheme ? '#f43f5e' : '#e11d48',
+        statusBg: darkScheme ? 'rgba(244,63,94,0.15)' : '#ffe4e6',
         dotColor: '#ff2d55',
       };
     }
@@ -170,6 +265,7 @@ export default function History() {
         statusText: 'Deflected',
         statusIcon: 'shield-checkmark',
         statusColor: darkScheme ? '#818cf8' : '#4f46e5',
+        statusBg: darkScheme ? 'rgba(129,140,248,0.15)' : '#e0e7ff',
         dotColor: '#6366f1',
       };
     }
@@ -179,6 +275,7 @@ export default function History() {
         statusText: 'Declined',
         statusIcon: 'close-circle',
         statusColor: darkScheme ? '#f87171' : '#dc2626',
+        statusBg: darkScheme ? 'rgba(248,113,113,0.15)' : '#fee2e2',
         dotColor: '#ef4444',
       };
     }
@@ -187,7 +284,8 @@ export default function History() {
       return {
         statusText: 'Expired',
         statusIcon: 'time',
-        statusColor: darkScheme ? '#94a3b8' : '#857169',
+        statusColor: darkScheme ? '#94a3b8' : '#64748b',
+        statusBg: darkScheme ? 'rgba(148,163,184,0.15)' : '#f1f5f9',
         dotColor: darkScheme ? '#475569' : '#cbd5e1',
       };
     }
@@ -198,6 +296,7 @@ export default function History() {
         statusText: 'Sent',
         statusIcon: 'paper-plane',
         statusColor: darkScheme ? '#38bdf8' : '#0284c7',
+        statusBg: darkScheme ? 'rgba(56,189,248,0.15)' : '#e0f2fe',
         dotColor: '#0284c7',
       };
     } else {
@@ -205,184 +304,365 @@ export default function History() {
         statusText: 'Received',
         statusIcon: 'download',
         statusColor: darkScheme ? '#fbbf24' : '#d97706',
+        statusBg: darkScheme ? 'rgba(251,191,36,0.15)' : '#fef3c7',
         dotColor: '#fbbf24',
       };
     }
   };
 
-  const filterPills: { label: string; value: FilterType }[] = [
-    { label: 'All', value: 'ALL' },
-    { label: 'This Week', value: 'THIS_WEEK' },
-    { label: 'Last Month', value: 'LAST_MONTH' },
+  const filterPills: { label: string; value: FilterType; icon: any }[] = [
+    { label: 'All Dares', value: 'ALL', icon: 'layers-outline' },
+    { label: 'Sent by You', value: 'SENT_BY_ME', icon: 'paper-plane-outline' },
+    { label: 'Received', value: 'RECEIVED', icon: 'download-outline' },
+    { label: 'Completed', value: 'COMPLETED', icon: 'checkmark-done-outline' },
   ];
 
   return (
     <SafeAreaView className="flex-1 bg-[#fffaf9] dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fffaf9"} />
-      
+
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fffaf9] dark:bg-[#0F0608] z-10">
-        <TouchableOpacity onPress={openSidebar}>
-          <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
+      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fffaf9] dark:bg-[#0F0608] z-10 border-b border-rose-100/50 dark:border-rose-950/20">
+        <TouchableOpacity onPress={openSidebar} activeOpacity={0.7} className="p-1">
+          <Ionicons name="menu-outline" size={28} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
         <View className="flex-row items-center gap-1.5">
-          <Ionicons name="infinite" size={28} color={isDark ? "#fda4af" : "#be123c"} style={{ transform: [{ rotate: '-15deg' }] }} />
-          <Text className="text-[#a12338] dark:text-rose-400 font-black text-xl tracking-tight">SoulShuffle</Text>
+          <Ionicons name="hourglass" size={24} color={isDark ? "#fda4af" : "#be123c"} />
+          <Text className="text-[#a12338] dark:text-rose-400 font-black text-xl tracking-tight">Game Journey</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/profile')}>
-          <Image 
-            source={{ uri: userAvatar }} 
+        <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7}>
+          <Image
+            source={{ uri: userAvatar }}
             className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
           />
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 160, paddingTop: 10 }}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 160, paddingTop: 14 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadHistory(true)}
+            tintColor={isDark ? "#fb7185" : "#e11d48"}
+            colors={["#e11d48", "#0d6e67"]}
+          />
+        }
       >
         {/* Title Section */}
-        <View className="mb-8 items-center mt-2">
-          <Text className="text-[10px] font-bold text-[#b91c1c] dark:text-rose-400 tracking-[0.25em] uppercase w-full text-center mb-4">
-            Timeline & Progress
+        <View className="mb-6 items-center">
+          <Text className="text-[10px] font-bold text-[#b91c1c] dark:text-rose-400 tracking-[0.25em] uppercase w-full text-center mb-1.5">
+            Complete Game Archive
           </Text>
-          <Text className="text-[42px] leading-[48px] font-black w-full text-center text-slate-900 dark:text-white tracking-tight">
-            Our <Text className="text-[#b91c1c] dark:text-rose-400 italic">Journey</Text>{'\n'}Together.
+          <Text className="text-[32px] leading-[38px] font-black w-full text-center text-slate-900 dark:text-white tracking-tight">
+            Our <Text className="text-[#b91c1c] dark:text-rose-400 italic">Moments</Text> & Dares
+          </Text>
+          <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-center font-medium">
+            All past & current rooms across your account
           </Text>
         </View>
 
-        {/* Stats Cards */}
-        <View className="mb-8">
-          {/* Completion Rate Card */}
-          <View className="bg-[#f7eceb] dark:bg-[#271318] rounded-[32px] p-6 mb-4 relative overflow-hidden">
-            <Ionicons name="heart" size={140} color={isDark ? "#0F0608" : "#e5d5d3"} style={{ position: 'absolute', right: -30, top: 10, opacity: 0.8 }} />
-            <Text className="text-[9px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase mb-1">Completion Rate</Text>
-            <Text className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter mb-6">{stats.completionRate}%</Text>
-            
-            <View className="w-[85%] h-2.5 bg-slate-200/60 dark:bg-[#0F0608] rounded-full flex-row z-10">
-              <View className="h-full bg-[#0d6e67] dark:bg-teal-400 rounded-full" style={{ width: `${stats.completionRate}%` }}></View>
+        {/* Stats Cards Row */}
+        <View className="flex-row gap-3 mb-6">
+          {/* Completion Rate */}
+          <View className="flex-1 bg-[#f7eceb] dark:bg-[#271318] rounded-2xl p-4 relative overflow-hidden border border-rose-200/50 dark:border-rose-950/30">
+            <Text className="text-[9px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase mb-1">Completion</Text>
+            <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{stats.completionRate}%</Text>
+            <View className="w-full h-1.5 bg-slate-200/80 dark:bg-slate-800 rounded-full mt-2 overflow-hidden">
+              <View className="h-full bg-teal-600 dark:bg-teal-400 rounded-full" style={{ width: `${stats.completionRate}%` }} />
             </View>
           </View>
 
-          {/* Current Streak Card */}
-          <View className="bg-[#f7eceb] dark:bg-[#271318] rounded-[32px] p-6 mb-4">
-            <Text className="text-[9px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase mb-1">Current Streak</Text>
-            <Text className="text-4xl font-black text-[#b91c1c] dark:text-rose-400 tracking-tighter mb-6">{stats.currentStreak} Days</Text>
-            
-            <View className="flex-row items-center justify-between w-[90%] gap-2">
+          {/* Current Streak */}
+          <View className="flex-1 bg-[#f7eceb] dark:bg-[#271318] rounded-2xl p-4 border border-rose-200/50 dark:border-rose-950/30">
+            <Text className="text-[9px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase mb-1">Active Streak</Text>
+            <Text className="text-2xl font-black text-[#b91c1c] dark:text-rose-400 tracking-tight">{stats.currentStreak} <Text className="text-xs font-semibold text-slate-500">Days</Text></Text>
+            <View className="flex-row items-center gap-1 mt-2">
               {[...Array(5)].map((_, i) => (
-                <View key={i} style={{ flex: 1, height: 6, borderRadius: 999, backgroundColor: i < Math.min(stats.currentStreak, 5) ? (isDark ? '#fecdd3' : '#b91c1c') : (isDark ? 'rgba(15,6,8,0.6)' : '#eebdbd') }}></View>
+                <View
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: 4,
+                    borderRadius: 999,
+                    backgroundColor: i < Math.min(stats.currentStreak, 5) ? (isDark ? '#f43f5e' : '#b91c1c') : (isDark ? '#3b1c24' : '#e5d5d3')
+                  }}
+                />
               ))}
             </View>
           </View>
 
-          {/* Dares Mastered Card */}
-          <View className="bg-[#ab2f33] dark:bg-indigo-900 rounded-[32px] p-6">
-            <Text className="text-[9px] font-bold text-white/80 tracking-widest uppercase mb-1">Dares Mastered</Text>
-            <Text className="text-5xl font-black text-white tracking-tighter mb-6">{stats.daresMastered}</Text>
-            <Text className="text-[13px] font-medium text-white/90">You&apos;re doing great!</Text>
+          {/* Dares Mastered */}
+          <View className="flex-1 bg-[#ab2f33] dark:bg-rose-950 rounded-2xl p-4">
+            <Text className="text-[9px] font-bold text-white/80 tracking-wider uppercase mb-1">Mastered</Text>
+            <Text className="text-2xl font-black text-white tracking-tight">{stats.daresMastered}</Text>
+            <Text className="text-[10px] text-white/70 font-medium mt-1">Dares Won 🎉</Text>
           </View>
         </View>
 
         {/* Filter Pills */}
-        <View className="flex-row flex-wrap gap-2 mb-8 justify-center">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6" contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}>
           {filterPills.map(pill => {
             const isActive = activeFilter === pill.value;
             return (
               <TouchableOpacity
                 key={pill.value}
                 onPress={() => setActiveFilter(pill.value)}
+                activeOpacity={0.8}
+                className="flex-row items-center gap-1.5 px-4 py-2 rounded-full"
                 style={{
                   backgroundColor: isActive ? '#ab2f33' : (isDark ? '#271318' : '#ede4e3'),
-                  paddingHorizontal: isActive ? 24 : 20,
-                  paddingVertical: 8,
-                  borderRadius: 999,
                 }}
               >
-                <Text style={{
-                  color: isActive ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
-                  fontWeight: '700',
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  textTransform: 'uppercase',
-                }}>
+                <Ionicons
+                  name={pill.icon}
+                  size={14}
+                  color={isActive ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b')}
+                />
+                <Text
+                  style={{
+                    color: isActive ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
+                    fontWeight: '700',
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                  }}
+                >
                   {pill.label}
                 </Text>
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
 
-        {/* Timeline Section */}
-        <View className="relative">
-          {/* Vertical Timeline Track */}
-          <View className="absolute left-[5px] top-4 bottom-10 w-[1px]" style={{ borderStyle: 'dotted', borderWidth: 1, borderColor: isDark ? '#4c1d24' : '#eec5c5', opacity: 0.6 }} />
+        {/* Room Sessions Timeline (Grouped by Room and Date) */}
+        {roomGroups.map(roomGroup => {
+          const isActiveRoom = roomGroup.roomStatus === 'ACTIVE' || roomGroup.roomStatus === 'WAITING';
 
-          {filteredHistory.map((challenge, index) => {
-            const { statusText, statusIcon, statusColor, dotColor } = getChallengeStatusInfo(challenge, myUserId, isDark);
-            const isExpired = (challenge.status || '').toUpperCase() === 'EXPIRED';
-
-            return (
-              <View key={`${challenge.id}-${challenge.sent_at || index}`} className="mb-6 relative flex-row">
-                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: dotColor, position: 'absolute', left: 0, top: 20 }} />
-                <View style={{
-                  marginLeft: 24, flex: 1,
-                  backgroundColor: isDark ? '#271318' : '#ffffff',
-                  borderRadius: 28, overflow: 'hidden',
-                  borderWidth: 1, borderColor: isDark ? 'rgba(136,19,55,0.2)' : 'rgba(248,240,240,0.8)',
-                  opacity: isExpired ? 0.8 : 1,
-                }}>
-                  {challenge.image && !isExpired && (
-                    <Image 
-                      source={typeof challenge.image === 'string' ? { uri: challenge.image } : challenge.image} 
-                      className="w-full h-32" 
-                    />
-                  )}
-                  <View className="p-6">
-                    <View className="flex-row justify-between items-center mb-3">
-                      <Text style={{ color: isDark ? '#94a3b8' : '#94a3b8', fontSize: 9, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase' }}>
-                        {formatChallengeDate(challenge.sent_at)}
+          return (
+            <View key={roomGroup.roomId} className="mb-8">
+              {/* WhatsApp-Style Room Header Banner */}
+              <View
+                className="rounded-2xl p-3.5 mb-4 flex-row items-center justify-between border"
+                style={{
+                  backgroundColor: isDark ? '#1a0d11' : '#fcedee',
+                  borderColor: isDark ? 'rgba(225,29,72,0.2)' : 'rgba(225,29,72,0.15)',
+                }}
+              >
+                <View className="flex-row items-center gap-2.5">
+                  <View className="w-8 h-8 rounded-full bg-rose-500/20 items-center justify-center">
+                    <Ionicons name="game-controller" size={16} color={isDark ? "#fda4af" : "#be123c"} />
+                  </View>
+                  <View>
+                    <View className="flex-row items-center gap-2">
+                      <Text className="text-xs font-black tracking-wider text-slate-900 dark:text-white uppercase">
+                        Room #{roomGroup.roomCode}
                       </Text>
-                      <View className="flex-row items-center">
-                        <Ionicons name={statusIcon as any} size={13} color={statusColor} />
-                        <Text style={{ color: statusColor }} className="text-[9px] font-bold tracking-widest uppercase ml-1.5">{statusText}</Text>
+                      <View
+                        className="px-2 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: isActiveRoom ? 'rgba(16,185,129,0.15)' : 'rgba(100,116,139,0.15)',
+                        }}
+                      >
+                        <Text
+                          className="text-[9px] font-bold uppercase tracking-wider"
+                          style={{ color: isActiveRoom ? '#10b981' : '#64748b' }}
+                        >
+                          {isActiveRoom ? '🟢 Active' : '⚪ Session Ended'}
+                        </Text>
                       </View>
                     </View>
-                    <Text style={{ color: isDark ? '#ffffff' : '#0f172a' }} className="text-xl font-bold tracking-tight mb-2">{challenge.title}</Text>
-                    <Text style={{ color: isDark ? '#cbd5e1' : '#64748b' }} className="text-[13px] leading-5 font-medium mb-5">
-                      {challenge.description}
+                    <Text className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      Partner: <Text className="font-bold text-rose-600 dark:text-rose-400">{roomGroup.partnerName}</Text>
                     </Text>
-                    <View className="flex-row justify-between items-center pt-2" style={{ borderTopWidth: 1, borderTopColor: isDark ? 'rgba(136,19,55,0.2)' : 'rgba(248,240,240,0.8)' }}>
-                      <View className="flex-row items-center">
-                        <Ionicons name="time" size={12} color={isDark ? "#f43f5e" : "#64748b"} />
-                        <Text style={{ color: isDark ? '#94a3b8' : '#64748b' }} className="text-[10px] font-bold tracking-widest uppercase ml-1.5">{challenge.time}</Text>
-                      </View>
-                      <Text style={{ color: isDark ? '#fb7185' : '#ab2f33' }} className="text-[10px] font-bold tracking-widest uppercase">{challenge.category}</Text>
-                    </View>
                   </View>
                 </View>
-              </View>
-            );
-          })}
 
-          {filteredHistory.length === 0 && (
-            <View className="mb-6 relative flex-row">
-              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#eec5c5', position: 'absolute', left: 0, top: 20 }} />
-              <View style={{ marginLeft: 24, flex: 1, backgroundColor: isDark ? '#271318' : '#ffffff', borderRadius: 28, padding: 24, borderWidth: 1, borderColor: isDark ? 'rgba(136,19,55,0.2)' : 'rgba(248,240,240,0.8)' }}>
-                <Text style={{ color: isDark ? '#ffffff' : '#0f172a' }} className="text-xl font-bold tracking-tight mb-2">
-                  {activeFilter === 'ALL' ? 'No History Yet' : `No activity ${activeFilter === 'THIS_WEEK' ? 'this week' : 'last month'}`}
-                </Text>
-                <Text style={{ color: isDark ? '#94a3b8' : '#64748b' }} className="text-[13px] leading-5 font-medium">
-                  {activeFilter === 'ALL' 
-                    ? 'Challenges that are active, completed, or expired will appear here.'
-                    : 'Try switching to "All" to see your full history.'}
-                </Text>
+                {roomGroup.partnerAvatar && (
+                  <Image
+                    source={{ uri: roomGroup.partnerAvatar }}
+                    className="w-7 h-7 rounded-full border border-rose-300 dark:border-rose-800"
+                  />
+                )}
               </View>
+
+              {/* Date Groups inside Room */}
+              {roomGroup.dateGroups.map(dateGroup => (
+                <View key={dateGroup.dateLabel} className="mb-4">
+                  {/* WhatsApp-Style Centered Date Bubble */}
+                  <View className="items-center my-2">
+                    <View
+                      className="px-3.5 py-1 rounded-full border"
+                      style={{
+                        backgroundColor: isDark ? '#271318' : '#ede4e3',
+                        borderColor: isDark ? 'rgba(225,29,72,0.15)' : 'rgba(0,0,0,0.05)',
+                      }}
+                    >
+                      <Text
+                        className="text-[10px] font-bold tracking-wider uppercase"
+                        style={{ color: isDark ? '#fda4af' : '#7f1d1d' }}
+                      >
+                        📅 {dateGroup.dateLabel}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Cards for this Date */}
+                  {dateGroup.items.map((challenge, idx) => {
+                    const isSentByMe = challenge.is_sent_by_me ?? (myUserId ? challenge.sender_id === myUserId : true);
+                    const { statusText, statusIcon, statusColor, statusBg } = getChallengeStatusInfo(challenge, myUserId, isDark);
+                    const isExpired = (challenge.status || '').toUpperCase() === 'EXPIRED';
+
+                    return (
+                      <View
+                        key={`${challenge.id}-${idx}`}
+                        className="mb-3 rounded-2xl overflow-hidden border"
+                        style={{
+                          backgroundColor: isDark ? '#220e14' : '#ffffff',
+                          borderColor: isDark ? 'rgba(136,19,55,0.25)' : 'rgba(244,228,228,0.9)',
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: isDark ? 0.3 : 0.05,
+                          shadowRadius: 4,
+                          elevation: 2,
+                          opacity: isExpired ? 0.75 : 1,
+                        }}
+                      >
+                        {/* Direction Bar: Sent vs Received */}
+                        <View
+                          className="px-4 py-2 flex-row items-center justify-between"
+                          style={{
+                            backgroundColor: isSentByMe
+                              ? (isDark ? 'rgba(225,29,72,0.12)' : '#fff1f2')
+                              : (isDark ? 'rgba(14,165,233,0.12)' : '#f0f9ff'),
+                            borderBottomWidth: 1,
+                            borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                          }}
+                        >
+                          <View className="flex-row items-center gap-1.5">
+                            <Ionicons
+                              name={isSentByMe ? 'paper-plane' : 'arrow-down-circle'}
+                              size={14}
+                              color={isSentByMe ? (isDark ? '#fb7185' : '#e11d48') : (isDark ? '#38bdf8' : '#0284c7')}
+                            />
+                            <Text
+                              className="text-[11px] font-bold"
+                              style={{
+                                color: isSentByMe ? (isDark ? '#fb7185' : '#be123c') : (isDark ? '#38bdf8' : '#0369a1'),
+                              }}
+                            >
+                              {isSentByMe
+                                ? `Sent by You ➔ to ${roomGroup.partnerName}`
+                                : `Received from ${roomGroup.partnerName}`}
+                            </Text>
+                          </View>
+
+                          {/* Status Badge */}
+                          <View
+                            className="flex-row items-center gap-1 px-2.5 py-0.5 rounded-full"
+                            style={{ backgroundColor: statusBg }}
+                          >
+                            <Ionicons name={statusIcon as any} size={11} color={statusColor} />
+                            <Text
+                              className="text-[9px] font-black uppercase tracking-wider"
+                              style={{ color: statusColor }}
+                            >
+                              {statusText}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Card Image (if any) */}
+                        {challenge.image && !isExpired && (
+                          <Image
+                            source={typeof challenge.image === 'string' ? { uri: challenge.image } : challenge.image}
+                            className="w-full h-32"
+                            resizeMode="cover"
+                          />
+                        )}
+
+                        {/* Card Details */}
+                        <View className="p-4">
+                          <View className="flex-row items-center justify-between mb-1.5">
+                            <Text
+                              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md"
+                              style={{
+                                backgroundColor: isDark ? 'rgba(244,63,94,0.15)' : '#ffe4e6',
+                                color: isDark ? '#fb7185' : '#be123c',
+                              }}
+                            >
+                              {challenge.category || 'Dare'}
+                            </Text>
+                            <View className="flex-row items-center gap-1">
+                              <Ionicons name="time-outline" size={12} color={isDark ? '#94a3b8' : '#64748b'} />
+                              <Text className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                {challenge.time || 'Recently'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text className="text-lg font-black tracking-tight text-slate-900 dark:text-white mb-1">
+                            {challenge.title}
+                          </Text>
+
+                          {challenge.description ? (
+                            <Text className="text-xs leading-5 text-slate-600 dark:text-slate-300 font-medium mb-3">
+                              {challenge.description}
+                            </Text>
+                          ) : null}
+
+                          {/* Personal Love Note / Message if attached */}
+                          {challenge.message ? (
+                            <View
+                              className="p-3 rounded-xl flex-row items-start gap-2 mt-1 mb-2 border"
+                              style={{
+                                backgroundColor: isDark ? '#2d131a' : '#fef2f2',
+                                borderColor: isDark ? 'rgba(244,63,94,0.2)' : '#fecdd3',
+                              }}
+                            >
+                              <Ionicons name="heart" size={14} color={isDark ? "#fb7185" : "#e11d48"} style={{ marginTop: 2 }} />
+                              <View className="flex-1">
+                                <Text className="text-[9px] font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400 mb-0.5">
+                                  Note from {isSentByMe ? 'You' : roomGroup.partnerName}:
+                                </Text>
+                                <Text className="text-xs italic text-slate-700 dark:text-rose-100">
+                                  &ldquo;{challenge.message}&rdquo;
+                                </Text>
+                              </View>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
             </View>
-          )}
+          );
+        })}
 
-        </View>
-
+        {/* Empty State */}
+        {roomGroups.length === 0 && (
+          <View
+            className="rounded-3xl p-8 items-center border"
+            style={{
+              backgroundColor: isDark ? '#271318' : '#ffffff',
+              borderColor: isDark ? 'rgba(136,19,55,0.2)' : 'rgba(248,240,240,0.8)',
+            }}
+          >
+            <View className="w-16 h-16 rounded-full bg-rose-500/10 items-center justify-center mb-4">
+              <Ionicons name="file-tray-outline" size={32} color={isDark ? "#fda4af" : "#be123c"} />
+            </View>
+            <Text className="text-lg font-black text-slate-900 dark:text-white mb-2 text-center">
+              {activeFilter === 'ALL' ? 'No Dare History Yet' : `No ${activeFilter.toLowerCase().replace('_', ' ')} dares`}
+            </Text>
+            <Text className="text-xs leading-5 text-slate-500 dark:text-slate-400 text-center font-medium max-w-[260px]">
+              {activeFilter === 'ALL'
+                ? 'Send a dare card to your partner or complete active challenges to build your journey archive! 💕'
+                : 'Try switching to "All Dares" to see your full game archive.'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
