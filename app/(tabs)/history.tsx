@@ -33,6 +33,7 @@ export default function History() {
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -96,6 +97,7 @@ export default function History() {
 
   const loadHistory = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
+    else setLoading(true);
     try {
       // 1. Get current user ID
       const profile = await getMyProfileCached();
@@ -211,6 +213,7 @@ export default function History() {
       console.log('Failed to load history:', error);
     } finally {
       if (showRefreshing) setRefreshing(false);
+      setLoading(false);
     }
   }, []);
 
@@ -496,7 +499,40 @@ export default function History() {
         </ScrollView>
 
         {/* Room Sessions Timeline (Grouped by Room and Date) */}
-        {roomGroups.map(roomGroup => {
+        {loading ? (
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
+            <View style={{
+              width: 56, height: 56, borderRadius: 28,
+              backgroundColor: isDark ? 'rgba(225,29,72,0.15)' : 'rgba(225,29,72,0.08)',
+              alignItems: 'center', justifyContent: 'center', marginBottom: 16
+            }}>
+              <Ionicons name="hourglass-outline" size={26} color={isDark ? '#fda4af' : '#be123c'} />
+            </View>
+            <Text style={{ color: isDark ? '#fda4af' : '#be123c', fontWeight: '800', fontSize: 15, marginBottom: 6 }}>
+              Loading Your Journey...
+            </Text>
+            <Text style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: 12, textAlign: 'center' }}>
+              Fetching your room history
+            </Text>
+          </View>
+        ) : roomGroups.length === 0 ? (
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
+            <View style={{
+              width: 56, height: 56, borderRadius: 28,
+              backgroundColor: isDark ? 'rgba(225,29,72,0.15)' : 'rgba(225,29,72,0.08)',
+              alignItems: 'center', justifyContent: 'center', marginBottom: 16
+            }}>
+              <Ionicons name="game-controller-outline" size={26} color={isDark ? '#fda4af' : '#be123c'} />
+            </View>
+            <Text style={{ color: isDark ? '#fda4af' : '#be123c', fontWeight: '800', fontSize: 15, marginBottom: 6 }}>
+              No History Yet
+            </Text>
+            <Text style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: 12, textAlign: 'center' }}>
+              Join a room and send your first dare to get started!
+            </Text>
+          </View>
+        ) : null}
+        {!loading && roomGroups.map(roomGroup => {
           const isActiveRoom = roomGroup.roomStatus === 'ACTIVE' || roomGroup.roomStatus === 'WAITING';
 
           return (
