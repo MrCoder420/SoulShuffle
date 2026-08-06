@@ -1021,7 +1021,9 @@ export default function Dashboard() {
               <Text className="text-slate-500 dark:text-rose-200/80 font-semibold text-sm mt-3">Checking room status...</Text>
             </View>
           ) : (activeRoom && (activeRoom.status === 'ACTIVE' || activeRoom.status === 'WAITING')) ? (
-            <View className={`bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] overflow-hidden shadow-lg dark:shadow-none ${
+            <View 
+              key="active-room-card"
+              className={`bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] overflow-hidden shadow-lg dark:shadow-none ${
               activeRoom.status === 'ACTIVE' ? 'border-l-[5px] border-l-teal-500 dark:border-l-teal-600' : ''
             }`}>
               {/* Room Header Strip Redesigned */}
@@ -1143,7 +1145,11 @@ export default function Dashboard() {
             </View>
           ) : (
             /* ── NO ROOM CARD ────────────────────────────── */
-            <View className="bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] p-5 shadow-lg dark:shadow-none relative overflow-hidden min-h-[200px]">
+            <View 
+              key="no-room-card"
+              className="bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] p-5 shadow-lg dark:shadow-none relative overflow-hidden"
+              style={{ minHeight: 200, justifyContent: 'center' }}
+            >
               {/* Background decorative elements */}
               <View className="absolute top-[-30] right-[-20] w-28 h-28 bg-rose-100/40 dark:bg-rose-500/10 rounded-full" />
               <View className="absolute bottom-[-20] left-[-15] w-20 h-20 bg-teal-100/30 dark:bg-teal-500/10 rounded-full" />
