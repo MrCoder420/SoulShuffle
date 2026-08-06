@@ -18,7 +18,7 @@ export default function Sidebar() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [userName, setUserName] = useState('User');
   const [partnerName, setPartnerName] = useState<string | null>(null);
-  const [connectionString, setConnectionString] = useState('Connected since 2022');
+  const [connectionString, setConnectionString] = useState('');
   const [userAvatar, setUserAvatar] = useState<string>(DEFAULT_AVATAR);
 
   // Load names & avatar from cache on open — instant, no API call
@@ -37,21 +37,20 @@ export default function Sidebar() {
         if (cachedPartner) setPartnerName(cachedPartner);
       }
 
-      // Load cached stats first for instant rendering
       const cachedStats = await AsyncStorage.getItem('relationshipStats');
-      if (cachedStats) {
+      if (cachedStats && !cachedStats.toLowerCase().includes('unknown')) {
         setConnectionString(`Connected for ${cachedStats}`);
       }
 
       // Fetch fresh stats from API in the background
       api.get('/profile/relationship-stats').then(async (response) => {
         const stats = response.data?.data?.stats;
-        if (stats && stats.formattedTime) {
+        if (stats?.formattedTime && !stats.formattedTime.toLowerCase().includes('unknown')) {
           setConnectionString(`Connected for ${stats.formattedTime}`);
           await AsyncStorage.setItem('relationshipStats', stats.formattedTime);
         }
-      }).catch((err) => {
-        console.log('Failed to fetch relationship stats in background');
+      }).catch(() => {
+        // Silently ignore — connection string is optional
       });
     };
     loadNamesAndStats();
@@ -168,7 +167,9 @@ export default function Sidebar() {
             <Text className="text-[28px] font-black text-[#af2c3b] dark:text-slate-100 tracking-tight">
               {partnerName ? `${userName} & ${partnerName}` : userName}
             </Text>
-            <Text className="text-[14px] font-medium text-slate-600 dark:text-slate-400 mt-1 mb-10">{connectionString}</Text>
+            {connectionString ? (
+              <Text className="text-[14px] font-medium text-slate-600 dark:text-slate-400 mt-1 mb-10">{connectionString}</Text>
+            ) : null}
 
             {/* Menu Links */}
             <TouchableOpacity

@@ -397,7 +397,7 @@ export default function Dashboard() {
     }
   };
 
-  // ── Join Room Handler ──────────────────────────────────
+  // ── Join Room Handler ───────────────────────────────
   const handleJoinRoom = async () => {
     if (!joinCode.trim()) {
       setActionError('Please enter a room code');
@@ -406,7 +406,10 @@ export default function Dashboard() {
     try {
       setActionLoading(true);
       setActionError('');
-      const room = await joinRoom(joinCode.trim());
+      const codeToSend = joinCode.trim().toUpperCase();
+      console.log('[JOIN ROOM] Attempting to join with code:', codeToSend);
+      const room = await joinRoom(codeToSend);
+      console.log('[JOIN ROOM] Success! Room:', room?.id, 'Status:', room?.status);
       setActiveRoom(room);
       if (room) {
         const sends = await fetchCardSends(room.id);
@@ -416,7 +419,22 @@ export default function Dashboard() {
       setRoomModalVisible(false);
       setJoinCode('');
     } catch (err: any) {
-      setActionError(err.response?.data?.message || err.message || 'Failed to join room');
+      const status = err.response?.status;
+      const serverMsg = err.response?.data?.message;
+      console.error('[JOIN ROOM] Error:', status, serverMsg || err.message);
+      
+      // Give meaningful error messages based on HTTP status
+      if (status === 401) {
+        setActionError('Session expired. Please log out and log in again.');
+      } else if (status === 404) {
+        setActionError('Room not found. Check the code and try again.');
+      } else if (status === 400) {
+        setActionError(serverMsg || 'Cannot join this room.');
+      } else if (!status) {
+        setActionError('Network error. Check your internet connection.');
+      } else {
+        setActionError(serverMsg || err.message || 'Failed to join room');
+      }
     } finally {
       setActionLoading(false);
     }
