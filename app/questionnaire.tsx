@@ -132,21 +132,32 @@ export default function Questionnaire() {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const headerFadeAnim = useRef(new Animated.Value(0)).current;
-  const optionAnimsRef = useRef<Animated.Value[][]>([]);
+  const headerFadeAnim = useRef(new Animated.Value(1)).current;
+  const optionAnimsRef = useRef<Animated.Value[][]>(
+    DEFAULT_QUESTIONS.map(q =>
+      Array(Math.max(q.question_options?.length || 1, 1))
+        .fill(0)
+        .map(() => new Animated.Value(1))
+    )
+  );
 
   const currentQuestion: Question | undefined = questions[currentStep];
   const progress = questions.length > 0 ? (currentStep + 1) / questions.length : 0;
 
   const navigateToTabs = () => {
-    setTimeout(() => {
-      try {
-        router.replace('/(tabs)');
-      } catch (err) {
-        console.warn('Navigation error:', err);
-      }
-    }, 100);
+    try {
+      router.replace('/(tabs)');
+    } catch (err) {
+      console.warn('Navigation error:', err);
+    }
   };
+
+  // Redirect to tabs if no questions or completed
+  useEffect(() => {
+    if (!isLoadingQuestions && (!questions || questions.length === 0 || !currentQuestion)) {
+      navigateToTabs();
+    }
+  }, [isLoadingQuestions, questions, currentQuestion]);
 
   // ─── Load questions on mount ──────────
   useEffect(() => {
@@ -517,7 +528,6 @@ export default function Questionnaire() {
   }
 
   if (!currentQuestion) {
-    navigateToTabs();
     return null;
   }
 
@@ -540,7 +550,7 @@ export default function Questionnaire() {
         <View className="absolute w-[200px] h-[200px] bg-rose-600/10 rounded-full top-40 left-20" />
 
         {/* Header */}
-        <Animated.View style={{ opacity: headerFadeAnim }} className="px-6 pt-4">
+        <Animated.View style={{ opacity: headerFadeAnim, paddingHorizontal: 24, paddingTop: 16 }}>
           {/* Top Navigation Bar */}
           <View className="flex-row items-center justify-between mb-6">
             <TouchableOpacity
@@ -566,8 +576,10 @@ export default function Questionnaire() {
           {/* Glowing Progress Bar */}
           <View className="h-[6px] bg-white/10 rounded-full overflow-hidden mb-2">
             <Animated.View
-              className="h-full bg-[#FF2D55] rounded-full"
               style={{
+                height: '100%',
+                backgroundColor: '#FF2D55',
+                borderRadius: 999,
                 width: progressBarWidth,
               }}
             />
@@ -585,8 +597,9 @@ export default function Questionnaire() {
             style={{
               opacity: fadeAnim,
               transform: [{ translateX: slideAnim }, { scale: scaleAnim }],
+              paddingHorizontal: 24,
+              paddingTop: 24,
             }}
-            className="px-6 pt-6"
           >
             {/* Emoji & Question Header */}
             <View className="items-center mb-2">
@@ -667,11 +680,20 @@ export default function Questionnaire() {
                       <TouchableOpacity
                         onPress={() => handleSelectOption(option.id)}
                         activeOpacity={0.7}
-                        className={`flex-row items-center mb-3 rounded-[22px] px-5 py-[18px] border-2 ${
-                          selected
-                            ? 'bg-[#FF2D55] border-[#FF5C80] shadow-lg shadow-rose-900/60'
-                            : 'bg-[#1A0B13] border-white/10'
-                        }`}
+                        className="flex-row items-center mb-3 rounded-[22px] px-5 py-[18px] border-2"
+                        style={{
+                          backgroundColor: selected ? '#FF2D55' : '#1A0B13',
+                          borderColor: selected ? '#FF5C80' : 'rgba(255, 255, 255, 0.1)',
+                          ...(selected
+                            ? {
+                                shadowColor: '#e11d48',
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.6,
+                                shadowRadius: 8,
+                                elevation: 6,
+                              }
+                            : {}),
+                        }}
                       >
                         <Text
                           className={`text-[16px] font-bold flex-1 ${
