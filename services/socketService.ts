@@ -84,6 +84,23 @@ class GameSocket {
         partnerCbs.forEach(cb => cb(payload));
       });
 
+      // ── Room Left & Partner Left Listeners ──
+      this.socket.on('room_left', (payload) => {
+        console.log('Room left event received:', payload);
+        const cbs = this.callbacks['room_left'] || [];
+        cbs.forEach(cb => cb(payload));
+        const partnerCbs = this.callbacks['partner_left'] || [];
+        partnerCbs.forEach(cb => cb(payload));
+      });
+
+      this.socket.on('partner_left', (payload) => {
+        console.log('Partner left event received:', payload);
+        const cbs = this.callbacks['partner_left'] || [];
+        cbs.forEach(cb => cb(payload));
+        const roomCbs = this.callbacks['room_left'] || [];
+        roomCbs.forEach(cb => cb(payload));
+      });
+
       // ── Remote Card Engine Event Listeners ──
       const cardEvents = [
         'card_received',
@@ -136,6 +153,15 @@ class GameSocket {
         }
       });
     }
+  }
+
+  static leaveRoom(roomCode?: string) {
+    const codeToLeave = roomCode || this.currentRoomCode;
+    if (codeToLeave && this.socket && this.socket.connected) {
+      console.log('Emitting leave_room with code:', codeToLeave);
+      this.socket.emit('leave_room', codeToLeave);
+    }
+    this.currentRoomCode = null;
   }
 
   static sendGameEvent(roomCode: string, eventType: string, data: any) {
