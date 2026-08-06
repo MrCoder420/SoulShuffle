@@ -106,15 +106,26 @@ export default function History() {
 
       const cacheKey = currentUserId ? `cached_account_history_${currentUserId}` : 'cachedRoomHistory';
 
-      // 2. Read instant cache if not already refreshing
+      // 2. Read instant cache only if not refreshing — but validate data quality first
       if (!showRefreshing) {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           try {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setChallengeHistory(parsed);
-              calculateStats(parsed);
+              // Check if cache has real data (not stale placeholder data)
+              const hasRealData = parsed.some(
+                (item: SentChallenge) =>
+                  item.room_code && item.room_code !== 'GAME' && item.room_code !== 'ROOM' &&
+                  item.partner_name && item.partner_name !== 'Partner'
+              );
+              if (hasRealData) {
+                setChallengeHistory(parsed);
+                calculateStats(parsed);
+              } else {
+                // Clear stale placeholder cache
+                await AsyncStorage.removeItem(cacheKey);
+              }
             }
           } catch (e) {
             console.log('Cache parse error:', e);
