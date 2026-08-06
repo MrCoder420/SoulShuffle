@@ -61,8 +61,19 @@ export interface SentChallenge extends ChallengePayload {
 
 // ── CLEAR ROOM CACHE ─────────────────────────────────────
 // Call this when a room is left, completed, or expired
-export const clearRoomCache = async (roomId: string) => {
-  await AsyncStorage.removeItem(`partnerName_${roomId}`);
+export const clearRoomCache = async (roomId?: string) => {
+  try {
+    if (roomId) {
+      await AsyncStorage.removeItem(`partnerName_${roomId}`);
+      await AsyncStorage.removeItem(`partnerAvatar_${roomId}`);
+    }
+    await AsyncStorage.removeItem('cachedActiveRoom');
+    await AsyncStorage.removeItem('activeRoomId');
+    await AsyncStorage.removeItem('relationshipStats');
+    await AsyncStorage.removeItem('@soulshuffle_dares_cache');
+  } catch (e) {
+    console.warn('[clearRoomCache] Cache clear error (non-fatal):', e);
+  }
 };
 
 // ── CREATE ROOM ──────────────────────────────────────────
@@ -71,6 +82,7 @@ export const createRoom = async (expiryType: ExpiryType = '7_DAYS'): Promise<Roo
   const room: Room = response.data.data.room;
   // Store room ID so we know which cache to clear later
   await AsyncStorage.setItem('activeRoomId', room.id);
+  await AsyncStorage.setItem('cachedActiveRoom', JSON.stringify(room));
   return room;
 };
 
@@ -80,6 +92,7 @@ export const joinRoom = async (code: string): Promise<Room> => {
   const room: Room = response.data.data.room;
   // Cache partner name immediately from the room data
   await AsyncStorage.setItem('activeRoomId', room.id);
+  await AsyncStorage.setItem('cachedActiveRoom', JSON.stringify(room));
   const partnerName = room.host_name || room.partner_name || null;
   if (partnerName) {
     await AsyncStorage.setItem(`partnerName_${room.id}`, partnerName);
@@ -89,16 +102,22 @@ export const joinRoom = async (code: string): Promise<Room> => {
 
 // ── LEAVE ROOM ───────────────────────────────────────────
 export const leaveRoom = async (roomId: string): Promise<void> => {
-  await api.post('/rooms/leave', { room_id: roomId });
-  await clearRoomCache(roomId);
-  await AsyncStorage.removeItem('activeRoomId');
+  try {
+    await api.post('/rooms/leave', { room_id: roomId });
+  } catch (err: any) {
+    // If room is already closed or left, continue with local cache clear
+    console.warn('[leaveRoom] Backend leave error (non-fatal):', err?.response?.data?.message || err?.message);
+  } finally {
+    await clearRoomCache(roomId);
+  }
 };
 
 // ── GET ACTIVE ROOM ──────────────────────────────────────
 export const getActiveRoom = async (): Promise<Room | null> => {
   try {
     const response = await api.get('/rooms/active');
-    return response.data.data.room;
+    const room = response.data?.data?.room ?? null;
+    return room;
   } catch (error: any) {
     // 404 means no active room — that's normal, not an error
     if (error.response?.status === 404) {

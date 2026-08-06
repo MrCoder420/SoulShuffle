@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, TextInput, Modal, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, TextInput, Modal, ActivityIndicator, Alert, RefreshControl, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -294,10 +294,25 @@ export default function Dares() {
       loadDares(true);
     };
 
+    const handleRoomLeft = () => {
+      console.log('Room left event received in Dares, clearing state...');
+      setRoom(null);
+      setDares([]);
+      setLimits(null);
+      AsyncStorage.removeItem(CACHE_KEY).catch(() => {});
+    };
+
+    const clearSub = DeviceEventEmitter.addListener('app:clearRoom', handleRoomLeft);
+
     GameSocket.on('partner_joined', handlePartnerJoined);
+    GameSocket.on('partner_left', handleRoomLeft);
+    GameSocket.on('room_left', handleRoomLeft);
 
     return () => {
+      clearSub.remove();
       GameSocket.off('partner_joined', handlePartnerJoined);
+      GameSocket.off('partner_left', handleRoomLeft);
+      GameSocket.off('room_left', handleRoomLeft);
     };
   }, []);
 

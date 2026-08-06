@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, T
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { createRoom, joinRoom, getActiveRoom, fetchCardSends, acceptCardSend, rejectCardSend, completeCardSend, confirmCardSend, deflectCardSend, fetchDeflectCards, leaveRoom, Room, ExpiryType, fetchRoomHistory } from '@/services/roomService';
+import { createRoom, joinRoom, getActiveRoom, fetchCardSends, acceptCardSend, rejectCardSend, completeCardSend, confirmCardSend, deflectCardSend, fetchDeflectCards, leaveRoom, clearRoomCache, Room, ExpiryType, fetchRoomHistory } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
@@ -362,6 +362,10 @@ export default function Dashboard() {
       setDeflectCardsCount(0);
       setDeflectCards([]);
       setLocalPendingChallenges([]);
+      setRoomHistoryData([]);
+      setPartnerName('Partner');
+      setPartnerAvatar(null);
+      setRoomLoading(false);
     });
     return () => {
       sub.remove();
@@ -390,6 +394,30 @@ export default function Dashboard() {
       shareInfoWithPartner();
     };
 
+    const handleRoomLeft = async (payload: any) => {
+      console.log('Room left event received over socket:', payload);
+      setActiveRoom(null);
+      setCardSends([]);
+      setDeflectCardsCount(0);
+      setDeflectCards([]);
+      setLocalPendingChallenges([]);
+      setRoomHistoryData([]);
+      setPartnerName('Partner');
+      setPartnerAvatar(null);
+      setRoomLoading(false);
+
+      await clearRoomCache(payload?.room_id || activeRoom?.id);
+      DeviceEventEmitter.emit('app:clearRoom');
+
+      if (payload?.left_by && payload.left_by !== currentUserId) {
+        Alert.alert(
+          'Room Closed',
+          'Your partner has left the room. You can now create or join a new room.',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+
     const handleGameEvent = async (payload: any) => {
       console.log('Game event received:', payload);
       if (payload.eventType === 'PARTNER_INFO') {
@@ -416,13 +444,17 @@ export default function Dashboard() {
     GameSocket.on('partner_joined', handlePartnerJoined);
     GameSocket.on('room_updated', handlePartnerJoined);
     GameSocket.on('game_event', handleGameEvent);
+    GameSocket.on('partner_left', handleRoomLeft);
+    GameSocket.on('room_left', handleRoomLeft);
 
     return () => {
       GameSocket.off('partner_joined', handlePartnerJoined);
       GameSocket.off('room_updated', handlePartnerJoined);
       GameSocket.off('game_event', handleGameEvent);
+      GameSocket.off('partner_left', handleRoomLeft);
+      GameSocket.off('room_left', handleRoomLeft);
     };
-  }, [fetchActiveRoom, activeRoom?.id, shareInfoWithPartner]);
+  }, [fetchActiveRoom, activeRoom?.id, currentUserId, shareInfoWithPartner]);
 
   // ── Automatic Polling when Waiting for Partner ────────────────
   useEffect(() => {
@@ -611,24 +643,38 @@ export default function Dashboard() {
             setIsLeavingRoom(true);
             try {
               const currentRoomId = activeRoom?.id;
+              const currentRoomCode = activeRoom?.code;
               
+              // Immediately leave socket room
+              if (currentRoomCode) {
+                GameSocket.leaveRoom(currentRoomCode);
+              }
+
               // Optimistically update UI immediately so 'No Room' card appears right away
               setActiveRoom(null);
               setCardSends([]);
               setDeflectCardsCount(0);
               setDeflectCards([]);
               setLocalPendingChallenges([]);
+              setRoomHistoryData([]);
+              setPartnerName('Partner');
+              setPartnerAvatar(null);
               
+              // Thoroughly clear cache from storage
               if (currentRoomId) {
+                await clearRoomCache(currentRoomId);
                 await leaveRoom(currentRoomId);
-                await AsyncStorage.removeItem('activeRoomId');
-                await AsyncStorage.removeItem('relationshipStats');
+              } else {
+                await clearRoomCache();
               }
+
+              DeviceEventEmitter.emit('app:clearRoom');
+              DeviceEventEmitter.emit('app:refreshDashboard');
             } catch (error) {
               console.error('API Error during leaveRoom:', error);
-              // Do not revert the UI. If it failed, they are still 'left' locally.
             } finally {
               setIsLeavingRoom(false);
+              setRoomLoading(false);
             }
           }
         }
@@ -965,11 +1011,11 @@ export default function Dashboard() {
         <View className="mx-6 mt-6">
           {roomLoading ? (
             /* Loading State */
-            <View className="bg-white dark:bg-[#271318] rounded-[36px] p-8 items-center shadow-sm dark:shadow-none">
-              <ActivityIndicator size="large" color="#af2c3b" />
-              <Text className="text-slate-400 dark:text-slate-400 font-semibold text-sm mt-3">Checking room status...</Text>
+            <View className="bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] p-8 items-center shadow-sm dark:shadow-none">
+              <ActivityIndicator size="large" color={isDark ? "#f43f5e" : "#e11d48"} />
+              <Text className="text-slate-500 dark:text-rose-200/80 font-semibold text-sm mt-3">Checking room status...</Text>
             </View>
-          ) : activeRoom ? (
+          ) : (activeRoom && (activeRoom.status === 'ACTIVE' || activeRoom.status === 'WAITING')) ? (
             <View className={`bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] overflow-hidden shadow-lg dark:shadow-none ${
               activeRoom.status === 'ACTIVE' ? 'border-l-[5px] border-l-teal-500 dark:border-l-teal-600' : ''
             }`}>
