@@ -78,10 +78,15 @@ const handleAuthFailure = async () => {
   await AsyncStorage.removeItem('refreshToken');
   // Lazy import to avoid circular dependency with expo-router
   try {
-    const { router } = await import('expo-router');
-    router.replace('/');
+    const { DeviceEventEmitter } = await import('react-native');
+    DeviceEventEmitter.emit('app:logout');
   } catch {
-    // Router not ready yet — ignore, user will hit 401s until navigated manually
+    try {
+      const { router } = await import('expo-router');
+      router.replace('/');
+    } catch {
+      // Router not ready yet
+    }
   }
 };
 
@@ -155,11 +160,18 @@ api.interceptors.response.use(
         originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         isRefreshing = false;
         onRefreshed(null);
-        // Refresh failed — clear tokens only, redirect to login
-        await handleAuthFailure();
+        // Only force-logout if the refresh endpoint explicitly rejected the token (401/403)
+        // Network errors, timeouts etc. should NOT log the user out
+        const status = refreshError?.response?.status;
+        if (status === 401 || status === 403) {
+          console.log('[API] Refresh token rejected by server — logging out');
+          await handleAuthFailure();
+        } else {
+          console.log('[API] Refresh failed due to network/server error — keeping user logged in, will retry');
+        }
         return Promise.reject(refreshError);
       }
     }
