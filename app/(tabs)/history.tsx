@@ -106,26 +106,62 @@ export default function History() {
 
       const cacheKey = currentUserId ? `cached_account_history_${currentUserId}` : 'cachedRoomHistory';
 
-      // 2. Read instant cache only if not refreshing — but validate data quality first
+      // 2. Build a local room info map from device storage
+      // This ensures we always have real room codes and partner names even if the backend returns placeholders
+      const localRoomInfoMap = new Map<string, { code: string; partnerName: string; partnerAvatar: string | null; status: string }>();
+      try {
+        // Load the currently cached active room (if any)
+        const cachedRoomRaw = await AsyncStorage.getItem('cachedActiveRoom');
+        if (cachedRoomRaw) {
+          const cachedRoom = JSON.parse(cachedRoomRaw);
+          if (cachedRoom?.id && cachedRoom?.code) {
+            const isHost = cachedRoom.host_id === currentUserId;
+            const partnerName = isHost ? (cachedRoom.partner_name || cachedRoom.host_name) : (cachedRoom.host_name || cachedRoom.partner_name);
+            const partnerAvatar = isHost ? (cachedRoom.partner_avatar || cachedRoom.host_avatar) : (cachedRoom.host_avatar || cachedRoom.partner_avatar);
+            // Also check stored partnerName per room
+            const storedPartnerName = await AsyncStorage.getItem(`partnerName_${cachedRoom.id}`);
+            localRoomInfoMap.set(cachedRoom.id, {
+              code: cachedRoom.code,
+              partnerName: storedPartnerName || partnerName || 'Partner',
+              partnerAvatar: partnerAvatar || null,
+              status: cachedRoom.status || 'ACTIVE',
+            });
+          }
+        }
+      } catch (e) {
+        console.log('[History] Local room info load error:', e);
+      }
+
+      // Helper: Enrich a history item using local room data if backend returned placeholder values
+      const enrichItem = (item: SentChallenge): SentChallenge => {
+        const localRoom = item.room_id ? localRoomInfoMap.get(item.room_id) : null;
+        if (!localRoom) return item;
+
+        return {
+          ...item,
+          room_code: (!item.room_code || item.room_code === 'GAME' || item.room_code === 'ROOM') 
+            ? localRoom.code 
+            : item.room_code,
+          partner_name: (!item.partner_name || item.partner_name === 'Partner') 
+            ? localRoom.partnerName 
+            : item.partner_name,
+          partner_avatar: (!item.partner_avatar) 
+            ? localRoom.partnerAvatar 
+            : item.partner_avatar,
+          room_status: (!item.room_status) ? localRoom.status : item.room_status,
+        };
+      };
+
+      // 3. Read instant cache if not refreshing
       if (!showRefreshing) {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           try {
             const parsed = JSON.parse(cached);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              // Check if cache has real data (not stale placeholder data)
-              const hasRealData = parsed.some(
-                (item: SentChallenge) =>
-                  item.room_code && item.room_code !== 'GAME' && item.room_code !== 'ROOM' &&
-                  item.partner_name && item.partner_name !== 'Partner'
-              );
-              if (hasRealData) {
-                setChallengeHistory(parsed);
-                calculateStats(parsed);
-              } else {
-                // Clear stale placeholder cache
-                await AsyncStorage.removeItem(cacheKey);
-              }
+              const enriched = parsed.map(enrichItem);
+              setChallengeHistory(enriched);
+              calculateStats(enriched);
             }
           } catch (e) {
             console.log('Cache parse error:', e);
@@ -133,43 +169,43 @@ export default function History() {
         }
       }
 
-      // 3. Fetch comprehensive multi-room account history from backend
+      // 4. Fetch from backend
       let freshHistory: SentChallenge[] = [];
       try {
-        freshHistory = await fetchRoomHistory(); // Multi-room account-wide query
+        freshHistory = await fetchRoomHistory();
       } catch (err) {
         console.log('Fetch room history API error:', err);
       }
 
-      // 4. Also check active room game_state as safety fallback
+      // 5. Fallback to active room game_state if backend returned nothing
       if (!Array.isArray(freshHistory) || freshHistory.length === 0) {
         try {
           const activeRoom = await getActiveRoom();
           if (activeRoom?.game_state?.challenge_history) {
-            freshHistory = activeRoom.game_state.challenge_history.map((item: SentChallenge) => {
-              const isHost = activeRoom.host_id === myUserId;
-              const actualPartnerName = isHost ? activeRoom.partner_name : activeRoom.host_name;
-              const actualPartnerAvatar = isHost ? activeRoom.partner_avatar : activeRoom.host_avatar;
-              
-              return {
-                ...item,
-                room_id: activeRoom.id,
-                room_code: activeRoom.code,
-                room_status: activeRoom.status,
-                partner_name: actualPartnerName || 'Partner',
-                partner_avatar: actualPartnerAvatar || null,
-              };
-            });
+            const isHost = activeRoom.host_id === currentUserId;
+            const actualPartnerName = isHost ? activeRoom.partner_name : activeRoom.host_name;
+            const actualPartnerAvatar = isHost ? activeRoom.partner_avatar : activeRoom.host_avatar;
+            freshHistory = activeRoom.game_state.challenge_history.map((item: SentChallenge) => ({
+              ...item,
+              room_id: activeRoom.id,
+              room_code: activeRoom.code,
+              room_status: activeRoom.status,
+              partner_name: actualPartnerName || 'Partner',
+              partner_avatar: actualPartnerAvatar || null,
+            }));
           }
         } catch (e) {
           // ignore
         }
       }
 
+      // 6. Enrich all items with local room data to fix any placeholder values from the backend
       if (Array.isArray(freshHistory) && freshHistory.length > 0) {
-        setChallengeHistory(freshHistory);
-        calculateStats(freshHistory);
-        await AsyncStorage.setItem(cacheKey, JSON.stringify(freshHistory));
+        const enriched = freshHistory.map(enrichItem);
+        setChallengeHistory(enriched);
+        calculateStats(enriched);
+        // Only cache if we have real data
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(enriched));
       }
     } catch (error) {
       console.log('Failed to load history:', error);
