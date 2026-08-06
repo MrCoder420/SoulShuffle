@@ -35,7 +35,14 @@
       "edgeToEdgeEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
-      "package": "com.soulshuffle.CoupleGame"
+      "package": "com.soulshuffle.CoupleGame",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "NOTIFICATIONS",
+        "POST_NOTIFICATIONS",
+        "com.google.android.c2dm.permission.RECEIVE"
+      ]
     },
     "notification": {
       "icon": "./assets/images/notification-icon.png",

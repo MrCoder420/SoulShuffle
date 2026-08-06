@@ -134,7 +134,7 @@ const calculateStreak = (sends: any[]) => {
 
 export default function Dashboard() {
   const { openSidebar } = useSidebar();
-  const { unreadCount } = useNotifications();
+  const { unreadCount, registerPushTokenWithBackend } = useNotifications();
   const userAvatar = useUserAvatar();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -160,6 +160,7 @@ export default function Dashboard() {
 
   // ── Load cached profile & active room instantly on mount ───────────────────
   useEffect(() => {
+    registerPushTokenWithBackend();
     const loadCachedState = async () => {
       try {
         const cached = await getMyProfileCached();

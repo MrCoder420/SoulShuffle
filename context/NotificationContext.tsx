@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Alert, Platform, Linking } from 'react-native';
+import { Alert, Platform, Linking, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -51,6 +51,29 @@ interface NotificationContextType {
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+
+// ─── Setup Android Notification Channel ─────────────────────────────────────
+const setupAndroidChannel = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'SoulShuffle Notifications',
+        description: 'Game alerts, partner dares, penalties, and reminders',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#e11d48',
+        sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: false,
+      });
+      console.log('[Notifications] Android default notification channel registered');
+    } catch (e) {
+      console.warn('[Notifications] setupAndroidChannel error:', e);
+    }
+  }
+};
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
@@ -123,18 +146,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     if (Platform.OS === 'web') return;
 
     try {
-      // 1. Android Notification Channel setup
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#e11d48',
-          sound: 'default',
-          enableVibrate: true,
-          showBadge: true,
-        });
-      }
+      // 1. Ensure Android Channel is registered
+      await setupAndroidChannel();
 
       // 2. Request / verify permissions
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -189,10 +202,26 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     }
   }, []);
 
-  // ── Register Push Token on mount ───────────────────────────
+  // ── Register Push Token and Channel on mount ──────────────
   useEffect(() => {
+    setupAndroidChannel();
     registerPushTokenWithBackend();
   }, [registerPushTokenWithBackend]);
+
+  // ── Re-sync on AppState foreground transition ──────────────
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        fetchUnreadCount();
+        registerPushTokenWithBackend();
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      sub.remove();
+    };
+  }, [fetchUnreadCount, registerPushTokenWithBackend]);
 
   // ── Handle Tap on Push Notification (Foreground / Background / Killed) ──
   useEffect(() => {
@@ -218,7 +247,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     };
   }, []);
 
-  // ── Socket: listen for new_notification event (foreground live count) ──
+  // ── Socket: listen for new_notification event (foreground live count & system tray notification) ──
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
 
@@ -229,11 +258,27 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       socket.on('new_notification', async (notification: AppNotification) => {
         console.log('[NotificationContext] new_notification received:', notification);
 
-        // Prepend to list
+        // Prepend to in-app list
         setNotifications(prev => [notification, ...prev]);
 
         // Bump unread count
         setUnreadCount(prev => prev + 1);
+
+        // Display in Android/iOS system notification bar!
+        try {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: notification.title || 'SoulShuffle',
+              body: notification.body || 'You received a new card update!',
+              data: notification.data || {},
+              sound: 'default',
+              badge: 1,
+            },
+            trigger: null, // Display immediately in system tray
+          });
+        } catch (localErr) {
+          console.warn('[NotificationContext] Failed to post local notification:', localErr);
+        }
       });
 
       listenerRegistered.current = true;
