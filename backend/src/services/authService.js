@@ -147,7 +147,7 @@ const refresh = async ({ refreshToken }) => {
   const newAccessToken = generateAccessToken(user.id);
   const newRefreshToken = generateRefreshToken(user.id);
 
-  // Save new refresh token in DB
+  // Save the new rotated refresh token in the database
   await userModel.updateUser(user.id, { refresh_token: newRefreshToken });
 
   return { accessToken: newAccessToken, refreshToken: newRefreshToken };

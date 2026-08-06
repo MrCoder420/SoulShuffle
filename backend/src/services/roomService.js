@@ -18,20 +18,31 @@ const populateRoomNames = async (room) => {
     const idsToFetch = [hostId];
     if (partnerId) idsToFetch.push(partnerId);
 
-    const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, first_name')
-        .in('id', idsToFetch);
+    try {
+        const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, first_name, avatar_url')
+            .in('id', idsToFetch);
 
-    if (!profileError && profiles) {
-        const hostProfile = profiles.find(p => p.id === hostId);
-        const partnerProfile = partnerId ? profiles.find(p => p.id === partnerId) : null;
-        
-        room.host_name = hostProfile ? hostProfile.first_name : 'Host';
-        room.partner_name = partnerProfile ? partnerProfile.first_name : null;
-    } else {
+        if (!profileError && profiles) {
+            const hostProfile = profiles.find(p => p.id === hostId);
+            const partnerProfile = partnerId ? profiles.find(p => p.id === partnerId) : null;
+            
+            room.host_name = hostProfile ? hostProfile.first_name : 'Host';
+            room.partner_name = partnerProfile ? partnerProfile.first_name : null;
+            room.host_avatar = hostProfile ? hostProfile.avatar_url : null;
+            room.partner_avatar = partnerProfile ? partnerProfile.avatar_url : null;
+        } else {
+            room.host_name = 'Host';
+            room.partner_name = partnerId ? 'Partner' : null;
+            room.host_avatar = null;
+            room.partner_avatar = null;
+        }
+    } catch (e) {
         room.host_name = 'Host';
         room.partner_name = partnerId ? 'Partner' : null;
+        room.host_avatar = null;
+        room.partner_avatar = null;
     }
     return room;
 };
