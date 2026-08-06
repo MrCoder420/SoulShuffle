@@ -661,6 +661,8 @@ export default function Dashboard() {
               setPartnerName('Partner');
               setPartnerAvatar(null);
               
+              DeviceEventEmitter.emit('app:clearRoom');
+
               // Thoroughly clear cache from storage
               if (currentRoomId) {
                 await clearRoomCache(currentRoomId);
@@ -669,8 +671,10 @@ export default function Dashboard() {
                 await clearRoomCache();
               }
 
-              DeviceEventEmitter.emit('app:clearRoom');
-              DeviceEventEmitter.emit('app:refreshDashboard');
+              // Delay refresh slightly to ensure backend is fully updated
+              setTimeout(() => {
+                DeviceEventEmitter.emit('app:refreshDashboard');
+              }, 500);
             } catch (error) {
               console.error('API Error during leaveRoom:', error);
             } finally {
@@ -1139,7 +1143,7 @@ export default function Dashboard() {
             </View>
           ) : (
             /* ── NO ROOM CARD ────────────────────────────── */
-            <View className="bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] p-5 shadow-lg dark:shadow-none relative overflow-hidden">
+            <View className="bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] p-5 shadow-lg dark:shadow-none relative overflow-hidden min-h-[200px]">
               {/* Background decorative elements */}
               <View className="absolute top-[-30] right-[-20] w-28 h-28 bg-rose-100/40 dark:bg-rose-500/10 rounded-full" />
               <View className="absolute bottom-[-20] left-[-15] w-20 h-20 bg-teal-100/30 dark:bg-teal-500/10 rounded-full" />
