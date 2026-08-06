@@ -97,7 +97,6 @@ export default function History() {
 
   const loadHistory = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
-    else setLoading(true);
     try {
       // 1. Get current user ID
       const profile = await getMyProfileCached();
