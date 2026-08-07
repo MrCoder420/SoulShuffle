@@ -498,7 +498,7 @@ export default function History() {
         </ScrollView>
 
         {/* Room Sessions Timeline (Grouped by Room and Date) */}
-        {loading ? (
+        {(loading && challengeHistory.length === 0) ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
             <View style={{
               width: 56, height: 56, borderRadius: 28,

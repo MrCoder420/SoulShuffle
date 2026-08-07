@@ -57,7 +57,8 @@ const SigninForm = () => {
 
             // Configure here instead of top-level
             GoogleSignin.configure({
-              webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '950734388938-qm61e894mghl4dnsi2jb27aglo1eqhbm.apps.googleusercontent.com',
+              webClientId: '950734388938-qm61e894mghl4dnsi2jb27aglo1eqhbm.apps.googleusercontent.com',
+              iosClientId: '950734388938-8hldjaul248pmbdcjpj0o65m8s8o03qp.apps.googleusercontent.com',
               offlineAccess: false,
             });
             
@@ -247,57 +248,7 @@ const SigninForm = () => {
                                         placeholder="Enter your password"
                                         placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
                                         className="flex-1 ml-3 text-slate-800 dark:text-white font-medium"
-                                        value={password}
-                                        onChangeText={setPassword}
-                                        secureTextEntry={!showPassword}
-                                    />
-                                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="p-1">
-                                        <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
-                                    </TouchableOpacity>
-                                </View>
-                                <View className="flex-row items-center justify-between mt-4">
-                                    {/* Remember Me Toggle */}
-                                    <TouchableOpacity 
-                                        className="flex-row items-center" 
-                                        onPress={() => setRememberMe(!rememberMe)}
-                                        activeOpacity={0.7}
-                                    >
-                                        <View style={{
-                                            width: 20, height: 20, borderRadius: 6,
-                                            borderWidth: 2,
-                                            borderColor: rememberMe ? (isDark ? '#f43f5e' : '#e11d48') : (isDark ? '#475569' : '#cbd5e1'),
-                                            backgroundColor: rememberMe ? (isDark ? '#f43f5e' : '#e11d48') : 'transparent',
-                                            alignItems: 'center', justifyContent: 'center',
-                                        }}>
-                                            {rememberMe && <Ionicons name="checkmark" size={14} color="#ffffff" />}
-                                        </View>
-                                        <Text className="text-slate-600 dark:text-slate-300 font-semibold text-[13px] ml-2">Remember Me</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity onPress={() => { setForgotPasswordEmail(email); setForgotPasswordStep(1); setForgotPasswordModalVisible(true); }}>
-                                        <Text className="text-rose-500 dark:text-rose-400 font-semibold text-sm">Forgot Password?</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            {errorMessage ? (
-                                <View className="bg-rose-100 dark:bg-rose-950/60 p-4 rounded-2xl mb-4 border border-rose-200 dark:border-rose-900/50 flex-row items-center">
-                                    <Ionicons name="warning" size={20} color="#e11d48" />
-                                    <Text className="text-rose-600 dark:text-rose-400 font-bold ml-2 text-[13px] flex-1">{errorMessage}</Text>
-                                </View>
-                            ) : null}
-
-                            <TouchableOpacity
-                                className={`bg-rose-500 dark:bg-rose-600 rounded-2xl h-14 items-center justify-center flex-row shadow-rose-300 ${isLoading ? 'opacity-70' : ''}`}
-                                activeOpacity={0.8}
-                                onPress={handleSignIn}
-                                disabled={isLoading}
-                            >
-                                <Text className="text-white font-bold text-lg">{isLoading ? 'Signing In...' : 'Sign In'}</Text>
-                                {!isLoading && <Ionicons name="arrow-forward" size={20} color="white" style={{ marginLeft: 8 }} />}
-                            </TouchableOpacity>
-                        </View>
-
+ 
                         <View className="mt-8 items-center">
                             <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mb-5">Or continue with</Text>
                             <View className="flex-row gap-4 w-full">

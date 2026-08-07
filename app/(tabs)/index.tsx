@@ -547,7 +547,7 @@ export default function Dashboard() {
   const handleAcceptCard = async (sendId: string) => {
     // Optimistic update
     setSelectedReceivedCard(null);
-    setCardSends(prev => prev.map(s => s.id === sendId ? { ...s, status: 'ACCEPTED' } : s));
+    setCardSends(prev => prev.map(s => s.id === sendId ? { ...s, status: 'IN_PROGRESS' } : s));
     
     try {
       await acceptCardSend(sendId);
@@ -598,6 +598,9 @@ export default function Dashboard() {
   };
 
   const handleCompleteCard = async (sendId: string) => {
+    // Optimistic update
+    setCardSends(prev => prev.map(s => s.id === sendId ? { ...s, status: 'COMPLETED_BY_RECEIVER' } : s));
+    
     try {
       await completeCardSend(sendId);
       Alert.alert('Challenge Completed!', 'Well done! You have completed this dare.');
@@ -608,6 +611,9 @@ export default function Dashboard() {
   };
 
   const handleConfirmCompleteCard = async (sendId: string) => {
+    // Optimistic update
+    setCardSends(prev => prev.map(s => s.id === sendId ? { ...s, status: 'COMPLETED' } : s));
+    
     try {
       await confirmCardSend(sendId);
       Alert.alert('Challenge Confirmed!', 'Thank you! You have confirmed the challenge completion.');
