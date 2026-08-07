@@ -1,5 +1,5 @@
 import api from './api';
-import { getMyProfile } from './authService';
+import { getMyProfile, getMyProfileCached } from './authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── Types ────────────────────────────────────────────────
@@ -130,21 +130,30 @@ export const getActiveRoom = async (): Promise<Room | null> => {
 };
 
 // ── SEND CHALLENGE ──────────────────────────────────────
-export const sendChallenge = async (deckCardId: string, message?: string) => {
-  const room = await getActiveRoom();
+export const sendChallenge = async (
+  deckCardId: string,
+  message?: string,
+  providedRoom?: Room | null,
+  providedUserId?: string | null
+) => {
+  const room = providedRoom || await getActiveRoom();
   if (!room) {
     throw new Error('No active room found.');
   }
 
-  // Resolve current user ID to determine the correct receiver
+  // Fast resolve current user ID to determine receiver (zero network roundtrip)
   let receiverId = room.partner_id;
   try {
-    const profile = await getMyProfile();
-    if (profile?.id && profile.id === room.partner_id) {
+    let currentId = providedUserId;
+    if (!currentId) {
+      const profile = await getMyProfileCached();
+      currentId = profile?.id;
+    }
+    if (currentId && currentId === room.partner_id) {
       receiverId = room.host_id;
     }
   } catch (error) {
-    console.error('Failed to resolve profile in sendChallenge:', error);
+    // fallback
   }
 
   const response = await api.post(`/user/deck/${deckCardId}/send`, {

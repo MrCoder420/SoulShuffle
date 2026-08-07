@@ -386,22 +386,22 @@ export default function Dares() {
 
     try {
       setIsSending(true);
-      const room = await getActiveRoom();
+      const activeRoom = room || await getActiveRoom();
 
-      if (!room) {
+      if (!activeRoom) {
         Alert.alert('No Room Found', 'Create or join a room before sending a challenge.');
         return;
       }
 
-      if (room.status !== 'ACTIVE') {
+      if (activeRoom.status !== 'ACTIVE') {
         Alert.alert('Partner Not Connected', 'Your partner needs to join the room before you can send a challenge.');
         return;
       }
 
-      await sendChallenge(selectedDare.id.toString(), note);
+      await sendChallenge(selectedDare.id.toString(), note, activeRoom);
       
       // Emit real-time event to partner so it appears instantly!
-      GameSocket.sendGameEvent(room.code, 'CHALLENGE_SENT', { 
+      GameSocket.sendGameEvent(activeRoom.code, 'CHALLENGE_SENT', { 
         challenge: {
           ...selectedDare,
           message: note
