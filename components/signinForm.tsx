@@ -311,8 +311,7 @@ const SigninForm = () => {
                                 </TouchableOpacity>
                             </View>
                         </View>
-
-                        
+                        </View>
 
                     </KeyboardAvoidingView>
                 </SafeAreaView>
