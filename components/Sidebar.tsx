@@ -237,7 +237,7 @@ export default function Sidebar() {
           {/* Footer */}
           <View className="px-8 pb-12 pt-4 border-t border-slate-100 dark:border-slate-800/20 bg-[#fffdfc] dark:bg-[#180D10]/40 rounded-br-[40px]">
             <Text className="text-3xl font-black italic text-[#af2c3b] dark:text-slate-100 tracking-tight mb-2">Soul Shuffle</Text>
-            <Text className="text-[8px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase">Version 1.1.1 • Made with love</Text>
+            <Text className="text-[8px] font-bold text-slate-500 dark:text-slate-400 tracking-widest uppercase">Version 1.1.1</Text>
           </View>
         </View>
       </View>

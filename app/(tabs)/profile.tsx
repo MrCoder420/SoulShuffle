@@ -304,12 +304,6 @@ export default function Profile() {
 
         {/* Top Cards Info */}
         <View className="px-6 mt-8">
-          <View className="bg-white dark:bg-[#271318] rounded-[24px] p-5 mb-4 border border-slate-100/50 dark:border-rose-950/20">
-            <Ionicons name="book" size={18} color={isDark ? "#f43f5e" : "#af2c3b"} className="mb-2" />
-            <Text className="text-lg font-bold text-slate-800 dark:text-white tracking-tight mt-1">Memory Book</Text>
-            <Text className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">124 moments captured since 2021</Text>
-          </View>
-
           <View className="bg-[#e4dad6]/30 dark:bg-[#271318]/80 rounded-[24px] p-6 border border-slate-100 dark:border-rose-950/30 overflow-hidden relative">
             {isEditingMemory ? (
               <View className="z-10">
