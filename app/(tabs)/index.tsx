@@ -156,7 +156,7 @@ export default function Dashboard() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
   const [partnerName, setPartnerName] = useState('Partner');
-  const [partnerAvatar, setPartnerAvatar] = useState<string>(ANIMATED_AVATARS[1].url);
+  const [partnerAvatar, setPartnerAvatar] = useState<string | null>(ANIMATED_AVATARS[1].url);
 
   // ── Load cached profile & active room instantly on mount ───────────────────
   useEffect(() => {

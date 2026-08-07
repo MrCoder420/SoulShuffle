@@ -23,6 +23,8 @@ export interface Room {
   partner_name?: string | null;
   host_avatar?: string | null;
   partner_avatar?: string | null;
+  host?: { id?: string; first_name?: string; full_name?: string; avatar_url?: string | null };
+  partner?: { id?: string; first_name?: string; full_name?: string; avatar_url?: string | null } | null;
 }
 
 export interface ChallengePayload {
@@ -197,3 +199,23 @@ export const fetchRoomHistory = async (roomId?: string) => {
   const response = await api.get(url);
   return response.data.data || [];
 };
+
+// ── COIN FLIP (REAL-TIME BACKEND API) ────────────────────
+export interface CoinFlipPayload {
+  flipper_id: string;
+  partner_id: string;
+  reason: string;
+  chosen_side: 'HEADS' | 'TAILS';
+  result: 'HEADS' | 'TAILS';
+  winner_id: string;
+  timestamp: string;
+}
+
+export const triggerCoinFlipApi = async (chosenSide: 'HEADS' | 'TAILS', reason: string = 'Coin Toss Decider'): Promise<CoinFlipPayload> => {
+  const response = await api.post('/rooms/coin-flip', {
+    chosen_side: chosenSide,
+    reason: reason.trim() || 'Coin Toss Decider'
+  });
+  return response.data.data;
+};
+

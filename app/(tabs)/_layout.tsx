@@ -2,6 +2,8 @@ import { Tabs, useRouter, useSegments, useNavigation } from 'expo-router';
 import { CommonActions } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import GameSocket from '@/services/socketService';
+import { getActiveRoom } from '@/services/roomService';
 import {
   View,
   Text,
@@ -209,6 +211,27 @@ export default function TabLayout() {
   const router = useRouter();
   const navigation = useNavigation();
 
+  // ── Global socket connection across all tabs ──
+  useEffect(() => {
+    let isMounted = true;
+    const initGlobalSocket = async () => {
+      try {
+        const activeRoom = await getActiveRoom();
+        if (isMounted && activeRoom?.code) {
+          await GameSocket.initialize();
+          await GameSocket.joinRoom(activeRoom.code);
+        }
+      } catch (err) {
+        console.log('[TabLayout] Global socket sync error:', err);
+      }
+    };
+
+    initGlobalSocket();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // ── Logout handler: resets root Stack to login screen ──
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('app:logout', () => {
@@ -240,4 +263,5 @@ export default function TabLayout() {
     </View>
   );
 }
+
 

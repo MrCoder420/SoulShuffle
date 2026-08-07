@@ -6,16 +6,17 @@ class GameSocket {
   static socket: Socket | null = null;
   static currentRoomCode: string | null = null;
   static callbacks: { [event: string]: Function[] } = {};
+  static isInitializing = false;
 
-  static async initialize() {
+  static async initialize(): Promise<Socket | null> {
     if (this.socket && this.socket.connected) {
-      return; // Already initialized and active
+      return this.socket; // Already initialized and active
     }
 
     const token = await AsyncStorage.getItem('accessToken');
     if (!token) {
-      console.warn('SocketInit: No access token found');
-      return;
+      console.warn('[GameSocket] SocketInit: No access token found');
+      return null;
     }
 
     let socketUrl = BASE_URL;
@@ -24,32 +25,31 @@ class GameSocket {
     }
 
     if (!this.socket) {
+      console.log(`[GameSocket] Connecting to socket at: ${socketUrl}`);
       this.socket = io(socketUrl, {
-        auth: async (cb: (data: { token: string | null }) => void) => {
-          const freshToken = await AsyncStorage.getItem('accessToken');
-          cb({ token: freshToken || token });
-        },
+        auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
+        autoConnect: true,
       });
 
       this.socket.on('connect', () => {
-        console.log('Socket connected! ID:', this.socket?.id);
+        console.log('[GameSocket] Connected successfully! ID:', this.socket?.id);
         // Automatically re-join current room if connection dropped and restored
         if (this.currentRoomCode) {
-          console.log('Auto-rejoining room on reconnect:', this.currentRoomCode);
+          console.log('[GameSocket] Auto-rejoining room on connect:', this.currentRoomCode);
           this.socket?.emit('join_room', this.currentRoomCode);
         }
       });
 
       this.socket.on('connect_error', async (err) => {
-        console.error('Socket connect_error:', err.message);
+        console.warn('[GameSocket] connect_error:', err.message);
         if (err.message.toLowerCase().includes('auth') || err.message.toLowerCase().includes('token')) {
-          console.warn('Socket Auth Failed. Refreshing auth token...');
+          console.warn('[GameSocket] Socket Auth Failed. Refreshing auth token...');
           const freshToken = await AsyncStorage.getItem('accessToken');
           if (freshToken && this.socket) {
             this.socket.auth = { token: freshToken };
@@ -58,26 +58,36 @@ class GameSocket {
       });
 
       this.socket.on('disconnect', (reason) => {
-        console.log('Socket disconnected. Reason:', reason);
+        console.log('[GameSocket] Disconnected. Reason:', reason);
       });
 
       // ── Universal Game Event Listener ──
       this.socket.on('game_event', (payload) => {
-        console.log('Received game_event payload:', payload);
+        console.log('[GameSocket] Received game_event payload:', payload);
         const cbs = this.callbacks['game_event'] || [];
         cbs.forEach(cb => cb(payload));
       });
 
+      // ── Coin Flip Result Listener (from backend /rooms/coin-flip endpoint) ──
+      this.socket.on('coin_flip_result', (payload) => {
+        console.log('[GameSocket] Received coin_flip_result payload:', payload);
+        const specificCbs = this.callbacks['coin_flip_result'] || [];
+        specificCbs.forEach(cb => cb(payload));
+        // Also dispatch to generic game_event subscribers for universal compatibility
+        const cbs = this.callbacks['game_event'] || [];
+        cbs.forEach(cb => cb({ eventType: 'COIN_FLIP_RESULT', data: payload }));
+      });
+
       // ── Partner Joined Listener ──
       this.socket.on('partner_joined', (payload) => {
-        console.log('Partner joined!', payload);
+        console.log('[GameSocket] Partner joined!', payload);
         const cbs = this.callbacks['partner_joined'] || [];
         cbs.forEach(cb => cb(payload));
       });
 
       // ── Room Updated Listener ──
       this.socket.on('room_updated', (payload) => {
-        console.log('Room updated!', payload);
+        console.log('[GameSocket] Room updated!', payload);
         const cbs = this.callbacks['room_updated'] || [];
         cbs.forEach(cb => cb(payload));
         const partnerCbs = this.callbacks['partner_joined'] || [];
@@ -86,7 +96,7 @@ class GameSocket {
 
       // ── Room Left & Partner Left Listeners ──
       this.socket.on('room_left', (payload) => {
-        console.log('Room left event received:', payload);
+        console.log('[GameSocket] Room left event received:', payload);
         const cbs = this.callbacks['room_left'] || [];
         cbs.forEach(cb => cb(payload));
         const partnerCbs = this.callbacks['partner_left'] || [];
@@ -94,7 +104,7 @@ class GameSocket {
       });
 
       this.socket.on('partner_left', (payload) => {
-        console.log('Partner left event received:', payload);
+        console.log('[GameSocket] Partner left event received:', payload);
         const cbs = this.callbacks['partner_left'] || [];
         cbs.forEach(cb => cb(payload));
         const roomCbs = this.callbacks['room_left'] || [];
@@ -118,7 +128,7 @@ class GameSocket {
 
       cardEvents.forEach(evt => {
         this.socket?.on(evt, (payload) => {
-          console.log(`Received remote socket event [${evt}] with payload:`, payload);
+          console.log(`[GameSocket] Received remote socket event [${evt}]:`, payload);
           const cbs = this.callbacks['game_event'] || [];
           cbs.forEach(cb => cb({ eventType: evt.toUpperCase(), data: payload }));
         });
@@ -126,6 +136,8 @@ class GameSocket {
     } else if (!this.socket.connected) {
       this.socket.connect();
     }
+
+    return this.socket;
   }
 
   static updateToken(token: string) {
@@ -137,54 +149,65 @@ class GameSocket {
     }
   }
 
-  static joinRoom(roomCode: string) {
+  static async joinRoom(roomCode: string) {
+    if (!roomCode) return;
     this.currentRoomCode = roomCode;
+
     if (this.socket && this.socket.connected) {
-      console.log('Emitting join_room with code:', roomCode);
+      console.log('[GameSocket] Emitting join_room with code:', roomCode);
       this.socket.emit('join_room', roomCode);
-    } else {
-      console.warn('joinRoom called, queuing emit until socket connects.');
-      this.initialize().then(() => {
-        if (this.socket) {
-          this.socket.once('connect', () => {
-            console.log('Socket connected, emitting join_room with code:', roomCode);
-            this.socket?.emit('join_room', roomCode);
-          });
-        }
-      });
+      return;
+    }
+
+    console.log('[GameSocket] joinRoom called, initializing socket connection...');
+    await this.initialize();
+
+    if (this.socket) {
+      if (this.socket.connected) {
+        console.log('[GameSocket] Socket connected, emitting join_room with code:', roomCode);
+        this.socket.emit('join_room', roomCode);
+      } else {
+        this.socket.once('connect', () => {
+          console.log('[GameSocket] Socket connected event, emitting join_room with code:', roomCode);
+          this.socket?.emit('join_room', roomCode);
+        });
+      }
     }
   }
 
   static leaveRoom(roomCode?: string) {
     const codeToLeave = roomCode || this.currentRoomCode;
     if (codeToLeave && this.socket && this.socket.connected) {
-      console.log('Emitting leave_room with code:', codeToLeave);
+      console.log('[GameSocket] Emitting leave_room with code:', codeToLeave);
       this.socket.emit('leave_room', codeToLeave);
     }
     this.currentRoomCode = null;
   }
 
-  static sendGameEvent(roomCode: string, eventType: string, data: any) {
+  static async sendGameEvent(roomCode: string, eventType: string, data: any) {
+    if (!roomCode) return;
     this.currentRoomCode = roomCode;
+    const payload = { roomCode, eventType, data };
+
     if (this.socket && this.socket.connected) {
-      const payload = { roomCode, eventType, data };
-      console.log('Emitting game_event:', payload);
+      console.log('[GameSocket] Emitting game_event:', payload);
       this.socket.emit('game_event', payload);
-    } else {
-      console.warn('Cannot send game_event immediately, ensuring socket connection...');
-      this.initialize().then(() => {
-        if (this.socket && this.socket.connected) {
-          const payload = { roomCode, eventType, data };
-          console.log('Emitting game_event after reconnect:', payload);
-          this.socket.emit('game_event', payload);
-        } else if (this.socket) {
-          this.socket.once('connect', () => {
-            const payload = { roomCode, eventType, data };
-            console.log('Socket connected, emitting queued game_event:', payload);
-            this.socket?.emit('game_event', payload);
-          });
-        }
-      });
+      return;
+    }
+
+    console.warn('[GameSocket] Cannot send game_event immediately, ensuring socket connection...');
+    await this.initialize();
+
+    if (this.socket) {
+      if (this.socket.connected) {
+        console.log('[GameSocket] Emitting game_event after connect:', payload);
+        this.socket.emit('game_event', payload);
+      } else {
+        this.socket.once('connect', () => {
+          console.log('[GameSocket] Socket connected, emitting queued game_event:', payload);
+          this.socket?.emit('game_event', payload);
+        });
+      }
     }
   }
 
@@ -210,3 +233,4 @@ class GameSocket {
 }
 
 export default GameSocket;
+

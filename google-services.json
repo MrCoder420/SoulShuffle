@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "551403569770",
+    "project_id": "soulshuffle-75ff1",
+    "storage_bucket": "soulshuffle-75ff1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:551403569770:android:7017649c0be15e3b550013",
+        "android_client_info": {
+          "package_name": "com.soulshuffle.CoupleGame"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBG9vS3rJY0THfe-UHJShG7A8VuMEdURQU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
