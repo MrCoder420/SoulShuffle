@@ -304,17 +304,26 @@ export default function Dares() {
       AsyncStorage.removeItem(CACHE_KEY).catch(() => {});
     };
 
+    const handleGameEvent = (payload: any) => {
+      if (payload.eventType === 'CARD_REJECTED') {
+        console.log('Partner rejected a card, refreshing deck immediately...');
+        loadDares(true, true);
+      }
+    };
+
     const clearSub = DeviceEventEmitter.addListener('app:clearRoom', handleRoomLeft);
 
     GameSocket.on('partner_joined', handlePartnerJoined);
     GameSocket.on('partner_left', handleRoomLeft);
     GameSocket.on('room_left', handleRoomLeft);
+    GameSocket.on('game_event', handleGameEvent);
 
     return () => {
       clearSub.remove();
       GameSocket.off('partner_joined', handlePartnerJoined);
       GameSocket.off('partner_left', handleRoomLeft);
       GameSocket.off('room_left', handleRoomLeft);
+      GameSocket.off('game_event', handleGameEvent);
     };
   }, []);
 
@@ -426,8 +435,6 @@ export default function Dares() {
         GameSocket.sendGameEvent(activeRoom.code, 'CHALLENGE_SENT', { 
           challenge: { ...targetDare, message: currentNote }
         });
-        // Silently refresh limits in background (skip cache to preserve optimistic UI)
-        loadDares(true, true);
       })
       .catch((error: any) => {
         // Revert optimistic update on failure

@@ -597,6 +597,9 @@ export default function Dashboard() {
     
     try {
       await rejectCardSend(sendId, roomId);
+      if (activeRoom) {
+        GameSocket.sendGameEvent(activeRoom.code, 'CARD_REJECTED', { sendId });
+      }
       refreshCardSendsOnly();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to reject card');
