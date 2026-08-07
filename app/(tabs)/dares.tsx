@@ -210,25 +210,27 @@ export default function Dares() {
 
   const CACHE_KEY = '@soulshuffle_dares_cache';
 
-  const loadDares = async (silent = false) => {
+  const loadDares = async (silent = false, skipCache = false) => {
     try {
       if (!silent) setLoading(true);
       const appLoadStartTime = performance.now();
 
       // 1. FAST LOCAL LOAD (Instant UI)
-      try {
-        const cachedData = await AsyncStorage.getItem(CACHE_KEY);
-        if (cachedData) {
-          const { cachedDares, cachedLimits, roomId } = JSON.parse(cachedData);
-          if (cachedDares && cachedDares.length > 0) {
-            setDares(cachedDares);
-            if (cachedLimits) setLimits(cachedLimits);
-            if (roomId) setRoom({ id: roomId, code: '', status: 'ACTIVE' } as any);
-            if (!silent) setLoading(false);
+      if (!skipCache) {
+        try {
+          const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+          if (cachedData) {
+            const { cachedDares, cachedLimits, roomId } = JSON.parse(cachedData);
+            if (cachedDares && cachedDares.length > 0) {
+              setDares(cachedDares);
+              if (cachedLimits) setLimits(cachedLimits);
+              if (roomId) setRoom({ id: roomId, code: '', status: 'ACTIVE' } as any);
+              if (!silent) setLoading(false);
+            }
           }
+        } catch (e) {
+          console.log('Failed to load cache:', e);
         }
-      } catch (e) {
-        console.log('Failed to load cache:', e);
       }
 
       // 2. BACKGROUND FETCH (Update data)
@@ -424,8 +426,8 @@ export default function Dares() {
         GameSocket.sendGameEvent(activeRoom.code, 'CHALLENGE_SENT', { 
           challenge: { ...targetDare, message: currentNote }
         });
-        // Silently refresh limits in background
-        loadDares(true);
+        // Silently refresh limits in background (skip cache to preserve optimistic UI)
+        loadDares(true, true);
       })
       .catch((error: any) => {
         // Revert optimistic update on failure
