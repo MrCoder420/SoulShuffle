@@ -384,62 +384,63 @@ export default function Dares() {
   const handleSendChallenge = async () => {
     if (!selectedDare) return;
 
-    try {
-      setIsSending(true);
-      const activeRoom = room || await getActiveRoom();
+    const activeRoom = room || await getActiveRoom();
+    if (!activeRoom) {
+      Alert.alert('No Room Found', 'Create or join a room before sending a challenge.');
+      return;
+    }
+    if (activeRoom.status !== 'ACTIVE') {
+      Alert.alert('Partner Not Connected', 'Your partner needs to join the room before you can send a challenge.');
+      return;
+    }
 
-      if (!activeRoom) {
-        Alert.alert('No Room Found', 'Create or join a room before sending a challenge.');
-        return;
-      }
+    // 1. OPTIMISTIC UI UPDATE (Instantaneous Feedback)
+    const targetDare = selectedDare;
+    const currentNote = note;
+    const backupDares = [...dares];
+    
+    // Hide modal and show success instantly (0ms latency perceived)
+    setSelectedDare(null);
+    setIsSending(false);
+    Alert.alert('Challenge Sent', `${targetDare.title} was sent to your partner!`);
 
-      if (activeRoom.status !== 'ACTIVE') {
-        Alert.alert('Partner Not Connected', 'Your partner needs to join the room before you can send a challenge.');
-        return;
-      }
+    // Remove card from UI state instantly
+    setDares(prevDares => {
+      const updatedDares = prevDares.filter(d => d.id !== targetDare.id);
+      AsyncStorage.getItem(CACHE_KEY).then(cached => {
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          parsed.cachedDares = updatedDares;
+          AsyncStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+        }
+      }).catch(() => {});
+      return updatedDares;
+    });
 
-      await sendChallenge(selectedDare.id.toString(), note, activeRoom);
-      
-      // Emit real-time event to partner so it appears instantly!
-      GameSocket.sendGameEvent(activeRoom.code, 'CHALLENGE_SENT', { 
-        challenge: {
-          ...selectedDare,
-          message: note
+    // 2. BACKGROUND API CALL (Non-blocking execution)
+    sendChallenge(targetDare.id.toString(), currentNote, activeRoom)
+      .then(() => {
+        // Emit real-time event to partner
+        GameSocket.sendGameEvent(activeRoom.code, 'CHALLENGE_SENT', { 
+          challenge: { ...targetDare, message: currentNote }
+        });
+        // Silently refresh limits in background
+        loadDares(true);
+      })
+      .catch((error: any) => {
+        // Revert optimistic update on failure
+        setDares(backupDares);
+        if (error.response?.status === 401) {
+          Alert.alert('Session Expired', 'Please sign in again before sending a challenge.', [
+            { text: 'OK', onPress: () => router.replace('/') },
+          ]);
+        } else {
+          Alert.alert(
+            'Could Not Send',
+            error.response?.data?.message || error.message || 'Something went wrong while sending the challenge.'
+          );
         }
       });
-
-      // OPTIMISTIC UPDATE: Remove used card from state and cache immediately
-      const usedDareId = selectedDare.id;
-      setDares(prevDares => {
-        const updatedDares = prevDares.filter(d => d.id !== usedDareId);
-        AsyncStorage.getItem(CACHE_KEY).then(cached => {
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            parsed.cachedDares = updatedDares;
-            AsyncStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
-          }
-        }).catch(() => {});
-        return updatedDares;
-      });
-
-      setSelectedDare(null);
-      Alert.alert('Challenge Sent', `${selectedDare.title} was sent to your partner.`);
-      loadDares(true);
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        Alert.alert('Session Expired', 'Please sign in again before sending a challenge.', [
-          { text: 'OK', onPress: () => router.replace('/') },
-        ]);
-        return;
-      }
-
-      Alert.alert(
-        'Could Not Send',
-        error.response?.data?.message || error.message || 'Something went wrong while sending the challenge.'
-      );
-    } finally {
-      setIsSending(false);
-    }
   };
 
   return (
