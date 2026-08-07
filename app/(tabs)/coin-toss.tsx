@@ -325,24 +325,19 @@ export default function CoinToss() {
       animateFlip(incomingResult);
     };
 
-    const onGameEvent = (payload: any) => {
-      if (payload && (payload.eventType === 'COIN_TOSS' || payload.eventType === 'COIN_FLIP_RESULT')) {
+    GameSocket.on('game_event', (payload: any) => {
+      if (payload.eventType === 'COIN_TOSS' || payload.eventType === 'COIN_FLIP_RESULT') {
         handleIncomingFlip(payload);
       }
-    };
+    });
 
-    const onCoinFlipResult = (payload: any) => {
-      if (payload) {
-        handleIncomingFlip({ eventType: 'COIN_FLIP_RESULT', data: payload });
-      }
-    };
-
-    GameSocket.on('game_event', onGameEvent);
-    GameSocket.on('coin_flip_result', onCoinFlipResult);
+    GameSocket.on('coin_flip_result', (payload: any) => {
+      handleIncomingFlip({ eventType: 'COIN_FLIP_RESULT', data: payload });
+    });
 
     return () => {
-      GameSocket.off('game_event', onGameEvent);
-      GameSocket.off('coin_flip_result', onCoinFlipResult);
+      GameSocket.off('game_event', handleIncomingFlip);
+      GameSocket.off('coin_flip_result', handleIncomingFlip);
     };
   }, [animateFlip]);
 

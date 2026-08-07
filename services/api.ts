@@ -35,6 +35,15 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// In-memory token cache to prevent disk reads on every request
+let memoryAccessToken: string | null = null;
+
+export const setMemoryToken = (token: string | null) => {
+  memoryAccessToken = token;
+};
+
+export const getMemoryToken = () => memoryAccessToken;
+
 const isAuthRequest = (url = '') => url.includes('/auth/');
 
 // ─── TOKEN REFRESH WITH QUEUE ──────────────────────────────
@@ -59,6 +68,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
   const newAccessToken = res.data.data.accessToken;
   const newRefreshToken = res.data.data.refreshToken;
 
+  memoryAccessToken = newAccessToken;
   await AsyncStorage.setItem('accessToken', newAccessToken);
   await AsyncStorage.setItem('refreshToken', newRefreshToken);
 
@@ -74,6 +84,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
 
 // Clear only auth tokens (not all app data) and redirect to login
 const handleAuthFailure = async () => {
+  memoryAccessToken = null;
   await AsyncStorage.removeItem('accessToken');
   await AsyncStorage.removeItem('refreshToken');
   // Lazy import to avoid circular dependency with expo-router
@@ -91,10 +102,13 @@ const handleAuthFailure = async () => {
 };
 
 // ─── REQUEST INTERCEPTOR ───────────────────────────────────
-// Automatically attaches accessToken to every request
+// Automatically attaches accessToken to every request with zero-latency memory cache
 api.interceptors.request.use(async (config) => {
-  const requestUrl = config.url || '';
-  const token = await AsyncStorage.getItem('accessToken');
+  let token = memoryAccessToken;
+  if (!token) {
+    token = await AsyncStorage.getItem('accessToken');
+    if (token) memoryAccessToken = token;
+  }
 
   if (token) {
     if (config.headers && typeof config.headers.set === 'function') {
@@ -103,9 +117,6 @@ api.interceptors.request.use(async (config) => {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${requestUrl} - Token: ${token.substring(0, 15)}...`);
-  } else {
-    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${requestUrl} - NO TOKEN`);
   }
 
   return config;
@@ -126,7 +137,6 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      console.log(`[API RESPONSE] 401 Unauthorized for ${requestUrl} — attempting token refresh`);
       originalRequest._retry = true;
 
       if (isRefreshing) {
@@ -163,14 +173,9 @@ api.interceptors.response.use(
       } catch (refreshError: any) {
         isRefreshing = false;
         onRefreshed(null);
-        // Only force-logout if the refresh endpoint explicitly rejected the token (401/403)
-        // Network errors, timeouts etc. should NOT log the user out
         const status = refreshError?.response?.status;
         if (status === 401 || status === 403) {
-          console.log('[API] Refresh token rejected by server — logging out');
           await handleAuthFailure();
-        } else {
-          console.log('[API] Refresh failed due to network/server error — keeping user logged in, will retry');
         }
         return Promise.reject(refreshError);
       }

@@ -229,16 +229,17 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
     // Handle interaction when app was opened by tapping a notification
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('[Notifications] Notification tapped by user:', response);
       try {
         const data = response.notification.request.content.data;
-        if (data?.room_id) {
+        if (data?.room_id || data?.send_id || data?.card_id) {
           router.push('/(tabs)');
+          const { DeviceEventEmitter } = require('react-native');
+          DeviceEventEmitter.emit('app:openCardSend', data);
         } else {
           router.push('/notifications');
         }
       } catch (err) {
-        console.warn('[Notifications] Notification navigation error:', err);
+        // silently fallback
       }
     });
 

@@ -1,8 +1,9 @@
-import api from './api';
+import api, { setMemoryToken } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Helper to save tokens after login/signup
 const saveTokens = async (accessToken: string, refreshToken: string) => {
+  setMemoryToken(accessToken);
   await AsyncStorage.setItem('accessToken', accessToken);
   await AsyncStorage.setItem('refreshToken', refreshToken);
 
@@ -19,6 +20,7 @@ const saveTokens = async (accessToken: string, refreshToken: string) => {
 
 // Helper to clear user cache
 const clearUserCache = async () => {
+  setMemoryToken(null);
   await AsyncStorage.removeItem('accessToken');
   await AsyncStorage.removeItem('refreshToken');
   await AsyncStorage.removeItem('cachedUserName');
@@ -100,6 +102,7 @@ export const resetPassword = async (email: string, otp: string, newPassword: str
 
 // ── LOGOUT ───────────────────────────────────────────────
 export const logout = async () => {
+  setMemoryToken(null);
   await AsyncStorage.clear();
 };
 

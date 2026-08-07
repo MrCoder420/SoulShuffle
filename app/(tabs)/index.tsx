@@ -193,18 +193,36 @@ export default function Dashboard() {
     setCurrentPhotoIndex((prev) => (prev + 1) % COUPLE_PHOTOS.length);
   }, []);
 
-  // Automatically open received cards popup
+  // Automatically open received cards popup from cardSends state or instant notification tap
   useEffect(() => {
-    if (!currentUserId || selectedReceivedCard) return;
-    
-    const unhandledReceivedCards = cardSends.filter(
-      c => c.status === 'SENT' && c.sender_id !== currentUserId && !c.id.toString().startsWith('dummy')
-    );
-    
-    const firstNewCard = unhandledReceivedCards.find(c => !dismissedCardIds.includes(c.id));
-    if (firstNewCard) {
-      setSelectedReceivedCard(firstNewCard);
+    // 1. Instant popup trigger from notification tap event
+    const tapSub = DeviceEventEmitter.addListener('app:openCardSend', (data: any) => {
+      if (data?.card_id || data?.send_id) {
+        // Attempt to find full card record in cardSends or construct instant payload
+        const match = cardSends.find(c => c.id === data.send_id || c.card_id === data.card_id);
+        if (match) {
+          setSelectedReceivedCard(match);
+        } else if (data?.title || data?.cards) {
+          setSelectedReceivedCard(normalizeSendRecord(data));
+        }
+      }
+    });
+
+    // 2. Normal check when cardSends changes
+    if (currentUserId && !selectedReceivedCard) {
+      const unhandledReceivedCards = cardSends.filter(
+        c => c.status === 'SENT' && c.sender_id !== currentUserId && !c.id.toString().startsWith('dummy')
+      );
+      
+      const firstNewCard = unhandledReceivedCards.find(c => !dismissedCardIds.includes(c.id));
+      if (firstNewCard) {
+        setSelectedReceivedCard(firstNewCard);
+      }
     }
+
+    return () => {
+      tapSub.remove();
+    };
   }, [cardSends, currentUserId, selectedReceivedCard, dismissedCardIds]);
 
   // Load cached partner name & avatar when activeRoom changes
@@ -276,27 +294,44 @@ export default function Dashboard() {
   const displayPendingChallenges = pendingChallenges;
   const cardHistoryList = roomHistoryData.length > 0 ? roomHistoryData : (completedChallenges.length > 0 ? completedChallenges : cardSends);
 
-  // ── Fetch Active Room on Mount ─────────────────────────
+  // ── Fast Refresh Card Sends Only (Zero Room Overhead) ───
+  const refreshCardSendsOnly = useCallback(async (roomId?: string) => {
+    const targetRoomId = roomId || activeRoom?.id;
+    if (!targetRoomId) return;
+    try {
+      const sends = await fetchCardSends(targetRoomId);
+      const rawSends = sends?.sends || sends || [];
+      setCardSends(rawSends.map(normalizeSendRecord).filter(Boolean));
+    } catch (e) {
+      // silently fail
+    }
+  }, [activeRoom?.id]);
+
+  // ── Fetch Active Room on Mount & Full Sync ─────────────
+  const isFetchingRoomRef = useRef(false);
+
   const fetchActiveRoom = useCallback(async (silent = false) => {
+    if (isFetchingRoomRef.current) return;
+    isFetchingRoomRef.current = true;
+
     try {
       if (!silent) {
         setRoomLoading(true);
       }
+
+      // Fast cached profile lookup (zero extra HTTP requests)
       try {
-        const profile = await getMyProfile();
-        setCurrentUserId(profile?.id || null);
-        if (profile?.first_name || profile?.users?.name) {
-          setUserName(profile.first_name || profile.users.name.split(' ')[0]);
-        }
+        const profile = await getMyProfileCached();
+        if (profile?.id) setCurrentUserId(profile.id);
+        if (profile?.firstName) setUserName(profile.firstName);
       } catch (err) {
-        console.log('Failed to fetch profile in dashboard:', err);
+        // silently fallback
       }
       
       let room: Room | null = null;
       try {
         room = await getActiveRoom();
       } catch (apiErr: any) {
-        console.log('Failed to fetch active room from API (keeping cached room):', apiErr?.message);
         // Do NOT wipe active room on network failure/timeout!
         return;
       }
@@ -312,14 +347,14 @@ export default function Dashboard() {
           const rawSends = sends?.sends || sends || [];
           setCardSends(rawSends.map(normalizeSendRecord).filter(Boolean));
         } catch (e) {
-          console.log('Failed to fetch card sends:', e);
+          // silently fail
         }
 
         try {
           const historyData = await fetchRoomHistory(room.id);
           setRoomHistoryData(Array.isArray(historyData) ? historyData : []);
         } catch (e) {
-          console.log('Failed to fetch room history:', e);
+          // silently fail
         }
         
         if (room.expiry_type === '30_DAYS') {
@@ -328,7 +363,7 @@ export default function Dashboard() {
             setDeflectCardsCount(deflectRes?.total || 0);
             setDeflectCards(deflectRes?.deflect_cards || []);
           } catch (e) {
-            console.log('Failed to fetch deflect cards:', e);
+            // silently fail
           }
         } else {
           setDeflectCardsCount(0);
@@ -343,8 +378,9 @@ export default function Dashboard() {
         setDeflectCards([]);
       }
     } catch (err) {
-      console.log('Failed to fetch active room:', err);
+      // silently handle
     } finally {
+      isFetchingRoomRef.current = false;
       if (!silent) {
         setRoomLoading(false);
       }
@@ -387,7 +423,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     const handlePartnerJoined = (payload: any) => {
-      console.log('Partner joined, re-fetching room immediately!', payload);
       fetchActiveRoom(true);
       if (payload?.partnerName) setPartnerName(payload.partnerName);
       if (payload?.partnerAvatar) setPartnerAvatar(payload.partnerAvatar);
@@ -396,7 +431,6 @@ export default function Dashboard() {
     };
 
     const handleRoomLeft = async (payload: any) => {
-      console.log('Room left event received over socket:', payload);
       setActiveRoom(null);
       setCardSends([]);
       setDeflectCardsCount(0);
@@ -421,23 +455,22 @@ export default function Dashboard() {
     };
 
     const handleGameEvent = async (payload: any) => {
-      console.log('Game event received:', payload);
       if (payload.eventType === 'PARTNER_INFO') {
         const { first_name, avatar_url } = payload.data || {};
         if (first_name) {
-          console.log('Partner name received over socket:', first_name);
           setPartnerName(first_name);
           if (activeRoom) {
             await AsyncStorage.setItem(`partnerName_${activeRoom.id}`, first_name);
           }
         }
         if (avatar_url) {
-          console.log('Partner avatar received over socket:', avatar_url);
           setPartnerAvatar(avatar_url);
           if (activeRoom) {
             await AsyncStorage.setItem(`partnerAvatar_${activeRoom.id}`, avatar_url);
           }
         }
+      } else if (payload.eventType === 'CARD_RECEIVED' || payload.eventType === 'CARD_ACCEPTED' || payload.eventType === 'CARD_DEFLECTED' || payload.eventType === 'CARD_COMPLETED' || payload.eventType === 'CARD_CONFIRMED' || payload.eventType === 'CARD_REJECTED') {
+        refreshCardSendsOnly();
       } else {
         fetchActiveRoom(true);
       }
@@ -458,16 +491,15 @@ export default function Dashboard() {
       GameSocket.off('room_left', handleRoomLeft);
       GameSocket.off('room_closed', handleRoomLeft);
     };
-  }, [fetchActiveRoom, activeRoom?.id, currentUserId, shareInfoWithPartner]);
+  }, [fetchActiveRoom, activeRoom?.id, currentUserId, shareInfoWithPartner, refreshCardSendsOnly]);
 
   // ── Automatic Polling when Waiting for Partner ────────────────
   useEffect(() => {
     if (!activeRoom || activeRoom.status !== 'WAITING') return;
 
-    console.log('[Dashboard] Room is in WAITING state, polling every 3s for partner to join...');
     const pollInterval = setInterval(() => {
       fetchActiveRoom(true);
-    }, 3000);
+    }, 4000);
 
     return () => {
       clearInterval(pollInterval);
@@ -513,9 +545,7 @@ export default function Dashboard() {
       setActionLoading(true);
       setActionError('');
       const codeToSend = joinCode.trim().toUpperCase();
-      console.log('[JOIN ROOM] Attempting to join with code:', codeToSend);
       const room = await joinRoom(codeToSend);
-      console.log('[JOIN ROOM] Success! Room:', room?.id, 'Status:', room?.status);
       setActiveRoom(room);
       if (room) {
         const sends = await fetchCardSends(room.id);
@@ -527,7 +557,6 @@ export default function Dashboard() {
     } catch (err: any) {
       const status = err.response?.status;
       const serverMsg = err.response?.data?.message;
-      console.error('[JOIN ROOM] Error:', status, serverMsg || err.message);
       
       // Give meaningful error messages based on HTTP status
       if (status === 401) {
@@ -546,7 +575,7 @@ export default function Dashboard() {
     }
   };
 
-  // ── Card Game Engine Handlers ────────────────────────────
+  // ── Card Game Engine Handlers (Fast Local & Non-blocking Sync) ──
   const handleAcceptCard = async (sendId: string) => {
     // Optimistic update
     setSelectedReceivedCard(null);
@@ -554,10 +583,10 @@ export default function Dashboard() {
     
     try {
       await acceptCardSend(sendId);
-      fetchActiveRoom(false);
+      refreshCardSendsOnly();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to accept card');
-      fetchActiveRoom(true);
+      refreshCardSendsOnly();
     }
   };
 
@@ -568,10 +597,10 @@ export default function Dashboard() {
     
     try {
       await rejectCardSend(sendId, roomId);
-      fetchActiveRoom(false);
+      refreshCardSendsOnly();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to reject card');
-      fetchActiveRoom(true);
+      refreshCardSendsOnly();
     }
   };
 
@@ -593,10 +622,10 @@ export default function Dashboard() {
 
     try {
       await deflectCardSend(sendId, deflectCardToUse.id);
-      fetchActiveRoom(false);
+      refreshCardSendsOnly();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to deflect card');
-      fetchActiveRoom(true);
+      refreshCardSendsOnly();
     }
   };
 
@@ -607,9 +636,10 @@ export default function Dashboard() {
     try {
       await completeCardSend(sendId);
       Alert.alert('Challenge Completed!', 'Well done! You have completed this dare.');
-      fetchActiveRoom(true);
+      refreshCardSendsOnly();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to complete card');
+      refreshCardSendsOnly();
     }
   };
 
@@ -620,9 +650,10 @@ export default function Dashboard() {
     try {
       await confirmCardSend(sendId);
       Alert.alert('Challenge Confirmed!', 'Thank you! You have confirmed the challenge completion.');
-      fetchActiveRoom(true);
+      refreshCardSendsOnly();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to confirm challenge');
+      refreshCardSendsOnly();
     }
   };
 
