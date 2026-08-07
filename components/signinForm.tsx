@@ -248,7 +248,44 @@ const SigninForm = () => {
                                         placeholder="Enter your password"
                                         placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
                                         className="flex-1 ml-3 text-slate-800 dark:text-white font-medium"
- 
+                                        value={password}
+                                        onChangeText={setPassword}
+                                        secureTextEntry={!showPassword}
+                                        autoCapitalize="none"
+                                    />
+                                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="p-1">
+                                        <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {errorMessage ? (
+                                <Text className="text-red-500 text-sm mb-4 ml-1">{errorMessage}</Text>
+                            ) : null}
+
+                            <TouchableOpacity
+                                className="bg-rose-500 rounded-2xl h-14 items-center justify-center shadow-lg mb-4"
+                                activeOpacity={0.85}
+                                onPress={handleSignIn}
+                                disabled={isLoading}
+                            >
+                                {isLoading ? (
+                                    <ActivityIndicator color="#ffffff" />
+                                ) : (
+                                    <Text className="text-white font-bold text-base">Sign In</Text>
+                                )}
+                            </TouchableOpacity>
+
+                            <View className="flex-row items-center mb-6">
+                                <TouchableOpacity onPress={() => setRememberMe(!rememberMe)} className="mr-2">
+                                    <Ionicons name={rememberMe ? "checkbox" : "square-outline"} size={22} color={rememberMe ? "#f43f5e" : (isDark ? "#64748b" : "#94a3b8")} />
+                                </TouchableOpacity>
+                                <Text className="text-slate-500 dark:text-slate-400 text-sm flex-1">Remember me</Text>
+                                <TouchableOpacity onPress={() => setForgotPasswordModalVisible(true)}>
+                                    <Text className="text-rose-500 font-semibold text-sm">Forgot Password?</Text>
+                                </TouchableOpacity>
+                            </View>
+
                         <View className="mt-8 items-center">
                             <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mb-5">Or continue with</Text>
                             <View className="flex-row gap-4 w-full">
