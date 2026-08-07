@@ -1,6 +1,6 @@
 import { useSidebar } from '@/context/SidebarContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { logout } from '@/services/authService';
+import { logout, getMyProfileCached } from '@/services/authService';
 import { leaveRoom, getActiveRoom } from '@/services/roomService';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,33 +25,40 @@ export default function Sidebar() {
   useEffect(() => {
     if (!isOpen) return;
     const loadNamesAndStats = async () => {
-      const cachedName = await AsyncStorage.getItem('cachedUserName');
-      if (cachedName) setUserName(cachedName);
+      try {
+        const cachedName = await AsyncStorage.getItem('cachedUserName');
+        if (cachedName) setUserName(cachedName);
 
-      const cachedAvatar = await AsyncStorage.getItem('cachedUserAvatar');
-      if (cachedAvatar) setUserAvatar(cachedAvatar);
+        const cachedAvatar = await AsyncStorage.getItem('cachedUserAvatar');
+        if (cachedAvatar) setUserAvatar(cachedAvatar);
 
-      const activeRoomId = await AsyncStorage.getItem('activeRoomId');
-      if (activeRoomId) {
-        const cachedPartner = await AsyncStorage.getItem(`partnerName_${activeRoomId}`);
-        if (cachedPartner) setPartnerName(cachedPartner);
-      }
+        const room = await getActiveRoom();
+        if (room && room.status === 'ACTIVE' && room.partner_id) {
+          const profile = await getMyProfileCached().catch(() => null);
+          const myId = profile?.id;
+          const resolvedPartner = (myId === room.host_id ? room.partner_name : room.host_name) || null;
+          setPartnerName(resolvedPartner);
 
-      const cachedStats = await AsyncStorage.getItem('relationshipStats');
-      if (cachedStats && !cachedStats.toLowerCase().includes('unknown')) {
-        setConnectionString(`Connected for ${cachedStats}`);
-      }
+          const cachedStats = await AsyncStorage.getItem('relationshipStats');
+          if (cachedStats && !cachedStats.toLowerCase().includes('unknown')) {
+            setConnectionString(`Connected for ${cachedStats}`);
+          }
 
-      // Fetch fresh stats from API in the background
-      api.get('/profile/relationship-stats').then(async (response) => {
-        const stats = response.data?.data?.stats;
-        if (stats?.formattedTime && !stats.formattedTime.toLowerCase().includes('unknown')) {
-          setConnectionString(`Connected for ${stats.formattedTime}`);
-          await AsyncStorage.setItem('relationshipStats', stats.formattedTime);
+          api.get('/profile/relationship-stats').then(async (response) => {
+            const stats = response.data?.data?.stats;
+            if (stats?.formattedTime && !stats.formattedTime.toLowerCase().includes('unknown')) {
+              setConnectionString(`Connected for ${stats.formattedTime}`);
+              await AsyncStorage.setItem('relationshipStats', stats.formattedTime);
+            }
+          }).catch(() => {});
+        } else {
+          setPartnerName(null);
+          setConnectionString('');
         }
-      }).catch(() => {
-        // Silently ignore — connection string is optional
-      });
+      } catch (err) {
+        setPartnerName(null);
+        setConnectionString('');
+      }
     };
     loadNamesAndStats();
 
@@ -63,8 +70,20 @@ export default function Sidebar() {
         setUserName(data.firstName);
       }
     });
+
+    const clearSub = DeviceEventEmitter.addListener('app:clearRoom', () => {
+      setPartnerName(null);
+      setConnectionString('');
+    });
+
+    const roomSub = DeviceEventEmitter.addListener('room:updated', () => {
+      loadNamesAndStats();
+    });
+
     return () => {
       sub.remove();
+      clearSub.remove();
+      roomSub.remove();
     };
   }, [isOpen]);
 
@@ -159,9 +178,6 @@ export default function Sidebar() {
                 source={{ uri: userAvatar }}
                 className="w-full h-full rounded-full border-[3px] border-[#e24e5d] dark:border-rose-400"
               />
-              <View className="absolute -bottom-1 -right-2 bg-[#0d6e67] dark:bg-teal-600 w-8 h-8 rounded-full items-center justify-center border-2 border-white dark:border-[#180D10]">
-                <Text className="text-white font-bold text-[11px]">14</Text>
-              </View>
             </View>
 
             <Text className="text-[28px] font-black text-[#af2c3b] dark:text-slate-100 tracking-tight">

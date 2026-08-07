@@ -6,7 +6,7 @@ import { useFocusEffect } from 'expo-router';
 import { Image, ScrollView, StatusBar, Switch, Text, TextInput, TouchableOpacity, View, ActivityIndicator, DeviceEventEmitter, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getMyProfileCached, updateMyProfile } from '@/services/authService';
-import { getActiveRoom } from '@/services/roomService';
+import { getActiveRoom, clearRoomCache } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ANIMATED_AVATARS, AVATAR_CATEGORIES, AnimatedAvatar } from '@/constants/avatars';
@@ -42,18 +42,18 @@ export default function Profile() {
   const isDark = colorScheme === 'dark';
 
   const [userName, setUserName] = useState('User');
-  const [partnerName, setPartnerName] = useState('Partner');
-  const [partnerAvatar, setPartnerAvatar] = useState<string>(ANIMATED_AVATARS[1].url);
+  const [partnerName, setPartnerName] = useState('');
+  const [partnerAvatar, setPartnerAvatar] = useState<string>('');
   const [activeRoom, setActiveRoom] = useState<any>(null);
-  const [roomActiveTimeText, setRoomActiveTimeText] = useState<string>('');
+  const [roomActiveTimeText, setRoomActiveTimeText] = useState<string>('No Active Room');
   const [userAvatar, setUserAvatar] = useState<string>(ANIMATED_AVATARS[0].url);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [selectedAvatarCategory, setSelectedAvatarCategory] = useState<string>('All');
 
   useEffect(() => {
-    if (!activeRoom?.created_at) {
-      setRoomActiveTimeText('No Active Room');
+    if (!activeRoom?.created_at || activeRoom?.status !== 'ACTIVE' || !activeRoom?.partner_id) {
+      setRoomActiveTimeText(activeRoom?.status === 'WAITING' ? 'Waiting for Partner...' : 'No Active Room');
       return;
     }
 
@@ -65,7 +65,7 @@ export default function Profile() {
     const interval = setInterval(updateActiveTime, 10000); // Live dynamic updates
 
     return () => clearInterval(interval);
-  }, [activeRoom?.created_at]);
+  }, [activeRoom?.created_at, activeRoom?.status, activeRoom?.partner_id]);
 
   // ── Favorite Memory State ──────────────────────────
   const [favoriteMemory, setFavoriteMemory] = useState<string>('');
@@ -123,29 +123,25 @@ export default function Profile() {
     // ── Step 2: Load room + partner details ──
     try {
       const room = await getActiveRoom();
-      setActiveRoom(room);
-      if (room) {
-        const profile = await getMyProfileCached();
+      if (room && room.status === 'ACTIVE' && room.partner_id) {
+        setActiveRoom(room);
+        const profile = await getMyProfileCached().catch(() => null);
         const myUserId = profile?.id;
 
         // Partner Name
-        const cachedPartner = await AsyncStorage.getItem(`partnerName_${room.id}`);
-        const resolvedName = (myUserId === room.host_id ? room.partner_name : room.host_name);
-        if (cachedPartner) {
-          setPartnerName(cachedPartner);
-        } else if (resolvedName) {
-          setPartnerName(resolvedName);
+        const resolvedName = (myUserId === room.host_id ? room.partner_name : room.host_name) || 'Partner';
+        setPartnerName(resolvedName);
+        if (room.id) {
           await AsyncStorage.setItem(`partnerName_${room.id}`, resolvedName);
         }
 
         // Partner Avatar
-        const cachedPartnerAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
-        const resolvedAvatar = (myUserId === room.host_id ? room.partner_avatar : room.host_avatar);
-        if (cachedPartnerAvatar) {
-          setPartnerAvatar(cachedPartnerAvatar);
-        } else if (resolvedAvatar) {
+        const resolvedAvatar = (myUserId === room.host_id ? room.partner_avatar : room.host_avatar) || null;
+        if (resolvedAvatar) {
           setPartnerAvatar(resolvedAvatar);
-          await AsyncStorage.setItem(`partnerAvatar_${room.id}`, resolvedAvatar);
+          if (room.id) {
+            await AsyncStorage.setItem(`partnerAvatar_${room.id}`, resolvedAvatar);
+          }
         } else {
           setPartnerAvatar(ANIMATED_AVATARS[1].url);
         }
@@ -153,13 +149,23 @@ export default function Profile() {
         if (room.created_at) {
           setRoomActiveTimeText(formatRoomActiveTime(room.created_at));
         }
+      } else {
+        // Solo / No active pair room
+        setActiveRoom(room && room.status === 'WAITING' ? room : null);
+        setPartnerName('');
+        setPartnerAvatar('');
+        setRoomActiveTimeText(room?.status === 'WAITING' ? 'Waiting for Partner...' : 'No Active Room');
       }
     } catch (err) {
       console.log('Active room fetch failed in profile.tsx:', err);
+      setActiveRoom(null);
+      setPartnerName('');
+      setPartnerAvatar('');
+      setRoomActiveTimeText('No Active Room');
     }
   }, []);
 
-  // Reload profile on mount
+  // Reload profile on mount and real-time socket events
   useEffect(() => {
     loadProfileAndRoom();
 
@@ -168,8 +174,51 @@ export default function Profile() {
       if (data?.firstName) setUserName(data.firstName);
     });
 
+    const clearSub = DeviceEventEmitter.addListener('app:clearRoom', () => {
+      setActiveRoom(null);
+      setPartnerName('');
+      setPartnerAvatar('');
+      setRoomActiveTimeText('No Active Room');
+    });
+
+    const refreshSub = DeviceEventEmitter.addListener('app:refreshDashboard', () => {
+      loadProfileAndRoom();
+    });
+
+    const roomSub = DeviceEventEmitter.addListener('room:updated', () => {
+      loadProfileAndRoom();
+    });
+
+    const onPartnerLeft = async () => {
+      console.log('[Profile] Live partner_left/room_left received');
+      await clearRoomCache();
+      setActiveRoom(null);
+      setPartnerName('');
+      setPartnerAvatar('');
+      setRoomActiveTimeText('No Active Room');
+    };
+
+    const onPartnerJoined = () => {
+      console.log('[Profile] Live partner_joined received');
+      loadProfileAndRoom();
+    };
+
+    GameSocket.on('partner_left', onPartnerLeft);
+    GameSocket.on('room_left', onPartnerLeft);
+    GameSocket.on('room_closed', onPartnerLeft);
+    GameSocket.on('partner_joined', onPartnerJoined);
+    GameSocket.on('room_updated', loadProfileAndRoom);
+
     return () => {
       sub.remove();
+      clearSub.remove();
+      refreshSub.remove();
+      roomSub.remove();
+      GameSocket.off('partner_left', onPartnerLeft);
+      GameSocket.off('room_left', onPartnerLeft);
+      GameSocket.off('room_closed', onPartnerLeft);
+      GameSocket.off('partner_joined', onPartnerJoined);
+      GameSocket.off('room_updated', loadProfileAndRoom);
     };
   }, [loadProfileAndRoom]);
 
@@ -252,55 +301,100 @@ export default function Profile() {
         </View>
 
         {/* Profile Avatars Section */}
-        <View className="items-center mt-4">
-          <View className="flex-row justify-center relative w-full h-40">
-            {/* Left Image (User's Animated Avatar with Edit Button) */}
-            <TouchableOpacity 
-              onPress={() => setIsAvatarModalOpen(true)}
-              activeOpacity={0.9}
-              className="absolute right-1/2 mr-[-10px] bg-slate-800 rounded-t-[40px] rounded-br-[40px] rounded-bl-[10px] overflow-hidden w-40 h-40 z-10 border-2 border-rose-400/30 shadow-lg"
-            >
-              <Image
-                source={{ uri: userAvatar }}
-                className="w-full h-full"
-                resizeMode="cover"
-              />
-              {/* Overlay with animated avatar edit icon */}
-              <View className="absolute inset-0 bg-black/25 items-center justify-center">
-                {isUpdatingAvatar ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <View className="bg-rose-600/90 p-2 rounded-full shadow-md flex-row items-center gap-1 px-3">
-                    <Ionicons name="sparkles" size={13} color="white" />
-                    <Text className="text-white font-black text-[10px] tracking-wider uppercase">Avatars ✨</Text>
+        {(() => {
+          const isPairActive = Boolean(activeRoom && activeRoom.status === 'ACTIVE' && activeRoom.partner_id && partnerName);
+
+          if (isPairActive) {
+            return (
+              <View className="items-center mt-4">
+                <View className="flex-row justify-center relative w-full h-40">
+                  {/* Left Image (User's Animated Avatar with Edit Button) */}
+                  <TouchableOpacity 
+                    onPress={() => setIsAvatarModalOpen(true)}
+                    activeOpacity={0.9}
+                    className="absolute right-1/2 mr-[-10px] bg-slate-800 rounded-t-[40px] rounded-br-[40px] rounded-bl-[10px] overflow-hidden w-40 h-40 z-10 border-2 border-rose-400/30 shadow-lg"
+                  >
+                    <Image
+                      source={{ uri: userAvatar }}
+                      className="w-full h-full"
+                      resizeMode="cover"
+                    />
+                    {/* Overlay with animated avatar edit icon */}
+                    <View className="absolute inset-0 bg-black/25 items-center justify-center">
+                      {isUpdatingAvatar ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <View className="bg-rose-600/90 p-2 rounded-full shadow-md flex-row items-center gap-1 px-3">
+                          <Ionicons name="sparkles" size={13} color="white" />
+                          <Text className="text-white font-black text-[10px] tracking-wider uppercase">Avatars ✨</Text>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Right Image (Partner Avatar) */}
+                  <View className="absolute left-1/2 ml-[-20px] bg-[#669894] rounded-t-[40px] rounded-bl-[40px] rounded-br-[10px] overflow-hidden w-40 h-40 border-2 border-teal-400/30 shadow-lg">
+                    <Image
+                      source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }}
+                      className="w-full h-full"
+                      resizeMode="cover"
+                    />
                   </View>
-                )}
+
+                  {/* Shared Badge */}
+                  <View className="absolute bottom-[-16px] z-20 bg-[#0d5f5a] dark:bg-teal-600 px-4 py-2 rounded-full flex-row items-center justify-center shadow-md">
+                    <Ionicons name="heart" size={12} color="white" />
+                    <Text className="text-white font-bold text-[10px] ml-1 tracking-widest uppercase">Happy Together</Text>
+                  </View>
+                </View>
+
+                <Text className="text-3xl font-black text-[#af2c3b] dark:text-white mt-8 tracking-tight">
+                  {userName} & {partnerName}
+                </Text>
+                <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
+                  {roomActiveTimeText}
+                </Text>
               </View>
-            </TouchableOpacity>
+            );
+          }
 
-            {/* Right Image (Partner Avatar) */}
-            <View className="absolute left-1/2 ml-[-20px] bg-[#669894] rounded-t-[40px] rounded-bl-[40px] rounded-br-[10px] overflow-hidden w-40 h-40 border-2 border-teal-400/30 shadow-lg">
-              <Image
-                source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }}
-                className="w-full h-full"
-                resizeMode="cover"
-              />
+          // Solo User Avatar (No Active Pair)
+          return (
+            <View className="items-center mt-4">
+              <View className="relative items-center justify-center">
+                <TouchableOpacity 
+                  onPress={() => setIsAvatarModalOpen(true)}
+                  activeOpacity={0.9}
+                  className="bg-slate-800 rounded-[36px] overflow-hidden w-36 h-36 border-2 border-rose-400/40 shadow-xl"
+                >
+                  <Image
+                    source={{ uri: userAvatar }}
+                    className="w-full h-full"
+                    resizeMode="cover"
+                  />
+                  {/* Overlay with animated avatar edit icon */}
+                  <View className="absolute inset-0 bg-black/25 items-center justify-center">
+                    {isUpdatingAvatar ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <View className="bg-rose-600/90 p-2 rounded-full shadow-md flex-row items-center gap-1 px-3">
+                        <Ionicons name="sparkles" size={13} color="white" />
+                        <Text className="text-white font-black text-[10px] tracking-wider uppercase">Avatars ✨</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <Text className="text-3xl font-black text-[#af2c3b] dark:text-white mt-6 tracking-tight">
+                {userName}
+              </Text>
+              <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
+                {roomActiveTimeText}
+              </Text>
             </View>
-
-            {/* Shared Badge */}
-            <View className="absolute bottom-[-16px] z-20 bg-[#0d5f5a] dark:bg-teal-600 px-4 py-2 rounded-full flex-row items-center justify-center">
-              <Ionicons name="heart" size={12} color="white" />
-              <Text className="text-white font-bold text-[10px] ml-1 tracking-widest uppercase">Happy Together</Text>
-            </View>
-          </View>
-
-          <Text className="text-3xl font-black text-[#af2c3b] dark:text-white mt-8 tracking-tight">
-            {activeRoom ? `${userName} & ${partnerName}` : userName}
-          </Text>
-          <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
-            {activeRoom ? roomActiveTimeText : 'No Active Room'}
-          </Text>
-        </View>
+          );
+        })()}
 
         {/* Top Cards Info */}
         <View className="px-6 mt-8">

@@ -409,6 +409,7 @@ export default function Dashboard() {
 
       await clearRoomCache(payload?.room_id || activeRoom?.id);
       DeviceEventEmitter.emit('app:clearRoom');
+      DeviceEventEmitter.emit('room:updated');
 
       if (payload?.left_by && payload.left_by !== currentUserId) {
         Alert.alert(
@@ -447,6 +448,7 @@ export default function Dashboard() {
     GameSocket.on('game_event', handleGameEvent);
     GameSocket.on('partner_left', handleRoomLeft);
     GameSocket.on('room_left', handleRoomLeft);
+    GameSocket.on('room_closed', handleRoomLeft);
 
     return () => {
       GameSocket.off('partner_joined', handlePartnerJoined);
@@ -454,6 +456,7 @@ export default function Dashboard() {
       GameSocket.off('game_event', handleGameEvent);
       GameSocket.off('partner_left', handleRoomLeft);
       GameSocket.off('room_left', handleRoomLeft);
+      GameSocket.off('room_closed', handleRoomLeft);
     };
   }, [fetchActiveRoom, activeRoom?.id, currentUserId, shareInfoWithPartner]);
 
