@@ -129,21 +129,23 @@ export default function Profile() {
         const myUserId = profile?.id;
 
         // Partner Name
-        const resolvedName = (myUserId === room.host_id ? room.partner_name : room.host_name) || 'Partner';
-        setPartnerName(resolvedName);
-        if (room.id) {
-          await AsyncStorage.setItem(`partnerName_${room.id}`, resolvedName);
+        const resolvedName = (myUserId === room.host_id ? room.partner_name : room.host_name);
+        if (resolvedName) {
+          setPartnerName(resolvedName);
+          if (room.id) await AsyncStorage.setItem(`partnerName_${room.id}`, resolvedName);
+        } else {
+          const cachedName = await AsyncStorage.getItem(`partnerName_${room.id}`);
+          setPartnerName(cachedName || 'Partner');
         }
 
         // Partner Avatar
-        const resolvedAvatar = (myUserId === room.host_id ? room.partner_avatar : room.host_avatar) || null;
+        const resolvedAvatar = (myUserId === room.host_id ? room.partner_avatar : room.host_avatar);
         if (resolvedAvatar) {
           setPartnerAvatar(resolvedAvatar);
-          if (room.id) {
-            await AsyncStorage.setItem(`partnerAvatar_${room.id}`, resolvedAvatar);
-          }
+          if (room.id) await AsyncStorage.setItem(`partnerAvatar_${room.id}`, resolvedAvatar);
         } else {
-          setPartnerAvatar(ANIMATED_AVATARS[1].url);
+          const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
+          setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
         }
 
         if (room.created_at) {
@@ -203,11 +205,34 @@ export default function Profile() {
       loadProfileAndRoom();
     };
 
+    const onGameEvent = async (payload: any) => {
+      if (payload.eventType === 'PARTNER_INFO') {
+        const { first_name, avatar_url } = payload.data || {};
+        if (first_name) {
+          setPartnerName(first_name);
+          const currentRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
+          if (currentRoomStr) {
+            const currentRoom = JSON.parse(currentRoomStr);
+            if (currentRoom && currentRoom.id) await AsyncStorage.setItem(`partnerName_${currentRoom.id}`, first_name);
+          }
+        }
+        if (avatar_url) {
+          setPartnerAvatar(avatar_url);
+          const currentRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
+          if (currentRoomStr) {
+            const currentRoom = JSON.parse(currentRoomStr);
+            if (currentRoom && currentRoom.id) await AsyncStorage.setItem(`partnerAvatar_${currentRoom.id}`, avatar_url);
+          }
+        }
+      }
+    };
+
     GameSocket.on('partner_left', onPartnerLeft);
     GameSocket.on('room_left', onPartnerLeft);
     GameSocket.on('room_closed', onPartnerLeft);
     GameSocket.on('partner_joined', onPartnerJoined);
     GameSocket.on('room_updated', loadProfileAndRoom);
+    GameSocket.on('game_event', onGameEvent);
 
     return () => {
       sub.remove();
@@ -219,6 +244,7 @@ export default function Profile() {
       GameSocket.off('room_closed', onPartnerLeft);
       GameSocket.off('partner_joined', onPartnerJoined);
       GameSocket.off('room_updated', loadProfileAndRoom);
+      GameSocket.off('game_event', onGameEvent);
     };
   }, [loadProfileAndRoom]);
 
