@@ -306,8 +306,8 @@ export default function Dares() {
 
     const handleGameEvent = (payload: any) => {
       if (payload.eventType === 'CARD_REJECTED') {
-        console.log('Partner rejected a card, refreshing deck immediately...');
-        loadDares(true, true);
+        console.log('Partner rejected a card, refreshing deck in 1.5s to ensure DB sync...');
+        setTimeout(() => loadDares(true, true), 1500);
       }
     };
 
