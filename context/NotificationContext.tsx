@@ -259,8 +259,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       socket.on('new_notification', async (notification: AppNotification) => {
         console.log('[NotificationContext] new_notification received:', notification);
 
-        // Prepend to in-app list
-        setNotifications(prev => [notification, ...prev]);
+        // Prepend to in-app list (prevent duplicates)
+        setNotifications(prev => {
+          if (prev.some(n => n.id === notification.id)) return prev;
+          return [notification, ...prev];
+        });
 
         // Bump unread count
         setUnreadCount(prev => prev + 1);
@@ -279,6 +282,12 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
           });
         } catch (localErr) {
           console.warn('[NotificationContext] Failed to post local notification:', localErr);
+        }
+
+        // Trigger beautiful in-app modal if it's a stolen penalty card
+        if (notification.type === 'PENALTY_CARD_STOLEN' && notification.data) {
+          const { DeviceEventEmitter } = require('react-native');
+          DeviceEventEmitter.emit('app:showPenaltyGift', notification.data);
         }
       });
 
@@ -301,6 +310,10 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
     return () => {
       clearInterval(interval);
+      if (GameSocket.socket) {
+        GameSocket.socket.off('new_notification');
+      }
+      listenerRegistered.current = false;
     };
   }, [fetchUnreadCount]);
 

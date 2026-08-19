@@ -73,32 +73,74 @@ export default function NotificationCenter() {
     const { type, data } = notification;
 
     switch (type) {
+      // ── Cards & Dares ──
       case 'CARD_RECEIVED':
       case 'CARD_ACCEPTED':
       case 'CARD_COMPLETED':
       case 'CARD_CONFIRMED':
       case 'CARD_REMINDER':
       case 'CARD_DEADLINE_WARN':
-        // Navigate to the specific game room to view the card
-        // Assuming we go to home screen for now, since GameRoom might not exist as a separate route
+      case 'CARD_DEFLECTED':
+      case 'DARE_EXPIRED_FAILED':
+      case 'PARTNER_REQUESTED_HINT':
+      case 'HINT_PROVIDED':
+      case 'DARE_ABANDONED':
+      case 'REVENGE_DARE_UNLOCKED':
+      case 'MYSTERY_CARD_RECEIVED':
+      case 'PHOTO_PROOF_UPLOADED':
+      case 'PHOTO_PROOF_REJECTED':
         router.push('/(tabs)'); 
         break;
 
+      // ── Penalties & History ──
       case 'PENALTY_RECEIVED':
       case 'CARD_REJECTED':
-        // Navigate to the history or profile screen to see penalties
+      case 'PENALTY_CARD_STOLEN':
+      case 'DEFLECT_CARD_EARNED':
         router.push('/(tabs)/history');
         break;
         
+      // ── Store & Decks ──
       case 'SEND_BAN_RECEIVED':
       case 'SEND_BAN_LIFTED':
-        // Navigate to the user's Card Deck
-        router.push('/(tabs)/dares');
+      case 'NEW_BUNDLE_AVAILABLE':
+      case 'BUNDLE_GIFT_RECEIVED':
+      case 'FLASH_SALE_STARTED':
+      case 'FREE_CARD_READY':
+        router.push('/(tabs)/store');
         break;
 
+      // ── Room & Session ──
       case 'PARTNER_JOINED':
-        // Partner just joined the room, go to home
+      case 'ROOM_EXPIRING_SOON':
+      case 'ROOM_EXPIRED':
+      case 'ROOM_EXTENDED':
+      case 'PARTNER_LEFT_ROOM':
+      case 'PARTNER_JOIN_INVITE':
+      case 'PARTNER_INACTIVE':
+      case 'NUDGE_RECEIVED':
         router.push('/(tabs)');
+        break;
+
+      // ── Coin Toss ──
+      case 'COIN_TOSS_INVITE':
+      case 'COIN_TOSS_WON':
+      case 'COIN_TOSS_LOST':
+        router.push('/(tabs)/coin-toss');
+        break;
+
+      // ── Profile & Stats ──
+      case 'DAILY_STREAK_MILESTONE':
+      case 'STREAK_AT_RISK':
+      case 'STREAK_LOST':
+      case 'WEEKLY_RECAP':
+      case 'MONTHLY_ANNIVERSARY':
+      case 'PROFILE_UPDATED':
+      case 'RELATIONSHIP_MILESTONE':
+      case 'COMPLETION_RATE_MILESTONE':
+      case 'LEVEL_UP':
+      case 'FAVORITE_CATEGORY_IDENTIFIED':
+        router.push('/(tabs)/profile'); // Or history, profile is good
         break;
 
       case 'MANUAL_BROADCAST':
@@ -108,7 +150,7 @@ export default function NotificationCenter() {
         break;
 
       default:
-        // No specific route, just keep them in the notification center or show details
+        // No specific route
         break;
     }
   };
@@ -141,9 +183,13 @@ export default function NotificationCenter() {
           <View className={`w-10 h-10 rounded-full items-center justify-center ${!item.is_read ? 'bg-rose-100 dark:bg-rose-500/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
             <Ionicons 
               name={
-                item.type.includes('CARD') ? "card-outline" : 
-                item.type.includes('PENALTY') ? "warning-outline" : 
-                item.type.includes('PARTNER') ? "heart-outline" : 
+                item.type.includes('CARD') || item.type.includes('DARE') ? "card-outline" : 
+                item.type.includes('PENALTY') || item.type.includes('BAN') ? "warning-outline" : 
+                item.type.includes('PARTNER') || item.type.includes('RELATIONSHIP') ? "heart-outline" : 
+                item.type.includes('COIN_TOSS') ? "aperture-outline" : 
+                item.type.includes('BUNDLE') || item.type.includes('SALE') ? "cart-outline" : 
+                item.type.includes('ROOM') ? "home-outline" : 
+                item.type.includes('STREAK') || item.type.includes('LEVEL') ? "flame-outline" : 
                 "notifications-outline"
               } 
               size={20} 

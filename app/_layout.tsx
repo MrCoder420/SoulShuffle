@@ -8,6 +8,9 @@ import { NotificationProvider } from '@/context/NotificationContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useEffect } from 'react';
+import RevenueCatService from '@/services/revenueCatService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CustomDarkTheme = {
   ...DarkTheme,
@@ -21,6 +24,20 @@ const CustomDarkTheme = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    const initRC = async () => {
+      // Try to get cached user ID so purchases map correctly on startup
+      const userId = await AsyncStorage.getItem('cachedUserId');
+      if (userId) {
+        await RevenueCatService.initialize(userId);
+      } else {
+        // Fallback to anonymous init if not logged in
+        await RevenueCatService.initialize('anonymous_user');
+      }
+    };
+    initRC();
+  }, []);
 
   return (
     <SafeAreaProvider>

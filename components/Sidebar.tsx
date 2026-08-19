@@ -117,6 +117,18 @@ export default function Sidebar() {
             setIsLoggingOut(true);
             closeSidebar();
             try {
+              try {
+                // Lazily require to prevent crashing Expo Go
+                const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+                const isSignedIn = await GoogleSignin.isSignedIn();
+                if (isSignedIn) {
+                  await GoogleSignin.signOut();
+                  console.log('[LOGOUT] Google session cleared.');
+                }
+              } catch (googleErr) {
+                console.log('[LOGOUT] Google sign out error (ignoring):', googleErr);
+              }
+
               console.log('[LOGOUT] Step 2: Clearing ALL AsyncStorage data...');
               await AsyncStorage.clear();
               const tokenCheck = await AsyncStorage.getItem('accessToken');

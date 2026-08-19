@@ -153,6 +153,11 @@ export default function Dashboard() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
   const [cardSends, setCardSends] = useState<any[]>([]);
+
+  // ── Modals & UI State ──
+  const [penaltyGiftModalVisible, setPenaltyGiftModalVisible] = useState(false);
+  const [penaltyGiftCard, setPenaltyGiftCard] = useState<any>(null);
+
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
   const [partnerName, setPartnerName] = useState('Partner');
@@ -392,7 +397,7 @@ export default function Dashboard() {
     const sub = DeviceEventEmitter.addListener('app:refreshDashboard', () => {
       fetchActiveRoom(true);
     });
-    const clearSub = DeviceEventEmitter.addListener('app:clearRoom', () => {
+    const clearRoomSub = DeviceEventEmitter.addListener('app:clearRoom', () => {
       // Immediately reset all room state so UI shows 'No Room' card right away
       setActiveRoom(null);
       setCardSends([]);
@@ -404,9 +409,14 @@ export default function Dashboard() {
       setPartnerAvatar(null);
       setRoomLoading(false);
     });
+    const penaltyGiftSub = DeviceEventEmitter.addListener('app:showPenaltyGift', (cardData: any) => {
+      setPenaltyGiftCard(cardData);
+      setPenaltyGiftModalVisible(true);
+    });
     return () => {
       sub.remove();
-      clearSub.remove();
+      clearRoomSub.remove();
+      penaltyGiftSub.remove();
     };
   }, [fetchActiveRoom]);
 
@@ -1253,17 +1263,31 @@ export default function Dashboard() {
                   </View>
                 )
               ) : (
-                activeChallenge.sender_id === currentUserId ? (
-                  <View className="absolute top-4 left-4 bg-teal-500 dark:bg-teal-600 px-3 py-1.5 rounded-full flex-row items-center">
-                    <Ionicons name="paper-plane" size={12} color="white" />
-                    <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">Sent Dare (In Progress)</Text>
-                  </View>
-                ) : (
-                  <View className="absolute top-4 left-4 bg-[#fde047] px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
-                    <Ionicons name="flash" size={12} color="#854d0e" />
-                    <Text className="text-[#854d0e] font-bold text-[10px] tracking-widest uppercase ml-1.5">My Active Challenge</Text>
-                  </View>
-                )
+                (() => {
+                  const targetTime = activeChallenge.created_at ? new Date(getTargetDateStr(activeChallenge.created_at)).getTime() : 0;
+                  const isExpired = targetTime > 0 && targetTime <= new Date().getTime();
+                  
+                  if (isExpired) {
+                    return (
+                      <View className="absolute top-4 left-4 bg-slate-500 dark:bg-slate-600 px-3 py-1.5 rounded-full flex-row items-center">
+                        <Ionicons name="time" size={12} color="white" />
+                        <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">Expired</Text>
+                      </View>
+                    );
+                  }
+                  
+                  return activeChallenge.sender_id === currentUserId ? (
+                    <View className="absolute top-4 left-4 bg-teal-500 dark:bg-teal-600 px-3 py-1.5 rounded-full flex-row items-center">
+                      <Ionicons name="paper-plane" size={12} color="white" />
+                      <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">Sent Dare (In Progress)</Text>
+                    </View>
+                  ) : (
+                    <View className="absolute top-4 left-4 bg-[#fde047] px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
+                      <Ionicons name="flash" size={12} color="#854d0e" />
+                      <Text className="text-[#854d0e] font-bold text-[10px] tracking-widest uppercase ml-1.5">My Active Challenge</Text>
+                    </View>
+                  );
+                })()
               )}
             </View>
             <View className="p-6">
@@ -1623,9 +1647,9 @@ export default function Dashboard() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' }}>
           <View className="bg-white dark:bg-[#180D10] w-[85%] rounded-[32px] p-7 items-center shadow-2xl border border-rose-100 dark:border-rose-900/40">
             {selectedReceivedCard?.card?.image_url ? (
-              <View className="w-full h-40 rounded-[20px] mb-5 overflow-hidden shadow-sm dark:border dark:border-rose-950/40 relative">
-                <Image source={{ uri: selectedReceivedCard.card.image_url }} className="w-full h-full" resizeMode="cover" />
-                <View className="absolute inset-0 bg-black/30" />
+              <View className="w-full h-56 rounded-[20px] mb-5 overflow-hidden shadow-sm bg-slate-50 dark:bg-[#0f0608] dark:border dark:border-rose-950/40 relative">
+                <Image source={{ uri: selectedReceivedCard.card.image_url }} className="w-full h-full" resizeMode="contain" />
+                <View className="absolute inset-0 bg-black/10" />
                 <View className="absolute top-3 left-3 bg-white/95 dark:bg-black/70 px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
                   <Ionicons name="mail-unread" size={12} color={isDark ? "#fda4af" : "#e11d48"} />
                   <Text className="font-bold text-[9px] tracking-widest uppercase ml-1.5 text-rose-600 dark:text-rose-400">
@@ -1738,7 +1762,52 @@ export default function Dashboard() {
         </View>
       </Modal>
 
+      {/* ── Penalty Gift Modal (When Partner Rejects) ── */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={penaltyGiftModalVisible}
+        onRequestClose={() => setPenaltyGiftModalVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black/60 px-4">
+          <View className="w-full bg-white dark:bg-[#1f0f13] rounded-[32px] overflow-hidden items-center p-6 border border-slate-200 dark:border-rose-950/40 shadow-xl shadow-rose-900/20">
+            <View className="w-20 h-20 rounded-full bg-rose-100 dark:bg-rose-950/40 items-center justify-center mb-5 border-4 border-white dark:border-[#1f0f13] -mt-12">
+              <Ionicons name="gift" size={32} color={isDark ? "#fda4af" : "#e11d48"} />
+            </View>
+            <Text className="text-2xl font-black text-slate-900 dark:text-white text-center mb-2 tracking-tight">Penalty Gift Received!</Text>
+            <Text className="text-[13px] text-slate-500 dark:text-slate-400 text-center mb-6 px-2 font-medium leading-5">
+              Your partner rejected your dare! As a penalty, one of their cards has been transferred to your deck:
+            </Text>
 
+            {penaltyGiftCard && (
+              <View className="w-full bg-slate-50 dark:bg-[#271318]/50 rounded-2xl p-4 border border-slate-200 dark:border-rose-950/30 mb-6 flex-row items-center">
+                {penaltyGiftCard.image_url ? (
+                  <Image source={{ uri: penaltyGiftCard.image_url }} className="w-14 h-14 rounded-xl mr-4" />
+                ) : (
+                  <View className="w-14 h-14 rounded-xl bg-rose-100 dark:bg-rose-950/40 items-center justify-center mr-4">
+                    <Ionicons name="card" size={24} color={isDark ? "#fda4af" : "#e11d48"} />
+                  </View>
+                )}
+                <View className="flex-1">
+                  <Text className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">
+                    {penaltyGiftCard.category || 'REWARD CARD'}
+                  </Text>
+                  <Text className="text-[15px] font-bold text-slate-800 dark:text-white leading-tight">
+                    {penaltyGiftCard.name || penaltyGiftCard.title || 'Mystery Card'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity 
+              className="w-full bg-rose-500 dark:bg-rose-600 py-4 rounded-2xl items-center"
+              onPress={() => setPenaltyGiftModalVisible(false)}
+            >
+              <Text className="text-white font-bold text-[15px] tracking-wide">Awesome!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
     </ErrorBoundary>
   );

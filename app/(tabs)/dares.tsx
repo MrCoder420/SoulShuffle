@@ -705,7 +705,13 @@ export default function Dares() {
           <TouchableOpacity className="flex-1" activeOpacity={1} onPress={() => setSelectedDare(null)} />
           {selectedDare && (
             <View className="bg-[#fff8f7] dark:bg-[#180D10] rounded-t-[34px] overflow-hidden">
-              <Image source={typeof selectedDare.image === 'string' ? { uri: selectedDare.image } : selectedDare.image} className="w-full h-56" />
+              <View className="w-full h-72 bg-slate-100 dark:bg-[#0f0608] pt-4">
+                <Image 
+                  source={typeof selectedDare.image === 'string' ? { uri: selectedDare.image } : selectedDare.image} 
+                  className="w-full h-full" 
+                  resizeMode="contain"
+                />
+              </View>
               <View className="p-6">
                 <View className="flex-row items-center justify-between mb-3">
                   <View className="bg-white dark:bg-[#271318] px-3 py-1.5 rounded-full flex-row items-center">

@@ -61,16 +61,21 @@ export default function History() {
     });
   };
 
-  const calculateStats = (history: SentChallenge[]) => {
-    const daresMastered = history.filter(
+  const calculateStats = (history: SentChallenge[], activeRoomId: string | null) => {
+    // Client requested stats to reset for every new game/room.
+    const currentRoomHistory = activeRoomId 
+      ? history.filter(item => item.room_id === activeRoomId)
+      : [];
+
+    const daresMastered = currentRoomHistory.filter(
       c => (c.status || '').toUpperCase() === 'COMPLETED' || (c.status || '').toUpperCase() === 'CONFIRMED'
     ).length;
-    const total = history.length;
+    const total = currentRoomHistory.length;
     const completionRate = total > 0 ? Math.round((daresMastered / total) * 100) : 0;
 
     let currentStreak = 0;
-    if (history.length > 0) {
-      const dates = history
+    if (currentRoomHistory.length > 0) {
+      const dates = currentRoomHistory
         .filter(c => c.sent_at)
         .map(c => new Date(c.sent_at!).setHours(0, 0, 0, 0))
         .filter(t => !isNaN(t))
@@ -110,12 +115,14 @@ export default function History() {
       // 2. Build a local room info map from device storage
       // This ensures we always have real room codes and partner names even if the backend returns placeholders
       const localRoomInfoMap = new Map<string, { code: string; partnerName: string; partnerAvatar: string | null; status: string }>();
+      let activeRoomId: string | null = null;
       try {
         // Load the currently cached active room (if any)
         const cachedRoomRaw = await AsyncStorage.getItem('cachedActiveRoom');
         if (cachedRoomRaw) {
           const cachedRoom = JSON.parse(cachedRoomRaw);
           if (cachedRoom?.id && cachedRoom?.code) {
+            activeRoomId = cachedRoom.id;
             const isHost = cachedRoom.host_id === currentUserId;
             const partnerName = isHost ? (cachedRoom.partner_name || cachedRoom.host_name) : (cachedRoom.host_name || cachedRoom.partner_name);
             const partnerAvatar = isHost ? (cachedRoom.partner_avatar || cachedRoom.host_avatar) : (cachedRoom.host_avatar || cachedRoom.partner_avatar);
@@ -162,7 +169,7 @@ export default function History() {
             if (Array.isArray(parsed) && parsed.length > 0) {
               const enriched = parsed.map(enrichItem);
               setChallengeHistory(enriched);
-              calculateStats(enriched);
+              calculateStats(enriched, activeRoomId);
             }
           } catch (e) {
             console.log('Cache parse error:', e);
@@ -204,7 +211,7 @@ export default function History() {
       if (Array.isArray(freshHistory) && freshHistory.length > 0) {
         const enriched = freshHistory.map(enrichItem);
         setChallengeHistory(enriched);
-        calculateStats(enriched);
+        calculateStats(enriched, activeRoomId);
         // Only cache if we have real data
         await AsyncStorage.setItem(cacheKey, JSON.stringify(enriched));
       }
@@ -415,13 +422,13 @@ export default function History() {
         {/* Title Section */}
         <View className="mb-6 items-center">
           <Text className="text-[10px] font-bold text-[#b91c1c] dark:text-rose-400 tracking-[0.25em] uppercase w-full text-center mb-1.5">
-            Complete Game Archive
+            Current Game Stats
           </Text>
           <Text className="text-[32px] leading-[38px] font-black w-full text-center text-slate-900 dark:text-white tracking-tight">
             Our <Text className="text-[#b91c1c] dark:text-rose-400 italic">Moments</Text> & Dares
           </Text>
           <Text className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-center font-medium">
-            All past & current rooms across your account
+            Stats for your currently active room session
           </Text>
         </View>
 
