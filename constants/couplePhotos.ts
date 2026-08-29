@@ -8,6 +8,26 @@ export interface CouplePhoto {
 
 export const COUPLE_PHOTOS: CouplePhoto[] = [
   {
+    id: 'beach_sunset',
+    title: 'Beach Sunset Walk',
+    source: require('@/assets/images/couple_beach_sunset.jpg'),
+  },
+  {
+    id: 'cozy_cafe',
+    title: 'Morning Coffee',
+    source: require('@/assets/images/couple_cafe_morning.jpg'),
+  },
+  {
+    id: 'cooking_dinner',
+    title: 'Cooking Together',
+    source: require('@/assets/images/couple_cooking_dinner.jpg'),
+  },
+  {
+    id: 'wildflower_sunset',
+    title: 'Golden Sunset Hug',
+    source: require('@/assets/images/couple_wildflower_sunset.jpg'),
+  },
+  {
     id: 'cover',
     title: 'Romantic Moments',
     source: require('@/assets/images/couple_cover.jpeg'),
@@ -16,31 +36,6 @@ export const COUPLE_PHOTOS: CouplePhoto[] = [
     id: 'sunset_picnic',
     title: 'Sunset Picnic',
     source: require('@/assets/images/sunset_picnic.jpeg'),
-  },
-  {
-    id: 'cozy_balcony',
-    title: 'Morning Coffee',
-    source: { uri: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?q=80&w=1000&auto=format&fit=crop' },
-  },
-  {
-    id: 'beach_sunset',
-    title: 'Beach Sunset Walk',
-    source: { uri: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?q=80&w=1000&auto=format&fit=crop' },
-  },
-  {
-    id: 'kitchen_cooking',
-    title: 'Cooking Together',
-    source: { uri: 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?q=80&w=1000&auto=format&fit=crop' },
-  },
-  {
-    id: 'golden_hour',
-    title: 'Golden Hour Smile',
-    source: { uri: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=1000&auto=format&fit=crop' },
-  },
-  {
-    id: 'cozy_hug',
-    title: 'Warm Embrace',
-    source: { uri: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=1000&auto=format&fit=crop' },
   },
 ];
 

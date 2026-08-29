@@ -1378,33 +1378,63 @@ export default function Dashboard() {
 
           {/* Stats Section */}
           <View className="flex-row justify-between px-6 mt-5">
-            <View className="bg-white dark:bg-[#271318] dark:border dark:border-rose-950/40 rounded-[24px] px-5 py-4 w-[47%] shadow-sm dark:shadow-none">
-              <View className="bg-rose-50/80 dark:bg-rose-500/10 w-8 h-8 rounded-full items-center justify-center mb-3">
+            <View
+              className="rounded-[24px] px-5 py-4 w-[47%] shadow-sm border"
+              style={{
+                backgroundColor: isDark ? "#271318" : "#ffffff",
+                borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.15)",
+              }}
+            >
+              <View
+                style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
+                className="w-8 h-8 rounded-full items-center justify-center mb-3"
+              >
                 <Ionicons
                   name="medal"
                   size={17}
                   color={isDark ? "#f43f5e" : "#e11d48"}
                 />
               </View>
-              <Text className="text-[26px] leading-8 font-black text-slate-900 dark:text-rose-400">
+              <Text
+                style={{ color: isDark ? "#fb7185" : "#0f172a" }}
+                className="text-[26px] leading-8 font-black"
+              >
                 {finishedDaresCount}
               </Text>
-              <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 mt-1 tracking-widest uppercase">
+              <Text
+                style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                className="text-[9px] font-bold mt-1 tracking-widest uppercase"
+              >
                 Dares Finished
               </Text>
             </View>
-            <View className="bg-white dark:bg-[#122220] dark:border dark:border-teal-950/30 rounded-[24px] px-5 py-4 w-[47%] shadow-sm dark:shadow-none">
-              <View className="bg-teal-50/80 dark:bg-teal-500/10 w-8 h-8 rounded-full items-center justify-center mb-3">
+            <View
+              className="rounded-[24px] px-5 py-4 w-[47%] shadow-sm border"
+              style={{
+                backgroundColor: isDark ? "#122220" : "#ffffff",
+                borderColor: isDark ? "rgba(13,148,136,0.3)" : "rgba(13,148,136,0.15)",
+              }}
+            >
+              <View
+                style={{ backgroundColor: isDark ? "rgba(45,212,191,0.15)" : "#ccfbf1" }}
+                className="w-8 h-8 rounded-full items-center justify-center mb-3"
+              >
                 <Ionicons
                   name="flame"
                   size={17}
                   color={isDark ? "#2dd4bf" : "#0d9488"}
                 />
               </View>
-              <Text className="text-[26px] leading-8 font-black text-slate-900 dark:text-teal-400">
+              <Text
+                style={{ color: isDark ? "#2dd4bf" : "#0f172a" }}
+                className="text-[26px] leading-8 font-black"
+              >
                 {currentStreak}
               </Text>
-              <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 mt-1 tracking-widest uppercase">
+              <Text
+                style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                className="text-[9px] font-bold mt-1 tracking-widest uppercase"
+              >
                 Day Streak
               </Text>
             </View>
@@ -1416,12 +1446,21 @@ export default function Dashboard() {
           <View className="mx-6 mt-6">
             {roomLoading ? (
               /* Loading State */
-              <View className="bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] p-8 items-center shadow-sm dark:shadow-none">
+              <View
+                className="rounded-[28px] p-8 items-center shadow-sm border"
+                style={{
+                  backgroundColor: isDark ? "#271318" : "#ffffff",
+                  borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                }}
+              >
                 <ActivityIndicator
                   size="large"
                   color={isDark ? "#f43f5e" : "#e11d48"}
                 />
-                <Text className="text-slate-500 dark:text-rose-200/80 font-semibold text-sm mt-3">
+                <Text
+                  style={{ color: isDark ? "#fda4af" : "#64748b" }}
+                  className="font-semibold text-sm mt-3"
+                >
                   Checking room status...
                 </Text>
               </View>
@@ -1430,28 +1469,47 @@ export default function Dashboard() {
                 activeRoom.status === "WAITING") ? (
               <View
                 key="active-room-card"
-                className={`bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] overflow-hidden shadow-lg dark:shadow-none ${
-                  activeRoom.status === "ACTIVE"
-                    ? "border-l-[5px] border-l-teal-500 dark:border-l-teal-600"
-                    : ""
-                }`}
+                className="rounded-[28px] overflow-hidden shadow-lg border"
+                style={{
+                  backgroundColor: isDark ? "#271318" : "#ffffff",
+                  borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                  borderLeftWidth: activeRoom.status === "ACTIVE" ? 5 : 1,
+                  borderLeftColor: activeRoom.status === "ACTIVE" ? "#0d9488" : (isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)"),
+                }}
               >
                 {/* Room Header Strip Redesigned */}
-                <View className="px-5 py-3 flex-row items-center justify-between border-b border-slate-100/50 dark:border-rose-950/20 bg-rose-50/30 dark:bg-[#180D10]/30">
+                <View
+                  style={{
+                    backgroundColor: isDark ? "rgba(244,63,94,0.08)" : "#fff1f2",
+                    borderBottomColor: isDark ? "rgba(225,29,72,0.15)" : "#fce7f3",
+                  }}
+                  className="px-5 py-3 flex-row items-center justify-between border-b"
+                >
                   <View className="flex-row items-center">
                     <View
-                      className={`w-2 h-2 rounded-full mr-2 ${activeRoom.status === "ACTIVE" ? "bg-teal-500 shadow-sm shadow-teal-500/50" : "bg-amber-500"}`}
+                      className={`w-2 h-2 rounded-full mr-2 ${activeRoom.status === "ACTIVE" ? "bg-teal-500 shadow-sm" : "bg-amber-500"}`}
                     />
                     <Text
-                      className={`font-bold text-[10px] tracking-widest uppercase ${activeRoom.status === "ACTIVE" ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-500"}`}
+                      style={{
+                        color: activeRoom.status === "ACTIVE"
+                          ? (isDark ? "#2dd4bf" : "#0d9488")
+                          : (isDark ? "#fbbf24" : "#d97706"),
+                      }}
+                      className="font-bold text-[10px] tracking-widest uppercase"
                     >
                       {activeRoom.status === "ACTIVE"
                         ? "Room Active"
                         : "Waiting for Partner"}
                     </Text>
                   </View>
-                  <View className="bg-rose-100/50 dark:bg-rose-950/40 px-2.5 py-0.5 rounded-full">
-                    <Text className="text-rose-600 dark:text-rose-400 font-bold text-[9px] tracking-wider uppercase">
+                  <View
+                    style={{ backgroundColor: isDark ? "rgba(225,29,72,0.2)" : "#ffe4e6" }}
+                    className="px-2.5 py-0.5 rounded-full"
+                  >
+                    <Text
+                      style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                      className="font-bold text-[9px] tracking-wider uppercase"
+                    >
                       {expiryLabel(activeRoom.expiry_type)}
                     </Text>
                   </View>
@@ -1459,15 +1517,28 @@ export default function Dashboard() {
 
                 <View className="p-5">
                   {/* Room Code Display */}
-                  <Text className="text-[9px] font-bold text-slate-400 dark:text-slate-400 tracking-widest uppercase mb-1.5">
+                  <Text
+                    style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                    className="text-[9px] font-bold tracking-widest uppercase mb-1.5"
+                  >
                     Room Code
                   </Text>
-                  <View className="flex-row items-center justify-between bg-[#f5eeed]/60 dark:bg-[#180D10] dark:border dark:border-rose-950/40 rounded-2xl px-4 py-3 mb-4">
-                    <Text className="text-lg font-black text-[#af2c3b] dark:text-rose-400 tracking-widest flex-1 mr-2">
+                  <View
+                    style={{
+                      backgroundColor: isDark ? "#180D10" : "#f8fafc",
+                      borderColor: isDark ? "rgba(225,29,72,0.2)" : "#e2e8f0",
+                    }}
+                    className="flex-row items-center justify-between border rounded-2xl px-4 py-3 mb-4"
+                  >
+                    <Text
+                      style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                      className="text-lg font-black tracking-widest flex-1 mr-2"
+                    >
                       {formatRoomCodeForDisplay(activeRoom.code)}
                     </Text>
                     <TouchableOpacity
-                      className={`px-3 py-2 rounded-xl flex-row items-center ${copiedCode ? "bg-[#0d5f5a]" : "bg-[#af2c3b] dark:bg-rose-600"}`}
+                      style={{ backgroundColor: copiedCode ? "#0d5f5a" : (isDark ? "#e11d48" : "#af2c3b") }}
+                      className="px-3 py-2 rounded-xl flex-row items-center"
                       onPress={() =>
                         handleCopyCode(
                           formatRoomCodeForDisplay(activeRoom.code),
@@ -1486,7 +1557,13 @@ export default function Dashboard() {
                   </View>
 
                   {/* Status Info Redesigned */}
-                  <View className="bg-[#fcf8f7] dark:bg-[#180D10] dark:border dark:border-rose-950/30 rounded-[20px] p-3.5 mb-4 items-center justify-center">
+                  <View
+                    style={{
+                      backgroundColor: isDark ? "#180D10" : "#fdf2f4",
+                      borderColor: isDark ? "rgba(225,29,72,0.2)" : "#fce7f3",
+                    }}
+                    className="border rounded-[20px] p-3.5 mb-4 items-center justify-center"
+                  >
                     <View className="flex-row items-center justify-center mb-3">
                       {/* User Avatar */}
                       <View
@@ -1505,7 +1582,7 @@ export default function Dashboard() {
                       {/* Connection Line & Heart Indicator */}
                       <View className="flex-row items-center mx-3">
                         <View
-                          className={`w-4 h-[2px] ${activeRoom.status === "ACTIVE" ? "bg-teal-500/50" : "bg-rose-200 dark:bg-rose-950/40"}`}
+                          className={`w-4 h-[2px] ${activeRoom.status === "ACTIVE" ? "bg-teal-500/50" : "bg-rose-300 dark:bg-rose-950/40"}`}
                         />
                         <View
                           className={`w-8 h-8 rounded-full items-center justify-center shadow-sm ${
@@ -1525,7 +1602,7 @@ export default function Dashboard() {
                           />
                         </View>
                         <View
-                          className={`w-4 h-[2px] ${activeRoom.status === "ACTIVE" ? "bg-teal-500/50" : "bg-rose-200 dark:bg-rose-950/40"}`}
+                          className={`w-4 h-[2px] ${activeRoom.status === "ACTIVE" ? "bg-teal-500/50" : "bg-rose-300 dark:bg-rose-950/40"}`}
                         />
                       </View>
 
@@ -1540,7 +1617,13 @@ export default function Dashboard() {
                           />
                         </View>
                       ) : (
-                        <View className="w-10 h-10 rounded-full border-2 border-dashed border-slate-300 dark:border-rose-950/40 bg-slate-50 dark:bg-[#0F0608] items-center justify-center shadow-sm">
+                        <View
+                          style={{
+                            borderColor: isDark ? "rgba(225,29,72,0.3)" : "#cbd5e1",
+                            backgroundColor: isDark ? "#0F0608" : "#f1f5f9",
+                          }}
+                          className="w-10 h-10 rounded-full border-2 border-dashed items-center justify-center shadow-sm"
+                        >
                           <Ionicons
                             name="person-add"
                             size={14}
@@ -1553,24 +1636,36 @@ export default function Dashboard() {
                     <View className="items-center">
                       {activeRoom.status === "ACTIVE" ? (
                         <>
-                          <Text className="text-slate-800 dark:text-rose-100 font-extrabold text-[13px] text-center mb-0.5">
+                          <Text
+                            style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+                            className="font-extrabold text-[13px] text-center mb-0.5"
+                          >
                             Connected with{" "}
                             <Text className="text-teal-600 dark:text-teal-400 font-black">
                               {partnerName}
                             </Text>{" "}
                             💕
                           </Text>
-                          <Text className="text-slate-400 dark:text-rose-300/40 font-semibold text-[10px] text-center px-2 leading-3.5">
+                          <Text
+                            style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                            className="font-semibold text-[10px] text-center px-2 leading-3.5"
+                          >
                             {partnerName} is online and connected! Ready to swap
                             spicy and sweet dares together.
                           </Text>
                         </>
                       ) : (
                         <>
-                          <Text className="text-slate-800 dark:text-rose-100 font-extrabold text-[13px] text-center mb-0.5">
+                          <Text
+                            style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+                            className="font-extrabold text-[13px] text-center mb-0.5"
+                          >
                             Waiting for Partner...
                           </Text>
-                          <Text className="text-slate-400 dark:text-rose-300/40 font-semibold text-[10px] text-center px-2 leading-3.5">
+                          <Text
+                            style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                            className="font-semibold text-[10px] text-center px-2 leading-3.5"
+                          >
                             Share the room code above with your partner so they
                             can join your Love Room.
                           </Text>
@@ -1581,7 +1676,8 @@ export default function Dashboard() {
 
                   {activeRoom.status === "ACTIVE" && (
                     <TouchableOpacity
-                      className="bg-[#af2c3b] dark:bg-rose-600 rounded-full py-[12px] items-center shadow dark:shadow-none flex-row justify-center mb-2"
+                      style={{ backgroundColor: isDark ? "#e11d48" : "#af2c3b" }}
+                      className="rounded-full py-[12px] items-center shadow flex-row justify-center mb-2"
                       activeOpacity={0.8}
                       onPress={() => navigateTo("/dares")}
                     >
@@ -1611,36 +1707,51 @@ export default function Dashboard() {
               /* ── NO ROOM CARD ────────────────────────────── */
               <View
                 key="no-room-card"
-                className="bg-white dark:bg-[#271318] dark:border dark:border-rose-950/20 rounded-[28px] p-5 shadow-lg dark:shadow-none relative overflow-hidden"
-                style={{ minHeight: 200, justifyContent: "center" }}
+                className="rounded-[28px] p-5 shadow-lg relative overflow-hidden border"
+                style={{
+                  minHeight: 200,
+                  justifyContent: "center",
+                  backgroundColor: isDark ? "#271318" : "#ffffff",
+                  borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                }}
               >
                 {/* Background decorative elements */}
-                <View className="absolute top-[-30] right-[-20] w-28 h-28 bg-rose-100/40 dark:bg-rose-500/10 rounded-full" />
-                <View className="absolute bottom-[-20] left-[-15] w-20 h-20 bg-teal-100/30 dark:bg-teal-500/10 rounded-full" />
+                <View
+                  style={{ top: -30, right: -20, backgroundColor: isDark ? "rgba(244,63,94,0.1)" : "#ffe4e6" }}
+                  className="absolute w-28 h-28 rounded-full"
+                />
+                <View
+                  style={{ bottom: -20, left: -15, backgroundColor: isDark ? "rgba(45,212,191,0.1)" : "#ccfbf1" }}
+                  className="absolute w-20 h-20 rounded-full"
+                />
 
                 <View className="flex-row items-center mb-1.5">
-                  <View className="bg-rose-50/80 dark:bg-rose-500/10 w-8 h-8 rounded-full items-center justify-center mr-2.5">
+                  <View
+                    style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
+                    className="w-8 h-8 rounded-full items-center justify-center mr-2.5"
+                  >
                     <Ionicons
                       name="people"
                       size={16}
                       color={isDark ? "#f43f5e" : "#af2c3b"}
                     />
                   </View>
-                  <Text className="text-[10px] font-bold text-rose-400 dark:text-rose-400 tracking-widest uppercase">
+                  <Text style={{ color: isDark ? "#fda4af" : "#be123c" }} className="text-[10px] font-bold tracking-widest uppercase">
                     Couple Room
                   </Text>
                 </View>
 
-                <Text className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1 mb-1 leading-6">
+                <Text style={{ color: isDark ? "#ffffff" : "#0f172a" }} className="text-xl font-black tracking-tight mt-1 mb-1 leading-6">
                   Connect with{"\n"}Your Partner
                 </Text>
-                <Text className="text-slate-500 dark:text-slate-400 font-medium text-[12px] leading-5 mb-5 pr-8">
+                <Text style={{ color: isDark ? "#94a3b8" : "#64748b" }} className="font-medium text-[12px] leading-5 mb-5 pr-8">
                   Create or join a private room to start playing together.
                 </Text>
 
                 <View className="flex-row gap-3">
                   <TouchableOpacity
-                    className="flex-1 bg-[#af2c3b] dark:bg-rose-600 rounded-2xl py-4 items-center shadow-md dark:shadow-none flex-row justify-center"
+                    style={{ backgroundColor: isDark ? "#e11d48" : "#af2c3b" }}
+                    className="flex-1 rounded-2xl py-4 items-center shadow-md flex-row justify-center"
                     activeOpacity={0.8}
                     onPress={() => openRoomModal("create")}
                   >
@@ -1651,7 +1762,8 @@ export default function Dashboard() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    className="flex-1 bg-[#0d5f5a] dark:bg-teal-600 rounded-2xl py-4 items-center shadow-md dark:shadow-none flex-row justify-center"
+                    style={{ backgroundColor: isDark ? "#0d9488" : "#0d5f5a" }}
+                    className="flex-1 rounded-2xl py-4 items-center shadow-md flex-row justify-center"
                     activeOpacity={0.8}
                     onPress={() => openRoomModal("join")}
                   >
@@ -1667,7 +1779,13 @@ export default function Dashboard() {
 
           {/* Active Challenge Section */}
           {activeChallenge && (
-            <View className="mx-6 mt-6 bg-white dark:bg-[#271318] rounded-[32px] overflow-hidden shadow-lg dark:shadow-none border border-white dark:border-rose-950/20">
+            <View
+              className="mx-6 mt-6 rounded-[32px] overflow-hidden shadow-lg border"
+              style={{
+                backgroundColor: isDark ? "#271318" : "#ffffff",
+                borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+              }}
+            >
               <View className="h-40 relative">
                 <Image
                   source={{ uri: activeChallenge.card.image_url }}
@@ -1730,51 +1848,90 @@ export default function Dashboard() {
                 )}
               </View>
               <View className="p-6">
-                <Text className="text-[10px] font-bold text-rose-500 dark:text-rose-400 tracking-widest uppercase mb-2">
+                <Text
+                  style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                  className="text-[10px] font-bold tracking-widest uppercase mb-2"
+                >
                   {activeChallenge.card.category}
                 </Text>
-                <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mb-3">
+                <Text
+                  style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+                  className="text-2xl font-black tracking-tight mb-3"
+                >
                   {activeChallenge.card.title}
                 </Text>
 
                 {activeChallenge.sender_id === currentUserId &&
                   (activeChallenge.status === "COMPLETED_BY_RECEIVER" ? (
-                    <View className="bg-amber-50/50 dark:bg-[#271318]/45 px-4 py-3 rounded-2xl border border-amber-100/30 dark:border-rose-950/20 mb-5 flex-row items-center">
+                    <View
+                      style={{
+                        backgroundColor: isDark ? "#271318" : "#fffbeb",
+                        borderColor: isDark ? "rgba(245,158,11,0.2)" : "#fef3c7",
+                      }}
+                      className="px-4 py-3 rounded-2xl border mb-5 flex-row items-center"
+                    >
                       <Ionicons
                         name="gift-outline"
                         size={16}
                         color={isDark ? "#fbbf24" : "#d97706"}
                       />
-                      <Text className="text-[#b45309] dark:text-amber-400 font-semibold text-[12.5px] leading-5 ml-2.5 flex-1">
+                      <Text
+                        style={{ color: isDark ? "#fbbf24" : "#b45309" }}
+                        className="font-semibold text-[12.5px] leading-5 ml-2.5 flex-1"
+                      >
                         Your partner marked this dare as completed. Please
                         confirm!
                       </Text>
                     </View>
                   ) : (
-                    <View className="bg-teal-50/50 dark:bg-[#180D10]/40 px-4 py-3 rounded-2xl border border-teal-100/30 dark:border-rose-950/20 mb-5 flex-row items-center">
+                    <View
+                      style={{
+                        backgroundColor: isDark ? "#180D10" : "#f0fdfa",
+                        borderColor: isDark ? "rgba(13,148,136,0.2)" : "#ccfbf1",
+                      }}
+                      className="px-4 py-3 rounded-2xl border mb-5 flex-row items-center"
+                    >
                       <Ionicons
                         name="hourglass-outline"
                         size={16}
                         color={isDark ? "#2dd4bf" : "#0d5f5a"}
                       />
-                      <Text className="text-[#0d5f5a] dark:text-teal-400 font-semibold text-[12.5px] leading-5 ml-2.5 flex-1">
+                      <Text
+                        style={{ color: isDark ? "#2dd4bf" : "#0d5f5a" }}
+                        className="font-semibold text-[12.5px] leading-5 ml-2.5 flex-1"
+                      >
                         Your partner accepted this dare and is completing it.
                       </Text>
                     </View>
                   ))}
 
-                <Text className="text-slate-500 dark:text-slate-300 text-[14px] leading-6 font-medium mb-5">
+                <Text
+                  style={{ color: isDark ? "#cbd5e1" : "#475569" }}
+                  className="text-[14px] leading-6 font-medium mb-5"
+                >
                   {activeChallenge.card.description}
                 </Text>
 
                 {activeChallenge.message ? (
-                  <View className="bg-rose-50/50 dark:bg-rose-950/10 px-4 py-3 rounded-2xl border border-rose-100/30 dark:border-rose-950/25 mb-5">
-                    <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[10px] uppercase tracking-wider mb-1">
+                  <View
+                    style={{
+                      backgroundColor: isDark ? "rgba(244,63,94,0.08)" : "#fff1f2",
+                      borderColor: isDark ? "rgba(244,63,94,0.2)" : "#fce7f3",
+                    }}
+                    className="px-4 py-3 rounded-2xl border mb-5"
+                  >
+                    <Text
+                      style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                      className="font-bold text-[10px] uppercase tracking-wider mb-1"
+                    >
                       {activeChallenge.sender_id === currentUserId
                         ? "Your note to partner"
                         : "Note from partner"}
                     </Text>
-                    <Text className="text-slate-600 dark:text-slate-300 text-[13px] italic font-medium leading-5">
+                    <Text
+                      style={{ color: isDark ? "#cbd5e1" : "#475569" }}
+                      className="text-[13px] italic font-medium leading-5"
+                    >
                       &quot;{activeChallenge.message}&quot;
                     </Text>
                   </View>
@@ -1867,8 +2024,12 @@ export default function Dashboard() {
                 {displayPendingChallenges.map((cardSend) => (
                   <View
                     key={cardSend.id}
-                    style={{ width: width - 48 }}
-                    className="bg-white dark:bg-[#271318] rounded-[28px] overflow-hidden shadow-lg dark:shadow-none border border-slate-100 dark:border-rose-950/20"
+                    style={{
+                      width: width - 48,
+                      backgroundColor: isDark ? "#271318" : "#ffffff",
+                      borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                    }}
+                    className="rounded-[28px] overflow-hidden shadow-lg border"
                   >
                     <View className="h-32 relative">
                       <Image
@@ -1918,11 +2079,15 @@ export default function Dashboard() {
                         )}
                     </View>
                     <View className="p-5">
-                      <Text className="text-[9px] font-bold text-rose-500 dark:text-rose-400 tracking-widest uppercase mb-1">
+                      <Text
+                        style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                        className="text-[9px] font-bold tracking-widest uppercase mb-1"
+                      >
                         {cardSend.card.category}
                       </Text>
                       <Text
-                        className="text-lg font-black text-slate-900 dark:text-white tracking-tight mb-2"
+                        style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+                        className="text-lg font-black tracking-tight mb-2"
                         numberOfLines={1}
                       >
                         {cardSend.card.title}
@@ -2010,33 +2175,55 @@ export default function Dashboard() {
           )}
 
           {/* Coin Toss Decision Maker Section */}
-          <View className="mx-6 mt-6 bg-white dark:bg-[#271318] dark:border dark:border-rose-950/40 rounded-[36px] p-7 shadow-lg dark:shadow-none relative overflow-hidden">
+          <View
+            className="mx-6 mt-6 rounded-[36px] p-7 shadow-lg relative overflow-hidden border"
+            style={{
+              backgroundColor: isDark ? "#271318" : "#ffffff",
+              borderColor: isDark ? "rgba(245,158,11,0.25)" : "rgba(245,158,11,0.2)",
+            }}
+          >
             {/* Background gold decoration */}
-            <View className="absolute top-[-20] right-[-25] w-24 h-24 bg-amber-100/40 dark:bg-amber-500/10 rounded-full" />
+            <View
+              style={{ top: -20, right: -25, backgroundColor: isDark ? "rgba(245,158,11,0.12)" : "#fef3c7" }}
+              className="absolute w-24 h-24 rounded-full"
+            />
 
             <View className="flex-row items-center mb-2">
-              <View className="bg-amber-50/80 dark:bg-amber-500/10 w-9 h-9 rounded-full items-center justify-center mr-3">
+              <View
+                style={{ backgroundColor: isDark ? "rgba(245,158,11,0.15)" : "#fef3c7" }}
+                className="w-9 h-9 rounded-full items-center justify-center mr-3"
+              >
                 <Ionicons
                   name="pricetag"
                   size={16}
                   color={isDark ? "#fbbf24" : "#d97706"}
                 />
               </View>
-              <Text className="text-[11px] font-bold text-amber-600 dark:text-amber-500 tracking-widest uppercase">
+              <Text
+                style={{ color: isDark ? "#fbbf24" : "#d97706" }}
+                className="text-[11px] font-bold tracking-widest uppercase"
+              >
                 Decision Maker
               </Text>
             </View>
 
-            <Text className="text-2xl font-black text-slate-900 dark:text-white mt-4 pr-12 leading-8">
+            <Text
+              style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+              className="text-2xl font-black mt-4 pr-12 leading-8"
+            >
               Can&apos;t agree on something?
             </Text>
-            <Text className="text-slate-500 dark:text-slate-300 mt-4 leading-6 text-[15px] font-medium">
+            <Text
+              style={{ color: isDark ? "#cbd5e1" : "#475569" }}
+              className="mt-3 leading-6 text-[14px] font-medium"
+            >
               Toss a virtual coin to decide who washes the dishes, picks the
               movie, or gets their way today!
             </Text>
 
             <TouchableOpacity
-              className="bg-amber-500 dark:bg-amber-600 rounded-full py-[18px] items-center mt-7 flex-row justify-center shadow-md dark:shadow-none"
+              style={{ backgroundColor: isDark ? "#d97706" : "#f59e0b" }}
+              className="rounded-full py-[16px] items-center mt-6 flex-row justify-center shadow-md"
               activeOpacity={0.8}
               onPress={() => navigateTo("/coin-toss")}
             >
@@ -2051,19 +2238,28 @@ export default function Dashboard() {
           <View className="mt-10 mb-8 px-6">
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
-                <View className="bg-rose-100 dark:bg-rose-900/30 w-8 h-8 rounded-full items-center justify-center mr-2.5">
+                <View
+                  style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
+                  className="w-8 h-8 rounded-full items-center justify-center mr-2.5"
+                >
                   <Ionicons
                     name="time"
                     size={16}
                     color={isDark ? "#f43f5e" : "#e11d48"}
                   />
                 </View>
-                <Text className="text-xl font-black text-slate-900 dark:text-rose-100 tracking-tight">
+                <Text
+                  style={{ color: isDark ? "#fda4af" : "#0f172a" }}
+                  className="text-xl font-black tracking-tight"
+                >
                   Card History
                 </Text>
               </View>
               <TouchableOpacity onPress={() => navigateTo("/history")}>
-                <Text className="text-[11px] font-bold text-red-700 dark:text-rose-300 uppercase tracking-widest">
+                <Text
+                  style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                  className="text-[11px] font-bold uppercase tracking-widest"
+                >
                   View All →
                 </Text>
               </TouchableOpacity>
@@ -2125,7 +2321,11 @@ export default function Dashboard() {
                       key={item.id || idx}
                       activeOpacity={0.88}
                       onPress={() => navigateTo("/history")}
-                      className="w-[240px] bg-white dark:bg-[#271318] rounded-[28px] overflow-hidden border border-slate-100 dark:border-rose-950/30 shadow-md dark:shadow-none"
+                      style={{
+                        backgroundColor: isDark ? "#271318" : "#ffffff",
+                        borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                      }}
+                      className="w-[240px] rounded-[28px] overflow-hidden border shadow-md"
                     >
                       <View className="h-32 relative">
                         <Image
@@ -2164,11 +2364,15 @@ export default function Dashboard() {
                       </View>
 
                       <View className="p-4">
-                        <Text className="text-[9px] font-bold text-rose-500 dark:text-rose-400 tracking-widest uppercase mb-1">
+                        <Text
+                          style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                          className="text-[9px] font-bold tracking-widest uppercase mb-1"
+                        >
                           {category}
                         </Text>
                         <Text
-                          className="text-base font-black text-slate-900 dark:text-white tracking-tight"
+                          style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+                          className="text-base font-black tracking-tight"
                           numberOfLines={1}
                         >
                           {title}
@@ -2182,23 +2386,39 @@ export default function Dashboard() {
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => navigateTo("/dares")}
-                className="bg-white dark:bg-[#271318] border border-dashed border-rose-200 dark:border-rose-900/40 rounded-[28px] p-6 items-center justify-center"
+                style={{
+                  backgroundColor: isDark ? "#271318" : "#ffffff",
+                  borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.25)",
+                }}
+                className="border border-dashed rounded-[28px] p-6 items-center justify-center shadow-sm"
               >
-                <View className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/40 items-center justify-center mb-3">
+                <View
+                  style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
+                  className="w-12 h-12 rounded-full items-center justify-center mb-3"
+                >
                   <Ionicons
                     name="card"
                     size={22}
                     color={isDark ? "#f43f5e" : "#e11d48"}
                   />
                 </View>
-                <Text className="text-base font-bold text-slate-900 dark:text-white mb-1 text-center">
+                <Text
+                  style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+                  className="text-base font-bold mb-1 text-center"
+                >
                   No Card History Yet
                 </Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-xs font-medium text-center mb-4 leading-4 px-4">
+                <Text
+                  style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                  className="text-xs font-medium text-center mb-4 leading-4 px-4"
+                >
                   Send your first dare card to your partner to start creating
                   history together! 💕
                 </Text>
-                <View className="bg-rose-500 dark:bg-rose-600 px-5 py-2.5 rounded-full flex-row items-center">
+                <View
+                  style={{ backgroundColor: isDark ? "#e11d48" : "#af2c3b" }}
+                  className="px-5 py-2.5 rounded-full flex-row items-center"
+                >
                   <Text className="text-white font-bold text-xs">
                     Send a Dare
                   </Text>

@@ -742,7 +742,7 @@ export default function Profile() {
             <View className="flex-row items-center justify-between mb-1">
               <View className="flex-row items-center gap-2">
                 <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  Animated Avatars ✨
+                  Choose Avatar ✨
                 </Text>
               </View>
               <TouchableOpacity
@@ -753,7 +753,7 @@ export default function Profile() {
               </TouchableOpacity>
             </View>
             <Text className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4">
-              Select an animated avatar to represent you in SoulShuffle
+              Select a cute avatar to represent you in SoulShuffle
             </Text>
 
             {/* Category Filter Pills */}
@@ -810,10 +810,10 @@ export default function Profile() {
                           resizeMode="cover"
                         />
 
-                        {/* GIF Tag */}
-                        <View className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full flex-row items-center gap-1">
-                          <Text className="text-[10px] font-black text-rose-300 uppercase tracking-widest">
-                            GIF {item.emoji}
+                        {/* Emoji Tag */}
+                        <View className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full flex-row items-center">
+                          <Text className="text-xs font-bold text-white">
+                            {item.emoji}
                           </Text>
                         </View>
 

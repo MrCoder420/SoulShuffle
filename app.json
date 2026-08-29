@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Couple-Game",
-    "slug": "Couple-Game",
-    "owner": "mrcoder.420",
+    "name": "SoulShuffle",
+    "slug": "soulshuffle",
+    "owner": "anurag_4411",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "couplegame",
+    "scheme": "soulshuffle",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -98,7 +98,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "75231063-db0f-42e1-9654-e92a69abe55d"
+        "projectId": "6529ac40-cf1a-403b-aae3-1dec0733c4e3"
       }
     }
   }

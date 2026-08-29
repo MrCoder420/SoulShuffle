@@ -50,6 +50,10 @@ export default function CoinToss() {
   const [partnerName, setPartnerName] = useState<string>('Partner');
 
   const [userChoice, setUserChoice] = useState<CoinFace>('HEADS');
+  const [partnerPickedSide, setPartnerPickedSide] = useState<CoinFace | null>(null);
+  const [choiceLockedByPartner, setChoiceLockedByPartner] = useState(false);
+  const [chooserName, setChooserName] = useState<string>('You');
+
   const [selectedStake, setSelectedStake] = useState<string>('Who buys coffee?');
   const [customStake, setCustomStake] = useState<string>('');
   const [isCustomStake, setIsCustomStake] = useState(false);
@@ -61,6 +65,7 @@ export default function CoinToss() {
     flipperName: string;
     isMeFlipper: boolean;
     choice: CoinFace;
+    partnerChoice: CoinFace;
     result: CoinFace;
     isMeWinner: boolean;
     reason: string;
@@ -180,6 +185,45 @@ export default function CoinToss() {
     );
   }, [triggerFlipComplete]);
 
+  // Handle User Selecting Choice (and live syncing to partner)
+  const handleSelectChoice = (choice: CoinFace) => {
+    if (isFlipping) return;
+
+    setUserChoice(choice);
+    setPartnerPickedSide(choice === 'HEADS' ? 'TAILS' : 'HEADS');
+    setChoiceLockedByPartner(false);
+    setChooserName('You');
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const currentRoom = roomRef.current;
+    if (currentRoom && currentRoom.code) {
+      GameSocket.sendGameEvent(currentRoom.code, 'COIN_CHOICE_SELECTED', {
+        choice,
+        chooserId: myProfileRef.current.id,
+        chooserName: myProfileRef.current.firstName || 'Partner',
+        timestamp: Date.now()
+      });
+    }
+  };
+
+  // Handle User Selecting Stake (and live syncing to partner)
+  const handleSelectStake = (stakeText: string, isCustom = false) => {
+    setIsCustomStake(isCustom);
+    if (!isCustom) {
+      setSelectedStake(stakeText);
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const currentRoom = roomRef.current;
+    if (currentRoom && currentRoom.code && !isCustom) {
+      GameSocket.sendGameEvent(currentRoom.code, 'COIN_STAKE_SELECTED', {
+        reason: stakeText,
+        timestamp: Date.now()
+      });
+    }
+  };
+
   // Execute Local Flip Action
   const handleFlip = async () => {
     if (isFlipping) return;
@@ -188,6 +232,7 @@ export default function CoinToss() {
     const currentChoice = userChoiceRef.current;
     const currentStakeText = selectedStakeRef.current;
     const currentMyProfile = myProfileRef.current;
+    const currentPartnerChoice: CoinFace = currentChoice === 'HEADS' ? 'TAILS' : 'HEADS';
 
     // Determine random outcome (50/50 chance)
     const outcomes: CoinFace[] = ['HEADS', 'TAILS'];
@@ -208,6 +253,7 @@ export default function CoinToss() {
         flipperName: currentMyProfile.firstName || 'You',
         isMeFlipper: true,
         choice: currentChoice,
+        partnerChoice: currentPartnerChoice,
         result: landedResult,
         isMeWinner,
         reason: currentStakeText
@@ -238,6 +284,7 @@ export default function CoinToss() {
       // 1. Direct Socket Game Event
       GameSocket.sendGameEvent(currentRoom.code, 'COIN_TOSS', {
         eventId,
+        flipperChoice: currentChoice,
         choice: currentChoice,
         result: finalOutcome,
         flipperId: currentMyProfile.id,
@@ -254,85 +301,113 @@ export default function CoinToss() {
     }
   };
 
-  // Socket Listener for incoming partner tosses (stable registration)
+  // Socket Listener for incoming partner events
   useEffect(() => {
-    const handleIncomingFlip = (payload: any) => {
-      let eventData = payload;
-      if (payload.eventType === 'COIN_TOSS') {
-        eventData = payload.data;
-      } else if (payload.eventType === 'COIN_FLIP_RESULT') {
-        eventData = payload.data;
-      }
+    const handleIncomingGameEvent = (payload: any) => {
+      const eventType = payload.eventType;
+      const eventData = payload.data || payload;
 
-      if (!eventData || (!eventData.result && !eventData.chosen_side)) return;
+      if (!eventData) return;
 
-      const eventId = eventData.eventId || eventData.timestamp || '';
-
-      // Deduplicate events arriving from both game_event and coin_flip_result
-      if (
-        (eventId && eventId === lastProcessedEventIdRef.current) ||
-        (Date.now() - lastProcessedTimestampRef.current < 2000 && lastProcessedEventIdRef.current !== '')
-      ) {
-        console.log('[CoinToss] Ignoring duplicate flip event:', eventId);
+      // Case A: Partner selected a side → Lock partner's choice and auto-assign opposite to current user
+      if (eventType === 'COIN_CHOICE_SELECTED') {
+        const partnerPicked: CoinFace = (eventData.choice || 'HEADS').toUpperCase() as CoinFace;
+        const oppositeChoice: CoinFace = partnerPicked === 'HEADS' ? 'TAILS' : 'HEADS';
+        
+        setUserChoice(oppositeChoice);
+        setPartnerPickedSide(partnerPicked);
+        setChoiceLockedByPartner(true);
+        setChooserName(eventData.chooserName || partnerNameRef.current || 'Partner');
+        
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         return;
       }
 
-      lastProcessedEventIdRef.current = eventId ? String(eventId) : `recv_${Date.now()}`;
-      lastProcessedTimestampRef.current = Date.now();
+      // Case B: Partner selected a stake
+      if (eventType === 'COIN_STAKE_SELECTED') {
+        if (eventData.reason) {
+          setSelectedStake(eventData.reason);
+          setIsCustomStake(false);
+        }
+        return;
+      }
 
-      const incomingResult: CoinFace = (eventData.result || eventData.chosen_side || 'HEADS').toUpperCase() as CoinFace;
-      const partnerChoice: CoinFace = (eventData.choice || eventData.chosen_side || 'HEADS').toUpperCase() as CoinFace;
-      const flipperName = eventData.flipperName || partnerNameRef.current || 'Partner';
-      const reason = eventData.reason || 'Coin Toss Decider';
+      // Case C: Coin Toss occurred
+      if (eventType === 'COIN_TOSS' || eventType === 'COIN_FLIP_RESULT') {
+        if (!eventData.result && !eventData.chosen_side) return;
 
-      const isPartnerWinner = partnerChoice === incomingResult;
-      const isMeWinner = !isPartnerWinner;
+        const eventId = eventData.eventId || eventData.timestamp || '';
 
-      // Auto-set the opposite choice on our screen for visual clarity
-      setUserChoice(partnerChoice === 'HEADS' ? 'TAILS' : 'HEADS');
+        // Deduplicate events
+        if (
+          (eventId && eventId === lastProcessedEventIdRef.current) ||
+          (Date.now() - lastProcessedTimestampRef.current < 2000 && lastProcessedEventIdRef.current !== '')
+        ) {
+          console.log('[CoinToss] Ignoring duplicate flip event:', eventId);
+          return;
+        }
 
-      onFlipEndCallbackRef.current = (landedResult: CoinFace) => {
-        setResult(landedResult);
-        setIsFlipping(false);
-        setShowResultCard(true);
-        Haptics.notificationAsync(
-          isMeWinner ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning
-        );
+        lastProcessedEventIdRef.current = eventId ? String(eventId) : `recv_${Date.now()}`;
+        lastProcessedTimestampRef.current = Date.now();
 
-        const context = {
-          flipperName,
-          isMeFlipper: false,
-          choice: partnerChoice,
-          result: landedResult,
-          isMeWinner,
-          reason
+        const incomingResult: CoinFace = (eventData.result || eventData.chosen_side || 'HEADS').toUpperCase() as CoinFace;
+        const partnerChoice: CoinFace = (eventData.flipperChoice || eventData.choice || eventData.chosen_side || 'HEADS').toUpperCase() as CoinFace;
+        const myOppositeChoice: CoinFace = partnerChoice === 'HEADS' ? 'TAILS' : 'HEADS';
+        const flipperName = eventData.flipperName || partnerNameRef.current || 'Partner';
+        const reason = eventData.reason || 'Coin Toss Decider';
+
+        // Evaluate winner: partner had partnerChoice, user had myOppositeChoice
+        const isPartnerWinner = partnerChoice === incomingResult;
+        const isMeWinner = myOppositeChoice === incomingResult;
+
+        // Auto-sync our assigned choice on screen
+        setUserChoice(myOppositeChoice);
+        setPartnerPickedSide(partnerChoice);
+        setChoiceLockedByPartner(true);
+        setChooserName(flipperName);
+
+        onFlipEndCallbackRef.current = (landedResult: CoinFace) => {
+          setResult(landedResult);
+          setIsFlipping(false);
+          setShowResultCard(true);
+          Haptics.notificationAsync(
+            isMeWinner ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning
+          );
+
+          const context = {
+            flipperName,
+            isMeFlipper: false,
+            choice: myOppositeChoice,
+            partnerChoice: partnerChoice,
+            result: landedResult,
+            isMeWinner,
+            reason
+          };
+          setLastFlipContext(context);
+
+          const newItem: HistoryItem = {
+            id: String(eventId || Date.now()),
+            flipperName,
+            choice: partnerChoice,
+            result: landedResult,
+            outcome: isMeWinner ? 'YOU WON' : `${flipperName.toUpperCase()} WON`,
+            reason,
+            isMeWinner,
+            time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+          };
+          setHistory(prev => [newItem, ...prev.slice(0, 19)]);
         };
-        setLastFlipContext(context);
 
-        const newItem: HistoryItem = {
-          id: String(eventId || Date.now()),
-          flipperName,
-          choice: partnerChoice,
-          result: landedResult,
-          outcome: isMeWinner ? 'YOU WON' : `${flipperName.toUpperCase()} WON`,
-          reason,
-          isMeWinner,
-          time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-        };
-        setHistory(prev => [newItem, ...prev.slice(0, 19)]);
-      };
-
-      animateFlip(incomingResult);
-    };
-
-    const onGameEvent = (payload: any) => {
-      if (payload.eventType === 'COIN_TOSS' || payload.eventType === 'COIN_FLIP_RESULT') {
-        handleIncomingFlip(payload);
+        animateFlip(incomingResult);
       }
     };
 
+    const onGameEvent = (payload: any) => {
+      handleIncomingGameEvent(payload);
+    };
+
     const onCoinFlipResult = (payload: any) => {
-      handleIncomingFlip({ eventType: 'COIN_FLIP_RESULT', data: payload });
+      handleIncomingGameEvent({ eventType: 'COIN_FLIP_RESULT', data: payload });
     };
 
     GameSocket.on('game_event', onGameEvent);
@@ -374,7 +449,7 @@ export default function CoinToss() {
             Can&apos;t agree on something?
           </Text>
           <Text className="text-slate-500 dark:text-slate-400 font-medium text-center text-xs mt-1.5 mb-3 px-4">
-            Pick a side, set the stake, and flip in real-time with your partner!
+            Pick a side and flip in real-time with your partner!
           </Text>
 
           {/* Real-time Sync Status Pill */}
@@ -395,109 +470,63 @@ export default function CoinToss() {
           )}
         </View>
 
-        {/* Stakes / Reason Selector */}
-        <View className="px-6 mt-5">
-          <Text className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-            What are you tossing for?
+        {/* Choice Selector (Heads vs Tails with live partner lock & opposite auto-assignment) */}
+        <View className="px-6 mt-6 mb-8">
+          <Text className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 px-1">
+            Choose Your Side
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row -mx-1 py-1">
-            {PRESET_STAKES.map((stake) => {
-              const isSelected = !isCustomStake && selectedStake === stake.reason;
-              return (
-                <TouchableOpacity
-                  key={stake.id}
-                  onPress={() => {
-                    setIsCustomStake(false);
-                    setSelectedStake(stake.reason);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  className={`mr-2 px-3.5 py-2 rounded-xl border ${
-                    isSelected
-                      ? 'bg-rose-50 border-rose-400 dark:bg-rose-950/40 dark:border-rose-600'
-                      : 'bg-white border-slate-200 dark:bg-[#1a0c10] dark:border-rose-950/20'
-                  }`}
-                >
-                  <Text className={`text-xs font-bold ${
-                    isSelected ? 'text-[#af2c3b] dark:text-rose-300' : 'text-slate-700 dark:text-slate-300'
-                  }`}>
-                    {stake.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+
+          <View className="flex-row justify-center gap-3">
+            {/* HEADS Button */}
             <TouchableOpacity
-              onPress={() => {
-                setIsCustomStake(true);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-              className={`mr-2 px-3.5 py-2 rounded-xl border ${
-                isCustomStake
-                  ? 'bg-rose-50 border-rose-400 dark:bg-rose-950/40 dark:border-rose-600'
-                  : 'bg-white border-slate-200 dark:bg-[#1a0c10] dark:border-rose-950/20'
+              className={`flex-1 py-4 px-3 rounded-2xl border-[2px] shadow-sm flex-row items-center justify-center ${
+                userChoice === 'HEADS'
+                  ? 'bg-[#af2c3b] border-[#af2c3b] dark:bg-rose-600 dark:border-rose-600'
+                  : choiceLockedByPartner && partnerPickedSide === 'HEADS'
+                    ? 'bg-slate-100 border-slate-300 dark:bg-slate-900/60 dark:border-slate-800 opacity-75'
+                    : 'bg-white border-slate-200 dark:bg-[#271318] dark:border-rose-950/20'
               }`}
+              onPress={() => handleSelectChoice('HEADS')}
+              disabled={isFlipping || choiceLockedByPartner}
+              activeOpacity={choiceLockedByPartner ? 1 : 0.7}
             >
-              <Text className={`text-xs font-bold ${
-                isCustomStake ? 'text-[#af2c3b] dark:text-rose-300' : 'text-slate-700 dark:text-slate-300'
+              <Ionicons
+                name="heart"
+                size={18}
+                color={userChoice === 'HEADS' ? '#fff' : '#e11d48'}
+              />
+              <Text className={`font-black text-[14px] ml-2 ${
+                userChoice === 'HEADS' ? 'text-white' : 'text-slate-800 dark:text-slate-200'
               }`}>
-                ✏️ Custom Stake
+                HEADS (Heart)
               </Text>
             </TouchableOpacity>
-          </ScrollView>
 
-          {isCustomStake && (
-            <View className="mt-2">
-              <TextInput
-                value={customStake}
-                onChangeText={setCustomStake}
-                placeholder="e.g. Who gives the massage tonight?"
-                placeholderTextColor={isDark ? '#71717a' : '#9ca3af'}
-                className="bg-white dark:bg-[#1a0c10] border border-rose-200 dark:border-rose-950/30 rounded-xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 font-medium"
+            {/* TAILS Button */}
+            <TouchableOpacity
+              className={`flex-1 py-4 px-3 rounded-2xl border-[2px] shadow-sm flex-row items-center justify-center ${
+                userChoice === 'TAILS'
+                  ? 'bg-[#af2c3b] border-[#af2c3b] dark:bg-rose-600 dark:border-rose-600'
+                  : choiceLockedByPartner && partnerPickedSide === 'TAILS'
+                    ? 'bg-slate-100 border-slate-300 dark:bg-slate-900/60 dark:border-slate-800 opacity-75'
+                    : 'bg-white border-slate-200 dark:bg-[#271318] dark:border-rose-950/20'
+              }`}
+              onPress={() => handleSelectChoice('TAILS')}
+              disabled={isFlipping || choiceLockedByPartner}
+              activeOpacity={choiceLockedByPartner ? 1 : 0.7}
+            >
+              <Ionicons
+                name="rose"
+                size={18}
+                color={userChoice === 'TAILS' ? '#fff' : '#f43f5e'}
               />
-            </View>
-          )}
-        </View>
-
-        {/* Choice Selector (Heads vs Tails) */}
-        <View className="flex-row justify-center px-6 mt-6 mb-8 gap-3">
-          <TouchableOpacity
-            className={`flex-1 flex-row items-center justify-center py-3.5 rounded-2xl border-[2px] shadow-sm ${
-              userChoice === 'HEADS'
-                ? 'bg-[#af2c3b] border-[#af2c3b] dark:bg-rose-600 dark:border-rose-600'
-                : 'bg-white border-slate-200 dark:bg-[#271318] dark:border-rose-950/20'
-            }`}
-            onPress={() => {
-              if (!isFlipping) {
-                setUserChoice('HEADS');
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-            }}
-            disabled={isFlipping}
-          >
-            <Ionicons name="heart" size={18} color={userChoice === 'HEADS' ? '#fff' : '#e11d48'} />
-            <Text className={`font-black text-[13px] ml-2 ${userChoice === 'HEADS' ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>
-              HEADS (Heart)
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className={`flex-1 flex-row items-center justify-center py-3.5 rounded-2xl border-[2px] shadow-sm ${
-              userChoice === 'TAILS'
-                ? 'bg-[#af2c3b] border-[#af2c3b] dark:bg-rose-600 dark:border-rose-600'
-                : 'bg-white border-slate-200 dark:bg-[#271318] dark:border-rose-950/20'
-            }`}
-            onPress={() => {
-              if (!isFlipping) {
-                setUserChoice('TAILS');
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-            }}
-            disabled={isFlipping}
-          >
-            <Ionicons name="rose" size={18} color={userChoice === 'TAILS' ? '#fff' : '#f43f5e'} />
-            <Text className={`font-black text-[13px] ml-2 ${userChoice === 'TAILS' ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>
-              TAILS (Rose)
-            </Text>
-          </TouchableOpacity>
+              <Text className={`font-black text-[14px] ml-2 ${
+                userChoice === 'TAILS' ? 'text-white' : 'text-slate-800 dark:text-slate-200'
+              }`}>
+                TAILS (Rose)
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Interactive 3D Flipping Coin Area */}
@@ -536,7 +565,7 @@ export default function CoinToss() {
           >
             <Ionicons name="reload" size={18} color="white" />
             <Text className="text-white font-black text-[15px] ml-2">
-              {isFlipping ? 'Tossing Coin in Air...' : `Toss Coin for: ${activeStakeReason}`}
+              {isFlipping ? 'Tossing Coin in Air...' : 'Toss Coin'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -563,24 +592,17 @@ export default function CoinToss() {
                 Landed on {result}!
               </Text>
 
-              {/* Stake Subtitle */}
-              <Text className="text-slate-500 dark:text-slate-400 font-semibold text-xs mt-1 text-center">
-                Stake: &ldquo;{lastFlipContext.reason}&rdquo;
-              </Text>
-
               {/* Winner Status Banner */}
-              <View className="mt-3 px-4 py-2 rounded-xl bg-white/80 dark:bg-black/40 border border-slate-100 dark:border-white/5 items-center">
+              <View className="mt-3 px-4 py-2.5 rounded-xl bg-white/80 dark:bg-black/40 border border-slate-100 dark:border-white/5 items-center w-full">
                 <Text className={`font-black text-sm text-center ${
                   lastFlipContext.isMeWinner ? 'text-teal-700 dark:text-teal-300' : 'text-rose-700 dark:text-rose-300'
                 }`}>
-                  {lastFlipContext.isMeFlipper
-                    ? (lastFlipContext.isMeWinner ? `🎉 You won the toss!` : `😢 You lost the toss!`)
-                    : (lastFlipContext.isMeWinner ? `🎉 ${lastFlipContext.flipperName} lost! You win!` : `👑 ${lastFlipContext.flipperName} won the toss!`)}
+                  {lastFlipContext.isMeWinner
+                    ? `🎉 You won the toss!`
+                    : `👑 ${lastFlipContext.isMeFlipper ? partnerName : lastFlipContext.flipperName} won the toss!`}
                 </Text>
-                <Text className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                  {lastFlipContext.isMeFlipper 
-                    ? `You chose ${lastFlipContext.choice}` 
-                    : `${lastFlipContext.flipperName} chose ${lastFlipContext.choice}`}
+                <Text className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 text-center">
+                  You had <Text className="font-bold text-slate-700 dark:text-slate-200">{lastFlipContext.isMeFlipper ? lastFlipContext.choice : lastFlipContext.partnerChoice}</Text> vs {lastFlipContext.isMeFlipper ? partnerName : lastFlipContext.flipperName} had <Text className="font-bold text-slate-700 dark:text-slate-200">{lastFlipContext.isMeFlipper ? lastFlipContext.partnerChoice : lastFlipContext.choice}</Text>
                 </Text>
               </View>
             </View>
@@ -629,9 +651,6 @@ export default function CoinToss() {
                     <View className="flex-1">
                       <Text className="text-slate-800 dark:text-white font-bold text-xs" numberOfLines={1}>
                         {item.flipperName} picked {item.choice} → {item.result}
-                      </Text>
-                      <Text className="text-[10px] text-slate-400 dark:text-slate-500 font-medium" numberOfLines={1}>
-                        {item.reason}
                       </Text>
                     </View>
                   </View>
