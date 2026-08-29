@@ -1,29 +1,26 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StatusBar, ScrollView, StyleSheet, Image, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar, ScrollView, StyleSheet, Image, TextInput, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSequence, runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
 import { useUserAvatar } from '@/hooks/use-user-avatar';
 import { getActiveRoom, Room, triggerCoinFlipApi } from '@/services/roomService';
 import { getMyProfileCached } from '@/services/authService';
 import GameSocket from '@/services/socketService';
-
-type CoinFace = 'HEADS' | 'TAILS';
-
-interface HistoryItem {
-  id: string;
-  flipperName: string;
-  choice: CoinFace;
-  result: CoinFace;
-  outcome: string;
-  reason: string;
-  isMeWinner: boolean;
-  time: string;
-}
+import { 
+  getPendingCoinToss, 
+  markPendingCoinTossAnimated, 
+  CoinFace, 
+  CoinTossHistoryItem,
+  getCoinTossHistory,
+  saveCoinTossItem,
+  clearCoinTossHistory
+} from '@/services/coinTossService';
 
 const PRESET_STAKES = [
   { id: 'coffee', label: '☕ Buy Coffee', reason: 'Who buys coffee?' },
@@ -51,7 +48,6 @@ export default function CoinToss() {
 
   const [userChoice, setUserChoice] = useState<CoinFace>('HEADS');
   const [partnerPickedSide, setPartnerPickedSide] = useState<CoinFace | null>(null);
-  const [choiceLockedByPartner, setChoiceLockedByPartner] = useState(false);
   const [chooserName, setChooserName] = useState<string>('You');
 
   const [selectedStake, setSelectedStake] = useState<string>('Who buys coffee?');
@@ -60,7 +56,7 @@ export default function CoinToss() {
 
   const [result, setResult] = useState<CoinFace | null>(null);
   const [isFlipping, setIsFlipping] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<CoinTossHistoryItem[]>([]);
   const [lastFlipContext, setLastFlipContext] = useState<{
     flipperName: string;
     isMeFlipper: boolean;
@@ -80,6 +76,26 @@ export default function CoinToss() {
   const selectedStakeRef = useRef(selectedStake);
   const lastProcessedEventIdRef = useRef<string>('');
   const lastProcessedTimestampRef = useRef<number>(0);
+
+  // Load cached history on mount & on demand
+  const loadLocalHistory = useCallback(async (roomId?: string) => {
+    try {
+      const items = await getCoinTossHistory(roomId || roomRef.current?.id);
+      setHistory(items);
+    } catch (e) {
+      console.log('[CoinToss] Failed to load history:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLocalHistory();
+  }, [loadLocalHistory]);
+
+  const handleClearHistory = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setHistory([]);
+    await clearCoinTossHistory(roomRef.current?.id);
+  };
 
   useEffect(() => { userChoiceRef.current = userChoice; }, [userChoice]);
   useEffect(() => { roomRef.current = room; }, [room]);
@@ -104,36 +120,8 @@ export default function CoinToss() {
     };
   });
 
-  // Room & Profile Sync
-  const syncRoomAndSocket = useCallback(async () => {
-    try {
-      const [activeRoom, profile] = await Promise.all([
-        getActiveRoom(),
-        getMyProfileCached()
-      ]);
-      setRoom(activeRoom);
-      if (profile) setMyProfile(profile);
-
-      if (activeRoom) {
-        // Resolve Partner's name
-        const pName = activeRoom.partner?.first_name || activeRoom.partner?.full_name ||
-          (profile.id === activeRoom.host_id ? (activeRoom.partner?.first_name || 'Partner') : (activeRoom.host?.first_name || 'Partner'));
-        setPartnerName(pName);
-
-        if (activeRoom.code) {
-          await GameSocket.joinRoom(activeRoom.code);
-        }
-      }
-    } catch (err) {
-      console.warn('[CoinToss] Failed to sync room/socket in CoinToss:', err);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      syncRoomAndSocket();
-    }, [syncRoomAndSocket])
-  );
+  // Refs for tracking focus & duplicate processing
+  const isScreenFocusedRef = useRef(false);
 
   // Completion trigger ref
   const onFlipEndCallbackRef = useRef<((finalResult: CoinFace, context?: any) => void) | null>(null);
@@ -185,13 +173,142 @@ export default function CoinToss() {
     );
   }, [triggerFlipComplete]);
 
+  // Process incoming coin toss (from live socket or cross-tab redirect)
+  const processIncomingCoinToss = useCallback((eventData: any, delayMs: number = 0) => {
+    if (!eventData) return;
+    if (!eventData.result && !eventData.chosen_side) return;
+
+    const eventId = String(eventData.eventId || eventData.timestamp || Date.now());
+
+    // Deduplicate events
+    if (
+      (eventId && eventId === lastProcessedEventIdRef.current) ||
+      (Date.now() - lastProcessedTimestampRef.current < 2000 && lastProcessedEventIdRef.current !== '')
+    ) {
+      console.log('[CoinToss] Ignoring duplicate flip event:', eventId);
+      return;
+    }
+
+    lastProcessedEventIdRef.current = eventId;
+    lastProcessedTimestampRef.current = Date.now();
+    markPendingCoinTossAnimated(eventId);
+
+    const incomingResult: CoinFace = (eventData.result || eventData.chosen_side || 'HEADS').toUpperCase() as CoinFace;
+    const partnerChoice: CoinFace = (eventData.flipperChoice || eventData.choice || eventData.chosen_side || 'HEADS').toUpperCase() as CoinFace;
+    const myOppositeChoice: CoinFace = partnerChoice === 'HEADS' ? 'TAILS' : 'HEADS';
+    const flipperName = eventData.flipperName || partnerNameRef.current || 'Partner';
+    const reason = eventData.reason || 'Coin Toss Decider';
+
+    const isPartnerWinner = partnerChoice === incomingResult;
+    const isMeWinner = myOppositeChoice === incomingResult;
+
+    // Auto-sync choice states on screen
+    setUserChoice(myOppositeChoice);
+    setPartnerPickedSide(partnerChoice);
+    setChooserName(flipperName);
+    if (reason && reason !== 'Coin Toss Decider') {
+      setSelectedStake(reason);
+      setIsCustomStake(false);
+    }
+
+    onFlipEndCallbackRef.current = (landedResult: CoinFace) => {
+      setResult(landedResult);
+      setIsFlipping(false);
+      setShowResultCard(true);
+      Haptics.notificationAsync(
+        isMeWinner ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning
+      );
+
+      const context = {
+        flipperName,
+        isMeFlipper: false,
+        choice: myOppositeChoice,
+        partnerChoice: partnerChoice,
+        result: landedResult,
+        isMeWinner,
+        reason
+      };
+      setLastFlipContext(context);
+
+      const newItem: CoinTossHistoryItem = {
+        id: eventId,
+        flipperName,
+        choice: partnerChoice,
+        result: landedResult,
+        outcome: isMeWinner ? 'YOU WON' : `${flipperName.toUpperCase()} WON`,
+        reason,
+        isMeWinner,
+        time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        roomId: roomRef.current?.id
+      };
+      saveCoinTossItem(newItem, roomRef.current?.id).then(updated => {
+        setHistory(updated);
+      });
+    };
+
+    if (delayMs > 0) {
+      setTimeout(() => {
+        animateFlip(incomingResult);
+      }, delayMs);
+    } else {
+      animateFlip(incomingResult);
+    }
+  }, [animateFlip]);
+
+  // Room & Profile Sync & Pending Toss check on focus
+  const syncRoomAndSocket = useCallback(async () => {
+    try {
+      const [activeRoom, profile] = await Promise.all([
+        getActiveRoom(),
+        getMyProfileCached()
+      ]);
+      setRoom(activeRoom);
+      if (profile) setMyProfile(profile);
+
+      if (activeRoom) {
+        // Resolve Partner's name
+        const pName = activeRoom.partner?.first_name || activeRoom.partner?.full_name ||
+          (profile.id === activeRoom.host_id ? (activeRoom.partner?.first_name || 'Partner') : (activeRoom.host?.first_name || 'Partner'));
+        setPartnerName(pName);
+
+        if (activeRoom.code) {
+          await GameSocket.joinRoom(activeRoom.code);
+        }
+        loadLocalHistory(activeRoom.id);
+      } else {
+        loadLocalHistory();
+      }
+    } catch (err) {
+      console.warn('[CoinToss] Failed to sync room/socket in CoinToss:', err);
+    }
+  }, [loadLocalHistory]);
+
+  useFocusEffect(
+    useCallback(() => {
+      isScreenFocusedRef.current = true;
+      syncRoomAndSocket();
+      loadLocalHistory();
+
+      // Check if there is a pending coin toss received while user was on another screen
+      const pending = getPendingCoinToss();
+      if (pending && !isFlipping) {
+        console.log('[CoinToss] Found pending coin toss on screen focus:', pending.eventId);
+        processIncomingCoinToss(pending, 250);
+      }
+
+      return () => {
+        isScreenFocusedRef.current = false;
+      };
+    }, [syncRoomAndSocket, isFlipping, processIncomingCoinToss, loadLocalHistory])
+  );
+
   // Handle User Selecting Choice (and live syncing to partner)
   const handleSelectChoice = (choice: CoinFace) => {
     if (isFlipping) return;
 
     setUserChoice(choice);
     setPartnerPickedSide(choice === 'HEADS' ? 'TAILS' : 'HEADS');
-    setChoiceLockedByPartner(false);
     setChooserName('You');
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -260,7 +377,7 @@ export default function CoinToss() {
       };
       setLastFlipContext(context);
 
-      const newItem: HistoryItem = {
+      const newItem: CoinTossHistoryItem = {
         id: eventId,
         flipperName: 'You',
         choice: currentChoice,
@@ -268,9 +385,13 @@ export default function CoinToss() {
         outcome: isMeWinner ? 'YOU WON' : 'YOU LOST',
         reason: currentStakeText,
         isMeWinner,
-        time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+        timestamp: Date.now(),
+        roomId: currentRoom?.id
       };
-      setHistory(prev => [newItem, ...prev.slice(0, 19)]);
+      saveCoinTossItem(newItem, currentRoom?.id).then(updated => {
+        setHistory(updated);
+      });
     };
 
     // Animate immediately for high responsiveness
@@ -309,14 +430,13 @@ export default function CoinToss() {
 
       if (!eventData) return;
 
-      // Case A: Partner selected a side → Lock partner's choice and auto-assign opposite to current user
+      // Case A: Partner selected a side → Auto-assign opposite to current user
       if (eventType === 'COIN_CHOICE_SELECTED') {
         const partnerPicked: CoinFace = (eventData.choice || 'HEADS').toUpperCase() as CoinFace;
         const oppositeChoice: CoinFace = partnerPicked === 'HEADS' ? 'TAILS' : 'HEADS';
         
         setUserChoice(oppositeChoice);
         setPartnerPickedSide(partnerPicked);
-        setChoiceLockedByPartner(true);
         setChooserName(eventData.chooserName || partnerNameRef.current || 'Partner');
         
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -334,73 +454,17 @@ export default function CoinToss() {
 
       // Case C: Coin Toss occurred
       if (eventType === 'COIN_TOSS' || eventType === 'COIN_FLIP_RESULT') {
-        if (!eventData.result && !eventData.chosen_side) return;
-
-        const eventId = eventData.eventId || eventData.timestamp || '';
-
-        // Deduplicate events
-        if (
-          (eventId && eventId === lastProcessedEventIdRef.current) ||
-          (Date.now() - lastProcessedTimestampRef.current < 2000 && lastProcessedEventIdRef.current !== '')
-        ) {
-          console.log('[CoinToss] Ignoring duplicate flip event:', eventId);
-          return;
+        if (isScreenFocusedRef.current) {
+          processIncomingCoinToss(eventData, 0);
         }
-
-        lastProcessedEventIdRef.current = eventId ? String(eventId) : `recv_${Date.now()}`;
-        lastProcessedTimestampRef.current = Date.now();
-
-        const incomingResult: CoinFace = (eventData.result || eventData.chosen_side || 'HEADS').toUpperCase() as CoinFace;
-        const partnerChoice: CoinFace = (eventData.flipperChoice || eventData.choice || eventData.chosen_side || 'HEADS').toUpperCase() as CoinFace;
-        const myOppositeChoice: CoinFace = partnerChoice === 'HEADS' ? 'TAILS' : 'HEADS';
-        const flipperName = eventData.flipperName || partnerNameRef.current || 'Partner';
-        const reason = eventData.reason || 'Coin Toss Decider';
-
-        // Evaluate winner: partner had partnerChoice, user had myOppositeChoice
-        const isPartnerWinner = partnerChoice === incomingResult;
-        const isMeWinner = myOppositeChoice === incomingResult;
-
-        // Auto-sync our assigned choice on screen
-        setUserChoice(myOppositeChoice);
-        setPartnerPickedSide(partnerChoice);
-        setChoiceLockedByPartner(true);
-        setChooserName(flipperName);
-
-        onFlipEndCallbackRef.current = (landedResult: CoinFace) => {
-          setResult(landedResult);
-          setIsFlipping(false);
-          setShowResultCard(true);
-          Haptics.notificationAsync(
-            isMeWinner ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning
-          );
-
-          const context = {
-            flipperName,
-            isMeFlipper: false,
-            choice: myOppositeChoice,
-            partnerChoice: partnerChoice,
-            result: landedResult,
-            isMeWinner,
-            reason
-          };
-          setLastFlipContext(context);
-
-          const newItem: HistoryItem = {
-            id: String(eventId || Date.now()),
-            flipperName,
-            choice: partnerChoice,
-            result: landedResult,
-            outcome: isMeWinner ? 'YOU WON' : `${flipperName.toUpperCase()} WON`,
-            reason,
-            isMeWinner,
-            time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-          };
-          setHistory(prev => [newItem, ...prev.slice(0, 19)]);
-        };
-
-        animateFlip(incomingResult);
       }
     };
+
+    const remoteTossSub = DeviceEventEmitter.addListener('coin:remote_toss', (eventData) => {
+      if (isScreenFocusedRef.current) {
+        processIncomingCoinToss(eventData, 0);
+      }
+    });
 
     const onGameEvent = (payload: any) => {
       handleIncomingGameEvent(payload);
@@ -414,10 +478,11 @@ export default function CoinToss() {
     GameSocket.on('coin_flip_result', onCoinFlipResult);
 
     return () => {
+      remoteTossSub.remove();
       GameSocket.off('game_event', onGameEvent);
       GameSocket.off('coin_flip_result', onCoinFlipResult);
     };
-  }, [animateFlip]);
+  }, [processIncomingCoinToss]);
 
   const activeStakeReason = isCustomStake && customStake.trim() ? customStake.trim() : selectedStake;
 
@@ -482,13 +547,11 @@ export default function CoinToss() {
               className={`flex-1 py-4 px-3 rounded-2xl border-[2px] shadow-sm flex-row items-center justify-center ${
                 userChoice === 'HEADS'
                   ? 'bg-[#af2c3b] border-[#af2c3b] dark:bg-rose-600 dark:border-rose-600'
-                  : choiceLockedByPartner && partnerPickedSide === 'HEADS'
-                    ? 'bg-slate-100 border-slate-300 dark:bg-slate-900/60 dark:border-slate-800 opacity-75'
-                    : 'bg-white border-slate-200 dark:bg-[#271318] dark:border-rose-950/20'
+                  : 'bg-white border-slate-200 dark:bg-[#271318] dark:border-rose-950/20'
               }`}
               onPress={() => handleSelectChoice('HEADS')}
-              disabled={isFlipping || choiceLockedByPartner}
-              activeOpacity={choiceLockedByPartner ? 1 : 0.7}
+              disabled={isFlipping}
+              activeOpacity={0.7}
             >
               <Ionicons
                 name="heart"
@@ -507,13 +570,11 @@ export default function CoinToss() {
               className={`flex-1 py-4 px-3 rounded-2xl border-[2px] shadow-sm flex-row items-center justify-center ${
                 userChoice === 'TAILS'
                   ? 'bg-[#af2c3b] border-[#af2c3b] dark:bg-rose-600 dark:border-rose-600'
-                  : choiceLockedByPartner && partnerPickedSide === 'TAILS'
-                    ? 'bg-slate-100 border-slate-300 dark:bg-slate-900/60 dark:border-slate-800 opacity-75'
-                    : 'bg-white border-slate-200 dark:bg-[#271318] dark:border-rose-950/20'
+                  : 'bg-white border-slate-200 dark:bg-[#271318] dark:border-rose-950/20'
               }`}
               onPress={() => handleSelectChoice('TAILS')}
-              disabled={isFlipping || choiceLockedByPartner}
-              activeOpacity={choiceLockedByPartner ? 1 : 0.7}
+              disabled={isFlipping}
+              activeOpacity={0.7}
             >
               <Ionicons
                 name="rose"
@@ -616,8 +677,14 @@ export default function CoinToss() {
               Flip History
             </Text>
             {history.length > 0 && (
-              <TouchableOpacity onPress={() => setHistory([])}>
-                <Text className="text-xs font-bold text-slate-400 hover:text-slate-600">Clear</Text>
+              <TouchableOpacity 
+                onPress={handleClearHistory}
+                hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+                activeOpacity={0.7}
+                className="px-3 py-1 bg-rose-50 dark:bg-rose-950/40 rounded-full border border-rose-200/60 dark:border-rose-900/40 flex-row items-center"
+              >
+                <Ionicons name="trash-outline" size={13} color={isDark ? "#fda4af" : "#e11d48"} style={{ marginRight: 4 }} />
+                <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">Clear</Text>
               </TouchableOpacity>
             )}
           </View>

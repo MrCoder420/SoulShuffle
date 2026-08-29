@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import { router } from "expo-router";
 import {
   createRoom,
   joinRoom,
@@ -970,8 +971,7 @@ export default function Dashboard() {
     }
   };
 
-  const navigateTo = async (path: string) => {
-    const { router } = await import("expo-router");
+  const navigateTo = (path: string) => {
     router.push(path as any);
   };
 
@@ -1567,7 +1567,7 @@ export default function Dashboard() {
                     <View className="flex-row items-center justify-center mb-3">
                       {/* User Avatar */}
                       <View
-                        className={`w-10 h-10 rounded-full border-2 overflow-hidden shadow-sm ${
+                        className={`w-10 h-10 rounded-full border-2 overflow-hidden shadow-sm items-center justify-center p-0.5 bg-rose-500/10 dark:bg-rose-950/40 ${
                           activeRoom.status === "ACTIVE"
                             ? "border-teal-500"
                             : "border-rose-500"
@@ -1575,7 +1575,8 @@ export default function Dashboard() {
                       >
                         <Image
                           source={{ uri: userAvatar }}
-                          className="w-full h-full"
+                          className="w-7 h-7"
+                          resizeMode="contain"
                         />
                       </View>
 
@@ -1608,12 +1609,13 @@ export default function Dashboard() {
 
                       {/* Partner Avatar / Placeholder */}
                       {activeRoom.status === "ACTIVE" ? (
-                        <View className="w-10 h-10 rounded-full border-2 border-teal-500 overflow-hidden shadow-sm">
+                        <View className="w-10 h-10 rounded-full border-2 border-teal-500 overflow-hidden shadow-sm items-center justify-center p-0.5 bg-teal-500/10 dark:bg-teal-950/40">
                           <Image
                             source={{
                               uri: partnerAvatar || ANIMATED_AVATARS[1].url,
                             }}
-                            className="w-full h-full"
+                            className="w-7 h-7"
+                            resizeMode="contain"
                           />
                         </View>
                       ) : (

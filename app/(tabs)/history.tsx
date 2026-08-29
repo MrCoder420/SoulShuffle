@@ -38,64 +38,126 @@ export default function History() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  // Format date helper for WhatsApp-like date pills
-  const getDateLabel = (dateStr?: string) => {
-    if (!dateStr) return 'Recent';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 'Recent';
+// Safe Date parser that handles ISO strings, SQL timestamps, and Unix timestamps
+const parseDateSafely = (dateStr?: any): Date | null => {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+  if (typeof dateStr === 'number') {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof dateStr === 'string') {
+    const trimmed = dateStr.trim();
+    if (!trimmed) return null;
+    
+    // 1. Direct try
+    let d = new Date(trimmed);
+    if (!isNaN(d.getTime())) return d;
 
-    const today = new Date();
-    const isToday = date.toDateString() === today.toDateString();
+    // 2. Fix SQL timestamp format "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm:ss"
+    const iso = trimmed.replace(' ', 'T');
+    d = new Date(iso);
+    if (!isNaN(d.getTime())) return d;
 
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const isYesterday = date.toDateString() === yesterday.toDateString();
+    // 3. Append 'Z' if missing timezone offset
+    if (!iso.endsWith('Z') && !iso.includes('+') && !/[-+]\d{2}:\d{2}$/.test(iso)) {
+      d = new Date(iso + 'Z');
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+  return null;
+};
 
-    if (isToday) return 'Today';
-    if (isYesterday) return 'Yesterday';
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+// Format exact time for individual cards in the user's local device timezone
+const formatCardTime = (challenge: SentChallenge): string => {
+  // 1. Check primary sent_at / created_at timestamps
+  const rawDateStr = challenge.sent_at || (challenge as any).created_at;
+  const parsedDate = parseDateSafely(rawDateStr);
+  if (parsedDate) {
+    return parsedDate.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
     });
-  };
+  }
 
-  const [activeRoomInfo, setActiveRoomInfo] = useState<{ id: string; code: string; partnerName: string; partnerAvatar: string | null; status: string } | null>(null);
+  // 2. If challenge.time was provided
+  if (challenge.time && typeof challenge.time === 'string') {
+    // Check if challenge.time is a duration string like "30 mins", "15 mins", "1 hour"
+    const isDuration = /min|hour|sec/i.test(challenge.time);
+    if (!isDuration) {
+      const parsedTime = parseDateSafely(challenge.time);
+      if (parsedTime) {
+        return parsedTime.toLocaleTimeString([], {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+      }
+      return challenge.time;
+    }
+  }
 
-  const calculateStats = (currentRoomHistory: SentChallenge[]) => {
-    const daresMastered = currentRoomHistory.filter(
-      c => (c.status || '').toUpperCase() === 'COMPLETED' || (c.status || '').toUpperCase() === 'CONFIRMED'
-    ).length;
-    const total = currentRoomHistory.length;
-    const completionRate = total > 0 ? Math.round((daresMastered / total) * 100) : 0;
+  return 'Recently';
+};
 
-    let currentStreak = 0;
-    if (currentRoomHistory.length > 0) {
-      const dates = currentRoomHistory
-        .filter(c => c.sent_at)
-        .map(c => new Date(c.sent_at!).setHours(0, 0, 0, 0))
-        .filter(t => !isNaN(t))
-        .sort((a, b) => b - a);
+// Format date helper for WhatsApp-like date pills
+const getDateLabel = (dateStr?: string) => {
+  const date = parseDateSafely(dateStr);
+  if (!date) return 'Recent';
 
-      const uniqueDates = [...new Set(dates)];
-      const today = new Date().setHours(0, 0, 0, 0);
-      const yesterday = today - 86400000;
+  const today = new Date();
+  const isToday = date.toDateString() === today.toDateString();
 
-      if (uniqueDates.length > 0 && (uniqueDates[0] === today || uniqueDates[0] === yesterday)) {
-        currentStreak = 1;
-        for (let i = 0; i < uniqueDates.length - 1; i++) {
-          if (uniqueDates[i] - uniqueDates[i + 1] === 86400000) {
-            currentStreak++;
-          } else {
-            break;
-          }
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  if (isToday) return 'Today';
+  if (isYesterday) return 'Yesterday';
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  });
+};
+
+const [activeRoomInfo, setActiveRoomInfo] = useState<{ id: string; code: string; partnerName: string; partnerAvatar: string | null; status: string } | null>(null);
+
+const calculateStats = (currentRoomHistory: SentChallenge[]) => {
+  const daresMastered = currentRoomHistory.filter(
+    c => (c.status || '').toUpperCase() === 'COMPLETED' || (c.status || '').toUpperCase() === 'CONFIRMED'
+  ).length;
+  const total = currentRoomHistory.length;
+  const completionRate = total > 0 ? Math.round((daresMastered / total) * 100) : 0;
+
+  let currentStreak = 0;
+  if (currentRoomHistory.length > 0) {
+    const dates = currentRoomHistory
+      .map(c => parseDateSafely(c.sent_at || (c as any).created_at))
+      .filter((d): d is Date => d !== null)
+      .map(d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime())
+      .sort((a, b) => b - a);
+
+    const uniqueDates = [...new Set(dates)];
+    const today = new Date().setHours(0, 0, 0, 0);
+    const yesterday = today - 86400000;
+
+    if (uniqueDates.length > 0 && (uniqueDates[0] === today || uniqueDates[0] === yesterday)) {
+      currentStreak = 1;
+      for (let i = 0; i < uniqueDates.length - 1; i++) {
+        if (uniqueDates[i] - uniqueDates[i + 1] === 86400000) {
+          currentStreak++;
+        } else {
+          break;
         }
       }
     }
+  }
 
-    setStats({ completionRate, currentStreak, daresMastered, totalCards: total });
-  };
+  setStats({ completionRate, currentStreak, daresMastered, totalCards: total });
+};
 
   const loadHistory = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
@@ -521,10 +583,11 @@ export default function History() {
           <Ionicons name="hourglass" size={24} color={isDark ? "#fda4af" : "#be123c"} />
           <Text className="text-[#a12338] dark:text-rose-400 font-black text-xl tracking-tight">Game Journey</Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => router.push('/profile')} activeOpacity={0.7} className="w-8 h-8 rounded-full bg-rose-500/10 dark:bg-rose-950/40 items-center justify-center border border-rose-200 dark:border-rose-950/30 p-0.5">
           <Image
             source={{ uri: userAvatar }}
-            className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
+            className="w-6 h-6"
+            resizeMode="contain"
           />
         </TouchableOpacity>
       </View>
@@ -685,13 +748,6 @@ export default function History() {
                     </Text>
                   </View>
                 </View>
-
-                {roomGroup.partnerAvatar && (
-                  <Image
-                    source={{ uri: roomGroup.partnerAvatar }}
-                    className="w-7 h-7 rounded-full border border-rose-300 dark:border-rose-800"
-                  />
-                )}
               </View>
 
               {/* Date Groups inside Room */}
@@ -883,7 +939,7 @@ export default function History() {
                             <View className="flex-row items-center gap-1">
                               <Ionicons name="time-outline" size={12} color={isDark ? '#94a3b8' : '#64748b'} />
                               <Text className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                                {challenge.time || 'Recently'}
+                                {formatCardTime(challenge)}
                               </Text>
                             </View>
                           </View>

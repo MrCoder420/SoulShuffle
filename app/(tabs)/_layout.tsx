@@ -1,9 +1,11 @@
-import { Tabs, useRouter, useSegments, useNavigation } from 'expo-router';
+import { Tabs, useRouter, useSegments, usePathname, useNavigation } from 'expo-router';
 import { CommonActions } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GameSocket from '@/services/socketService';
 import { getActiveRoom } from '@/services/roomService';
+import { getMyProfileCached } from '@/services/authService';
+import { setPendingCoinToss, saveCoinTossItem } from '@/services/coinTossService';
 import {
   View,
   Text,
@@ -208,8 +210,20 @@ const styles = StyleSheet.create({
 // ─── Root Layout ──────────────────────────────────────────────────────────────
 export default function TabLayout() {
   const segments = useSegments();
+  const pathname = usePathname();
   const router = useRouter();
   const navigation = useNavigation();
+
+  const pathnameRef = useRef(pathname);
+  const segmentsRef = useRef(segments);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    segmentsRef.current = segments;
+  }, [segments]);
 
   // ── Global socket connection across all tabs ──
   useEffect(() => {
@@ -231,6 +245,98 @@ export default function TabLayout() {
       isMounted = false;
     };
   }, []);
+
+  // ── Global Coin Toss Real-time Interceptor & Partner Redirection ──
+  useEffect(() => {
+    let lastHandledEventId = '';
+    let lastHandledTime = 0;
+
+    const handleGameEvent = async (payload: any) => {
+      const eventType = payload?.eventType;
+      const eventData = payload?.data || payload;
+      if (!eventData) return;
+
+      if (eventType === 'COIN_TOSS' || eventType === 'COIN_FLIP_RESULT') {
+        const eventId = String(eventData.eventId || eventData.timestamp || Date.now());
+        if (eventId === lastHandledEventId || (Date.now() - lastHandledTime < 1500)) {
+          return;
+        }
+        lastHandledEventId = eventId;
+        lastHandledTime = Date.now();
+
+        // Check if the current user was the flipper
+        const myProfile = await getMyProfileCached().catch(() => null);
+        const myId = myProfile?.id;
+        const flipperId = eventData.flipperId || eventData.flipper_id;
+        if (myId && flipperId && myId === flipperId) {
+          // This client flipped locally, no redirection needed
+          return;
+        }
+
+        const incomingResult = (eventData.result || eventData.chosen_side || 'HEADS').toUpperCase();
+        const partnerChoice = (eventData.flipperChoice || eventData.choice || eventData.chosen_side || 'HEADS').toUpperCase();
+
+        const pendingData = {
+          eventId,
+          flipperChoice: partnerChoice,
+          choice: partnerChoice,
+          result: incomingResult,
+          flipperId: flipperId,
+          flipperName: eventData.flipperName || 'Partner',
+          winnerId: eventData.winnerId || eventData.winner_id,
+          reason: eventData.reason || 'Coin Toss Decider',
+          timestamp: Date.now(),
+        };
+
+        // Store into coin toss coordinator
+        setPendingCoinToss(pendingData);
+
+        // Pre-save into local storage in background
+        const myOppositeChoice = partnerChoice === 'HEADS' ? 'TAILS' : 'HEADS';
+        const isMeWinner = myOppositeChoice === incomingResult;
+        const flipperName = eventData.flipperName || 'Partner';
+        const reason = eventData.reason || 'Coin Toss Decider';
+
+        saveCoinTossItem({
+          id: eventId,
+          flipperName,
+          choice: partnerChoice,
+          result: incomingResult,
+          outcome: isMeWinner ? 'YOU WON' : `${flipperName.toUpperCase()} WON`,
+          reason,
+          isMeWinner,
+          time: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+          timestamp: Date.now(),
+        }).catch(() => {});
+
+        // Close sidebar if open
+        DeviceEventEmitter.emit('app:closeSidebar');
+
+        // Broadcast to CoinToss screen
+        DeviceEventEmitter.emit('coin:remote_toss', pendingData);
+
+        // Check if user is already on coin-toss
+        const currentPath = pathnameRef.current || '';
+        const currentSegments = (segmentsRef.current as string[]) || [];
+        const isAlreadyOnCoinToss =
+          currentPath.includes('/coin-toss') ||
+          currentSegments.includes('coin-toss');
+
+        if (!isAlreadyOnCoinToss) {
+          console.log('[TabLayout] Partner tossed coin! Redirecting partner to /(tabs)/coin-toss from', currentPath);
+          router.push('/(tabs)/coin-toss');
+        }
+      }
+    };
+
+    GameSocket.on('game_event', handleGameEvent);
+    GameSocket.on('coin_flip_result', (data: any) => handleGameEvent({ eventType: 'COIN_FLIP_RESULT', data }));
+
+    return () => {
+      GameSocket.off('game_event', handleGameEvent);
+      GameSocket.off('coin_flip_result', handleGameEvent);
+    };
+  }, [router]);
 
   // ── Logout handler: resets root Stack to login screen ──
   useEffect(() => {

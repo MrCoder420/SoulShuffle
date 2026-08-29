@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Platform, Text, TouchableOpacity, View, DeviceEventEmitter } from 'react-native';
+import { router } from 'expo-router';
 import api from '@/services/api';
 
 import { DEFAULT_AVATAR } from '@/hooks/use-user-avatar';
@@ -80,18 +81,22 @@ export default function Sidebar() {
       loadNamesAndStats();
     });
 
+    const closeSub = DeviceEventEmitter.addListener('app:closeSidebar', () => {
+      closeSidebar();
+    });
+
     return () => {
       sub.remove();
       clearSub.remove();
       roomSub.remove();
+      closeSub.remove();
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const navigateTo = async (path: string) => {
+  const navigateTo = (path: string) => {
     closeSidebar();
-    const { router } = await import('expo-router');
     router.push(path as any);
   };
 
@@ -156,17 +161,7 @@ export default function Sidebar() {
   };
 
 
-  const getLinkStyle = (route: string) => {
-    return 'flex-row items-center py-4 px-6 mb-2 rounded-full';
-  };
 
-  const getIconColor = (route: string) => {
-    return isDark ? '#fda4af' : '#857169';
-  };
-
-  const getTextColor = (route: string) => {
-    return 'text-[#857169] dark:text-slate-300';
-  };
 
   // Full-screen logout loading overlay
   if (isLoggingOut) {
@@ -193,10 +188,11 @@ export default function Sidebar() {
           <View className="px-8 pb-8 flex-1">
 
             {/* Avatar Section */}
-            <View className="relative w-20 h-20 mb-4">
+            <View className="relative w-20 h-20 mb-4 rounded-full bg-rose-500/10 dark:bg-rose-950/40 items-center justify-center p-2 border-[2.5px] border-[#e24e5d] dark:border-rose-400">
               <Image
                 source={{ uri: userAvatar }}
-                className="w-full h-full rounded-full border-[3px] border-[#e24e5d] dark:border-rose-400"
+                className="w-14 h-14"
+                resizeMode="contain"
               />
             </View>
 
@@ -204,68 +200,85 @@ export default function Sidebar() {
               {partnerName ? `${userName} & ${partnerName}` : userName}
             </Text>
             {connectionString ? (
-              <Text className="text-[14px] font-medium text-slate-600 dark:text-slate-400 mt-1 mb-10">{connectionString}</Text>
-            ) : null}
+              <Text className="text-[14px] font-medium text-slate-600 dark:text-slate-400 mt-1 mb-8">{connectionString}</Text>
+            ) : (
+              <View className="mb-6" />
+            )}
 
             {/* Menu Links */}
-            <TouchableOpacity
-              className={getLinkStyle('/')}
-              onPress={() => navigateTo('/')}
-            >
-              <Ionicons name="home" size={20} color={getIconColor('/')} />
-              <Text className={`${getTextColor('/')} font-bold text-[15px] ml-5`}>Home</Text>
-            </TouchableOpacity>
+            <View className="mt-6 gap-1">
+              <TouchableOpacity
+                className="flex-row items-center py-3.5 px-2 mb-1 rounded-full"
+                onPress={() => navigateTo('/')}
+              >
+                <View className="w-7 items-center justify-center">
+                  <Ionicons name="home" size={22} color={isDark ? '#fda4af' : '#857169'} />
+                </View>
+                <Text className="text-[#857169] dark:text-slate-200 font-bold text-[16px] ml-4">Home</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              className={getLinkStyle('/dares')}
-              onPress={() => navigateTo('/dares')}
-            >
-              <Ionicons name="trophy" size={20} color={getIconColor('/dares')} />
-              <Text className={`${getTextColor('/dares')} font-bold text-[15px] ml-5`}>Challenges</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-row items-center py-3.5 px-2 mb-1 rounded-full"
+                onPress={() => navigateTo('/dares')}
+              >
+                <View className="w-7 items-center justify-center">
+                  <Ionicons name="trophy" size={22} color={isDark ? '#fda4af' : '#857169'} />
+                </View>
+                <Text className="text-[#857169] dark:text-slate-200 font-bold text-[16px] ml-4">Challenges</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              className={getLinkStyle('/history')}
-              onPress={() => navigateTo('/history')}
-            >
-              <Ionicons name="time" size={20} color={getIconColor('/history')} />
-              <Text className={`${getTextColor('/history')} font-bold text-[15px] ml-5`}>History</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-row items-center py-3.5 px-2 mb-1 rounded-full"
+                onPress={() => navigateTo('/history')}
+              >
+                <View className="w-7 items-center justify-center">
+                  <Ionicons name="time" size={22} color={isDark ? '#fda4af' : '#857169'} />
+                </View>
+                <Text className="text-[#857169] dark:text-slate-200 font-bold text-[16px] ml-4">History</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              className={getLinkStyle('/store')}
-              onPress={() => navigateTo('/store')}
-            >
-              <Ionicons name="cart" size={20} color={getIconColor('/store')} />
-              <Text className={`${getTextColor('/store')} font-bold text-[15px] ml-5`}>Store</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-row items-center py-3.5 px-2 mb-1 rounded-full"
+                onPress={() => navigateTo('/store')}
+              >
+                <View className="w-7 items-center justify-center">
+                  <Ionicons name="cart" size={22} color={isDark ? '#fda4af' : '#857169'} />
+                </View>
+                <Text className="text-[#857169] dark:text-slate-200 font-bold text-[16px] ml-4">Store</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              className={getLinkStyle('/coin-toss')}
-              onPress={() => navigateTo('/coin-toss')}
-            >
-              <Ionicons name="pricetag" size={20} color={getIconColor('/coin-toss')} />
-              <Text className={`${getTextColor('/coin-toss')} font-bold text-[15px] ml-5`}>Coin Toss</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-row items-center py-3.5 px-2 mb-1 rounded-full"
+                onPress={() => navigateTo('/coin-toss')}
+              >
+                <View className="w-7 items-center justify-center">
+                  <Ionicons name="pricetag" size={22} color={isDark ? '#fda4af' : '#857169'} />
+                </View>
+                <Text className="text-[#857169] dark:text-slate-200 font-bold text-[16px] ml-4">Coin Toss</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Bottom Menu Items */}
             <View className="mt-auto">
               <TouchableOpacity
-                className={getLinkStyle('/profile')}
+                className="flex-row items-center py-3.5 px-2 mb-2 rounded-full"
                 onPress={() => navigateTo('/profile')}
               >
-                <Ionicons name="settings" size={20} color={getIconColor('/profile')} />
-                <Text className={`${getTextColor('/profile')} font-bold text-[15px] ml-5`}>Settings</Text>
+                <View className="w-7 items-center justify-center">
+                  <Ionicons name="settings" size={22} color={isDark ? '#fda4af' : '#857169'} />
+                </View>
+                <Text className="text-[#857169] dark:text-slate-200 font-bold text-[16px] ml-4">Settings</Text>
               </TouchableOpacity>
-
 
               {/* Logout Button */}
               <TouchableOpacity
                 onPress={handleLogout}
-                className="flex-row items-center py-4 px-6 mb-2 rounded-full bg-rose-50 dark:bg-rose-950/30"
+                className="flex-row items-center py-3.5 px-3 mb-2 rounded-full bg-rose-50 dark:bg-[#250e14] border border-transparent dark:border-rose-950/30"
               >
-                <Ionicons name="log-out-outline" size={20} color="#e11d48" />
-                <Text className="text-rose-600 dark:text-rose-400 font-bold text-[15px] ml-5">Log Out</Text>
+                <View className="w-7 items-center justify-center">
+                  <Ionicons name="log-out-outline" size={22} color="#e11d48" />
+                </View>
+                <Text className="text-rose-600 dark:text-rose-400 font-bold text-[16px] ml-4">Log Out</Text>
               </TouchableOpacity>
             </View>
           </View>

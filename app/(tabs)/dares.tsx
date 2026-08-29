@@ -547,7 +547,8 @@ export default function Dares() {
             <TouchableOpacity
               activeOpacity={0.9}
               onPress={() => router.push('/store')}
-              className="bg-gradient-to-r from-rose-500 via-rose-600 to-pink-600 dark:from-[#3a131c] dark:to-[#220b12] rounded-[28px] p-5 mb-5 overflow-hidden relative shadow-md border border-rose-400/20 dark:border-rose-900/40"
+              style={{ backgroundColor: isDark ? '#34121a' : '#e11d48' }}
+              className="rounded-[28px] p-5 mb-5 overflow-hidden relative shadow-lg border border-rose-400/30 dark:border-rose-900/40"
             >
               <View className="flex-row items-center justify-between z-10">
                 <View className="flex-1 pr-3">
@@ -560,7 +561,7 @@ export default function Dares() {
                   <Text className="text-white font-black text-lg tracking-tight leading-6 mb-1">
                     Unlock Premium Decks 🛍️
                   </Text>
-                  <Text className="text-white/80 dark:text-rose-200/80 text-xs font-medium leading-4">
+                  <Text className="text-white/90 dark:text-rose-200/90 text-xs font-medium leading-4">
                     Tap to explore spicy decks and intimate packs in our store.
                   </Text>
                 </View>
@@ -659,14 +660,6 @@ export default function Dares() {
                   <View className="w-full h-40 relative">
                     <Image source={typeof dare.image === 'string' ? { uri: dare.image } : dare.image} className="w-full h-full" />
                     
-                    {/* Difficulty & Premium Badges */}
-                    <View className="absolute top-3 left-3 bg-white/95 dark:bg-[#0F0608]/95 px-2.5 py-1 rounded-full flex-row items-center">
-                      {Array.from({ length: dare.stars }).map((_, i) => (
-                        <Ionicons key={i} name="star" size={10} color="#f59e0b" style={{ marginRight: 2 }} />
-                      ))}
-                      <Text className="text-slate-800 dark:text-slate-300 font-bold text-[9px] ml-1 tracking-wider uppercase">{dare.difficulty}</Text>
-                    </View>
-
                     {dare.isPaid && (
                       <View className="absolute top-3 right-3 bg-white/95 dark:bg-[#0F0608]/95 w-6 h-6 rounded-full flex-row items-center justify-center">
                         <Ionicons name="lock-closed" size={10} color={isDark ? "#f43f5e" : "#ab2f33"} />
@@ -713,13 +706,7 @@ export default function Dares() {
                 />
               </View>
               <View className="p-6">
-                <View className="flex-row items-center justify-between mb-3">
-                  <View className="bg-white dark:bg-[#271318] px-3 py-1.5 rounded-full flex-row items-center">
-                    {Array.from({ length: selectedDare.stars }).map((_, i) => (
-                      <Ionicons key={i} name="star" size={11} color="#f59e0b" style={{ marginRight: 2 }} />
-                    ))}
-                    <Text className="text-slate-800 dark:text-white font-bold text-[10px] ml-1 tracking-wider uppercase">{selectedDare.difficulty}</Text>
-                  </View>
+                <View className="flex-row items-center justify-end mb-3">
                   <TouchableOpacity
                     className="w-10 h-10 rounded-full bg-white dark:bg-[#271318] items-center justify-center"
                     onPress={() => setSelectedDare(null)}

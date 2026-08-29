@@ -3,13 +3,114 @@ import { useThemeToggle } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { Image, ScrollView, StatusBar, Switch, Text, TextInput, TouchableOpacity, View, ActivityIndicator, DeviceEventEmitter, Modal } from 'react-native';
+import { Image, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View, ActivityIndicator, DeviceEventEmitter, Modal } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolateColor } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getMyProfileCached, updateMyProfile } from '@/services/authService';
 import { getActiveRoom, clearRoomCache } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ANIMATED_AVATARS, AVATAR_CATEGORIES, AnimatedAvatar } from '@/constants/avatars';
+
+function SmoothThemeSwitch({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
+  const progress = useSharedValue(isDark ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withSpring(isDark ? 1 : 0, {
+      damping: 16,
+      stiffness: 160,
+      mass: 0.7,
+    });
+  }, [isDark, progress]);
+
+  const animatedTrackStyle = useAnimatedStyle(() => {
+    const backgroundColor = interpolateColor(
+      progress.value,
+      [0, 1],
+      ['#e2e8f0', '#0f766e']
+    );
+    const borderColor = interpolateColor(
+      progress.value,
+      [0, 1],
+      ['#cbd5e1', '#2dd4bf']
+    );
+    return {
+      backgroundColor,
+      borderColor,
+    };
+  });
+
+  const animatedThumbStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: progress.value * 24 }],
+    };
+  });
+
+  const sunStyle = useAnimatedStyle(() => {
+    return {
+      opacity: 1 - progress.value * 0.75,
+      transform: [{ scale: 1 - progress.value * 0.2 }],
+    };
+  });
+
+  const moonStyle = useAnimatedStyle(() => {
+    return {
+      opacity: 0.25 + progress.value * 0.75,
+      transform: [{ scale: 0.8 + progress.value * 0.2 }],
+    };
+  });
+
+  return (
+    <View className="p-1" pointerEvents="none">
+      <Animated.View
+        style={[
+          {
+            width: 54,
+            height: 30,
+            borderRadius: 20,
+            borderWidth: 1.5,
+            padding: 2,
+            justifyContent: 'center',
+          },
+          animatedTrackStyle,
+        ]}
+      >
+        <View className="flex-row justify-between items-center px-1.5 absolute inset-0">
+          <Animated.View style={sunStyle}>
+            <Ionicons name="sunny" size={12} color="#f59e0b" />
+          </Animated.View>
+          <Animated.View style={moonStyle}>
+            <Ionicons name="moon" size={12} color="#5eead4" />
+          </Animated.View>
+        </View>
+        <Animated.View
+          style={[
+            {
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              backgroundColor: '#ffffff',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 3,
+              elevation: 4,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            animatedThumbStyle,
+          ]}
+        >
+          <Ionicons
+            name={isDark ? 'moon' : 'sunny'}
+            size={12}
+            color={isDark ? '#0d9488' : '#f59e0b'}
+          />
+        </Animated.View>
+      </Animated.View>
+    </View>
+  );
+}
 
 const formatRoomActiveTime = (createdAt?: string | null) => {
   if (!createdAt) return 'No Active Room';
@@ -42,8 +143,8 @@ export default function Profile() {
   const isDark = colorScheme === 'dark';
 
   const [userName, setUserName] = useState('User');
-  const [partnerName, setPartnerName] = useState('');
-  const [partnerAvatar, setPartnerAvatar] = useState<string>('');
+  const [partnerName, setPartnerName] = useState('Partner');
+  const [partnerAvatar, setPartnerAvatar] = useState<string>(ANIMATED_AVATARS[1].url);
   const [activeRoom, setActiveRoom] = useState<any>(null);
   const [roomActiveTimeText, setRoomActiveTimeText] = useState<string>('No Active Room');
   const [userAvatar, setUserAvatar] = useState<string>(ANIMATED_AVATARS[0].url);
@@ -51,8 +152,40 @@ export default function Profile() {
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [selectedAvatarCategory, setSelectedAvatarCategory] = useState<string>('All');
 
+  // ── Load cached profile & active room instantly on mount ───────────────────
   useEffect(() => {
-    if (!activeRoom?.created_at || activeRoom?.status !== 'ACTIVE' || !activeRoom?.partner_id) {
+    const loadCachedInitialState = async () => {
+      try {
+        const cachedAvatar = await AsyncStorage.getItem('cachedUserAvatar');
+        if (cachedAvatar) setUserAvatar(cachedAvatar);
+
+        const cachedName = await AsyncStorage.getItem('cachedUserName');
+        if (cachedName) setUserName(cachedName);
+
+        const cachedRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
+        if (cachedRoomStr) {
+          const cachedRoom = JSON.parse(cachedRoomStr);
+          if (cachedRoom && cachedRoom.id) {
+            setActiveRoom(cachedRoom);
+            if (cachedRoom.created_at) {
+              setRoomActiveTimeText(formatRoomActiveTime(cachedRoom.created_at));
+            }
+            const cachedPartnerName = await AsyncStorage.getItem(`partnerName_${cachedRoom.id}`);
+            if (cachedPartnerName) setPartnerName(cachedPartnerName);
+
+            const cachedPartnerAvatar = await AsyncStorage.getItem(`partnerAvatar_${cachedRoom.id}`);
+            if (cachedPartnerAvatar) setPartnerAvatar(cachedPartnerAvatar);
+          }
+        }
+      } catch (e) {
+        console.log('Error loading initial cached state in profile:', e);
+      }
+    };
+    loadCachedInitialState();
+  }, []);
+
+  useEffect(() => {
+    if (!activeRoom?.created_at || (activeRoom?.status !== 'ACTIVE' && !activeRoom?.partner_id)) {
       setRoomActiveTimeText(activeRoom?.status === 'WAITING' ? 'Waiting for Partner...' : 'No Active Room');
       return;
     }
@@ -102,7 +235,8 @@ export default function Profile() {
   };
 
   const loadProfileAndRoom = useCallback(async () => {
-    // ── Step 1: Load user name & avatar from cache (instant, no API call) ──
+    // ── Step 1: Load user name & avatar from cache & profile API ──
+    let myUserId: string | undefined;
     try {
       const cachedAvatar = await AsyncStorage.getItem('cachedUserAvatar');
       if (cachedAvatar) setUserAvatar(cachedAvatar);
@@ -110,8 +244,12 @@ export default function Profile() {
       const cachedName = await AsyncStorage.getItem('cachedUserName');
       if (cachedName) setUserName(cachedName);
 
-      const profile = await getMyProfileCached();
-      if (profile?.firstName) setUserName(profile.firstName);
+      const profile = await getMyProfileCached().catch(() => null);
+      if (profile?.id) myUserId = profile.id;
+      if (profile?.firstName) {
+        setUserName(profile.firstName);
+        await AsyncStorage.setItem('cachedUserName', profile.firstName);
+      }
       if (profile?.avatarUrl) {
         setUserAvatar(profile.avatarUrl);
         await AsyncStorage.setItem('cachedUserAvatar', profile.avatarUrl);
@@ -122,48 +260,65 @@ export default function Profile() {
 
     // ── Step 2: Load room + partner details ──
     try {
-      const room = await getActiveRoom();
-      if (room && room.status === 'ACTIVE' && room.partner_id) {
+      let room: any = null;
+      try {
+        room = await getActiveRoom();
+      } catch (e) {
+        // Fallback to cache on network error
+      }
+
+      if (!room) {
+        const cachedRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
+        if (cachedRoomStr) {
+          room = JSON.parse(cachedRoomStr);
+        }
+      }
+
+      if (room && (room.status === 'ACTIVE' || room.partner_id)) {
         setActiveRoom(room);
-        const profile = await getMyProfileCached().catch(() => null);
-        const myUserId = profile?.id;
+        await AsyncStorage.setItem('cachedActiveRoom', JSON.stringify(room));
+
+        // Determine if current user is the host
+        const isHost = myUserId ? (myUserId === room.host_id) : true;
 
         // Partner Name
-        const resolvedName = (myUserId === room.host_id ? room.partner_name : room.host_name);
-        if (resolvedName) {
-          setPartnerName(resolvedName);
-          if (room.id) await AsyncStorage.setItem(`partnerName_${room.id}`, resolvedName);
-        } else {
-          const cachedName = await AsyncStorage.getItem(`partnerName_${room.id}`);
-          setPartnerName(cachedName || 'Partner');
+        let resolvedName = isHost ? room.partner_name : room.host_name;
+        if (!resolvedName) {
+          resolvedName = await AsyncStorage.getItem(`partnerName_${room.id}`);
         }
+        const finalPartnerName = resolvedName || 'Partner';
+        setPartnerName(finalPartnerName);
+        if (room.id) await AsyncStorage.setItem(`partnerName_${room.id}`, finalPartnerName);
 
         // Partner Avatar
-        const resolvedAvatar = (myUserId === room.host_id ? room.partner_avatar : room.host_avatar);
-        if (resolvedAvatar) {
-          setPartnerAvatar(resolvedAvatar);
-          if (room.id) await AsyncStorage.setItem(`partnerAvatar_${room.id}`, resolvedAvatar);
-        } else {
-          const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
-          setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
+        let resolvedAvatar = isHost ? room.partner_avatar : room.host_avatar;
+        if (!resolvedAvatar) {
+          resolvedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
         }
+        const finalPartnerAvatar = resolvedAvatar || ANIMATED_AVATARS[1].url;
+        setPartnerAvatar(finalPartnerAvatar);
+        if (room.id) await AsyncStorage.setItem(`partnerAvatar_${room.id}`, finalPartnerAvatar);
 
         if (room.created_at) {
           setRoomActiveTimeText(formatRoomActiveTime(room.created_at));
         }
-      } else {
-        // Solo / No active pair room
-        setActiveRoom(room && room.status === 'WAITING' ? room : null);
+      } else if (room && room.status === 'WAITING') {
+        setActiveRoom(room);
         setPartnerName('');
         setPartnerAvatar('');
-        setRoomActiveTimeText(room?.status === 'WAITING' ? 'Waiting for Partner...' : 'No Active Room');
+        setRoomActiveTimeText('Waiting for Partner...');
+      } else {
+        // Only clear if confirmed no active room
+        const cachedRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
+        if (!cachedRoomStr) {
+          setActiveRoom(null);
+          setPartnerName('');
+          setPartnerAvatar('');
+          setRoomActiveTimeText('No Active Room');
+        }
       }
     } catch (err) {
       console.log('Active room fetch failed in profile.tsx:', err);
-      setActiveRoom(null);
-      setPartnerName('');
-      setPartnerAvatar('');
-      setRoomActiveTimeText('No Active Room');
     }
   }, []);
 
@@ -318,64 +473,65 @@ export default function Profile() {
             <Ionicons name="infinite" size={28} color={isDark ? "#fda4af" : "#be123c"} style={{ transform: [{ rotate: '-15deg' }] }} />
             <Text className="text-red-700 dark:text-rose-400 font-black text-xl tracking-tight">SoulShuffle</Text>
           </View>
-          <TouchableOpacity onPress={() => setIsAvatarModalOpen(true)}>
+          <TouchableOpacity onPress={() => setIsAvatarModalOpen(true)} className="w-8 h-8 rounded-full bg-rose-500/10 dark:bg-rose-950/40 items-center justify-center border border-rose-200 dark:border-rose-950/30 p-0.5">
             <Image
               source={{ uri: userAvatar }}
-              className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
+              className="w-6 h-6"
+              resizeMode="contain"
             />
           </TouchableOpacity>
         </View>
 
         {/* Profile Avatars Section */}
         {(() => {
-          const isPairActive = Boolean(activeRoom && activeRoom.status === 'ACTIVE' && activeRoom.partner_id && partnerName);
+          const isPairActive = Boolean(activeRoom && (activeRoom.status === 'ACTIVE' || activeRoom.partner_id || (partnerName && partnerName !== 'Partner')));
 
           if (isPairActive) {
             return (
               <View className="items-center mt-4">
-                <View className="flex-row justify-center relative w-full h-40">
-                  {/* Left Image (User's Animated Avatar with Edit Button) */}
+                <View className="flex-row justify-center relative w-full h-44 items-center">
+                  {/* Left Image (User's 3D Avatar with Edit Button) */}
                   <TouchableOpacity 
                     onPress={() => setIsAvatarModalOpen(true)}
                     activeOpacity={0.9}
-                    className="absolute right-1/2 mr-[-10px] bg-slate-800 rounded-t-[40px] rounded-br-[40px] rounded-bl-[10px] overflow-hidden w-40 h-40 z-10 border-2 border-rose-400/30 shadow-lg"
+                    className="absolute right-1/2 mr-[-12px] bg-slate-900 dark:bg-[#200e14] rounded-t-[40px] rounded-br-[40px] rounded-bl-[10px] overflow-hidden w-40 h-40 z-10 border-2 border-rose-400/40 shadow-xl items-center justify-center p-3"
                   >
                     <Image
-                      source={{ uri: userAvatar }}
-                      className="w-full h-full"
-                      resizeMode="cover"
+                      source={{ uri: userAvatar || ANIMATED_AVATARS[0].url }}
+                      className="w-24 h-24"
+                      resizeMode="contain"
                     />
                     {/* Overlay with animated avatar edit icon */}
-                    <View className="absolute inset-0 bg-black/25 items-center justify-center">
+                    <View className="absolute inset-0 bg-black/15 items-center justify-center">
                       {isUpdatingAvatar ? (
                         <ActivityIndicator size="small" color="#ffffff" />
                       ) : (
-                        <View className="bg-rose-600/90 p-2 rounded-full shadow-md flex-row items-center gap-1 px-3">
-                          <Ionicons name="sparkles" size={13} color="white" />
-                          <Text className="text-white font-black text-[10px] tracking-wider uppercase">Avatars ✨</Text>
+                        <View className="bg-rose-600/90 p-1.5 rounded-full shadow-md flex-row items-center gap-1 px-3 absolute bottom-3">
+                          <Ionicons name="sparkles" size={12} color="white" />
+                          <Text className="text-white font-black text-[9px] tracking-wider uppercase">Avatars ✨</Text>
                         </View>
                       )}
                     </View>
                   </TouchableOpacity>
 
-                  {/* Right Image (Partner Avatar) */}
-                  <View className="absolute left-1/2 ml-[-20px] bg-[#669894] rounded-t-[40px] rounded-bl-[40px] rounded-br-[10px] overflow-hidden w-40 h-40 border-2 border-teal-400/30 shadow-lg">
+                  {/* Right Image (Partner's 3D Avatar) */}
+                  <View className="absolute left-1/2 ml-[-12px] bg-teal-950/80 dark:bg-[#132321] rounded-t-[40px] rounded-bl-[40px] rounded-br-[10px] overflow-hidden w-40 h-40 border-2 border-teal-400/40 shadow-xl items-center justify-center p-3">
                     <Image
                       source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }}
-                      className="w-full h-full"
-                      resizeMode="cover"
+                      className="w-24 h-24"
+                      resizeMode="contain"
                     />
                   </View>
 
                   {/* Shared Badge */}
-                  <View className="absolute bottom-[-16px] z-20 bg-[#0d5f5a] dark:bg-teal-600 px-4 py-2 rounded-full flex-row items-center justify-center shadow-md">
+                  <View className="absolute bottom-[-10px] z-20 bg-[#0d5f5a] dark:bg-teal-600 px-4 py-2 rounded-full flex-row items-center justify-center shadow-lg border border-teal-300/30">
                     <Ionicons name="heart" size={12} color="white" />
                     <Text className="text-white font-bold text-[10px] ml-1 tracking-widest uppercase">Happy Together</Text>
                   </View>
                 </View>
 
-                <Text className="text-3xl font-black text-[#af2c3b] dark:text-white mt-8 tracking-tight">
-                  {userName} & {partnerName}
+                <Text className="text-3xl font-black text-[#af2c3b] dark:text-white mt-8 tracking-tight text-center">
+                  {userName} & {partnerName || 'Partner'}
                 </Text>
                 <Text className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
                   {roomActiveTimeText}
@@ -391,21 +547,21 @@ export default function Profile() {
                 <TouchableOpacity 
                   onPress={() => setIsAvatarModalOpen(true)}
                   activeOpacity={0.9}
-                  className="bg-slate-800 rounded-[36px] overflow-hidden w-36 h-36 border-2 border-rose-400/40 shadow-xl"
+                  className="bg-slate-900 dark:bg-[#200e14] rounded-[36px] overflow-hidden w-36 h-36 border-2 border-rose-400/40 shadow-xl items-center justify-center p-3"
                 >
                   <Image
                     source={{ uri: userAvatar }}
-                    className="w-full h-full"
-                    resizeMode="cover"
+                    className="w-24 h-24"
+                    resizeMode="contain"
                   />
                   {/* Overlay with animated avatar edit icon */}
-                  <View className="absolute inset-0 bg-black/25 items-center justify-center">
+                  <View className="absolute inset-0 bg-black/15 items-center justify-center">
                     {isUpdatingAvatar ? (
                       <ActivityIndicator size="small" color="#ffffff" />
                     ) : (
-                      <View className="bg-rose-600/90 p-2 rounded-full shadow-md flex-row items-center gap-1 px-3">
-                        <Ionicons name="sparkles" size={13} color="white" />
-                        <Text className="text-white font-black text-[10px] tracking-wider uppercase">Avatars ✨</Text>
+                      <View className="bg-rose-600/90 p-1.5 rounded-full shadow-md flex-row items-center gap-1 px-3 absolute bottom-3">
+                        <Ionicons name="sparkles" size={12} color="white" />
+                        <Text className="text-white font-black text-[9px] tracking-wider uppercase">Avatars ✨</Text>
                       </View>
                     )}
                   </View>
@@ -667,21 +823,24 @@ export default function Profile() {
 
           <View className="bg-white dark:bg-[#271318] rounded-[32px] p-6 py-2 border border-slate-50/50 dark:border-rose-950/20">
             {/* Dark Mode Switch Toggle */}
-            <View className="flex-row items-center justify-between py-5 border-b border-slate-100 dark:border-rose-950/20">
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={toggleTheme}
+              className="flex-row items-center justify-between py-4 border-b border-slate-100 dark:border-rose-950/20"
+            >
               <View className="flex-row items-center flex-1">
-                <Ionicons name="moon" size={18} color={isDark ? "#fff" : "#857169"} />
+                <View className="w-8 h-8 rounded-full bg-rose-500/10 dark:bg-rose-950/40 items-center justify-center">
+                  <Ionicons name={isDark ? "moon" : "sunny"} size={18} color={isDark ? "#5eead4" : "#be123c"} />
+                </View>
                 <View className="ml-4 flex-1">
                   <Text className="text-sm font-bold text-slate-800 dark:text-white">Dark Mode</Text>
-                  <Text className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 pr-4 leading-4">Switch to premium dark mode theme</Text>
+                  <Text className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 pr-4 leading-4">
+                    {isDark ? 'Dark theme active' : 'Light theme active'}
+                  </Text>
                 </View>
               </View>
-              <Switch
-                value={isDark}
-                onValueChange={toggleTheme}
-                trackColor={{ false: isDark ? "#1e293b" : "#cbd5e1", true: isDark ? "#0d9488" : "#fda4af" }}
-                thumbColor={isDark ? "#2dd4bf" : "#f1f5f9"}
-              />
-            </View>
+              <SmoothThemeSwitch isDark={isDark} onToggle={toggleTheme} />
+            </TouchableOpacity>
 
             <TouchableOpacity className="flex-row items-center justify-between py-5 border-b border-slate-100 dark:border-rose-950/20">
               <View className="flex-row items-center flex-1">
@@ -753,7 +912,7 @@ export default function Profile() {
               </TouchableOpacity>
             </View>
             <Text className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-4">
-              Select a cute avatar to represent you in SoulShuffle
+              Select an aesthetic avatar to represent you in SoulShuffle
             </Text>
 
             {/* Category Filter Pills */}
@@ -798,20 +957,20 @@ export default function Profile() {
                       className="w-[48%] mb-4"
                     >
                       <View
-                        className={`relative rounded-3xl overflow-hidden border-2 bg-slate-900 h-40 items-center justify-center shadow-md ${
+                        className={`relative rounded-3xl overflow-hidden border-2 h-36 items-center justify-center shadow-sm ${
                           isSelected
-                            ? 'border-rose-500 dark:border-rose-400 ring-4 ring-rose-500/20'
-                            : 'border-slate-200 dark:border-rose-950/40'
+                            ? 'bg-rose-500/15 dark:bg-rose-950/60 border-rose-500 dark:border-rose-400 ring-4 ring-rose-500/20'
+                            : 'bg-rose-50 dark:bg-[#200e14] border-slate-200/80 dark:border-rose-950/40'
                         }`}
                       >
                         <Image
                           source={{ uri: item.url }}
-                          className="w-full h-full"
-                          resizeMode="cover"
+                          className="w-20 h-20"
+                          resizeMode="contain"
                         />
 
                         {/* Emoji Tag */}
-                        <View className="absolute top-2.5 left-2.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full flex-row items-center">
+                        <View className="absolute top-2.5 left-2.5 bg-black/40 dark:bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full flex-row items-center">
                           <Text className="text-xs font-bold text-white">
                             {item.emoji}
                           </Text>
@@ -820,13 +979,13 @@ export default function Profile() {
                         {/* Selected Checkmark Badge */}
                         {isSelected && (
                           <View className="absolute top-2.5 right-2.5 bg-rose-600 rounded-full p-1 shadow-lg">
-                            <Ionicons name="checkmark" size={14} color="white" />
+                            <Ionicons name="checkmark" size={12} color="white" />
                           </View>
                         )}
 
                         {/* Footer Name Overlay */}
-                        <View className="absolute bottom-0 left-0 right-0 bg-black/60 p-2.5 pt-4">
-                          <Text className="text-white font-bold text-xs text-center" numberOfLines={1}>
+                        <View className="absolute bottom-0 left-0 right-0 bg-black/40 dark:bg-black/60 py-1.5 px-2">
+                          <Text className="text-white font-bold text-[11px] text-center" numberOfLines={1}>
                             {item.name}
                           </Text>
                         </View>

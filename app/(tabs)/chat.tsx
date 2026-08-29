@@ -132,10 +132,13 @@ export default function Chat() {
 
           {/* Partner Message (Text) */}
           <View className="flex-row mb-6 items-end relative">
-            <Image 
-              source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }} 
-              className="w-8 h-8 rounded-full mr-3 mb-1 border border-teal-500/40"
-            />
+            <View className="w-8 h-8 rounded-full bg-teal-500/10 dark:bg-teal-950/40 items-center justify-center mr-3 mb-1 border border-teal-500/40 p-0.5">
+              <Image 
+                source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }} 
+                className="w-6 h-6"
+                resizeMode="contain"
+              />
+            </View>
             <View className="bg-[#e4dad6]/20 dark:bg-[#271318] rounded-2xl rounded-bl-sm p-4 w-[75%] shadow-slate-100 border border-white/50 dark:border-rose-950/20 relative">
               <Text className="text-[#3c3a3a] dark:text-slate-200 text-[15px] leading-6 font-medium">
                 Hey! I just finished the &quot;Morning Coffee&quot; dare. It made me think of you all morning. ❤️

@@ -2,7 +2,7 @@ import { Text, View, TouchableOpacity } from 'react-native';
 import React, { useState, useCallback } from 'react';
 import SigninForm from '@/components/signinForm';
 import SignupForm from '@/components/signupForm';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Index = () => {
@@ -28,7 +28,6 @@ const Index = () => {
 
           console.log('[INDEX] Token found:', token ? 'YES (redirecting to tabs)' : 'NO (showing login)');
           if (token) {
-            const { router } = await import('expo-router');
             router.replace('/(tabs)');
           }
         } catch (e) {
