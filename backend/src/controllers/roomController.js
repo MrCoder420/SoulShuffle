@@ -61,4 +61,14 @@ const sendChallenge = async (req, res, next) => {
     }
 };
 
-module.exports = { createRoom, joinRoom, getActiveRoom, sendChallenge };
+const coinFlip = async (req, res, next) => {
+    try {
+        const { chosen_side, reason } = req.body;
+        const result = await roomService.coinFlip(req.user.id, chosen_side, reason);
+        res.status(200).json({ status: 'success', data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { createRoom, joinRoom, getActiveRoom, sendChallenge, coinFlip };

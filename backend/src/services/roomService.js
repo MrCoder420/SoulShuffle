@@ -562,10 +562,45 @@ const getRoomHistory = async (userId, roomId) => {
     });
 };
 
+const coinFlip = async (userId, chosenSide, reason) => {
+    // 1. Find active room for user
+    const { data: activeRooms, error: activeErr } = await supabase
+        .from('rooms')
+        .select('*')
+        .or(`host_id.eq.${userId},partner_id.eq.${userId}`)
+        .eq('status', 'ACTIVE')
+        .limit(1);
+        
+    const room = activeRooms && activeRooms.length > 0 ? activeRooms[0] : null;
+    
+    if (!room) {
+        const err = new Error('No active room found.');
+        err.status = 404;
+        throw err;
+    }
+
+    // Determine the partner
+    const partnerId = room.host_id === userId ? room.partner_id : room.host_id;
+
+    if (partnerId) {
+        // Send push notification
+        await createNotification(
+            partnerId,
+            'COIN_TOSS',
+            '🪙 Coin Toss!',
+            `Your partner flipped the coin for: ${reason}`,
+            { room_id: room.id, chosen_side: chosenSide }
+        );
+    }
+
+    return { success: true };
+};
+
 module.exports = {
     createRoom,
     joinRoom,
     getActiveRoom,
     leaveRoom,
-    getRoomHistory
+    getRoomHistory,
+    coinFlip
 };
