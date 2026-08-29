@@ -120,6 +120,14 @@ export default function Sidebar() {
               try {
                 // Lazily require to prevent crashing Expo Go
                 const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+                
+                // Configure must be called before signOut, otherwise it fails
+                GoogleSignin.configure({
+                  webClientId: '950734388938-qm61e894mghl4dnsi2jb27aglo1eqhbm.apps.googleusercontent.com',
+                  iosClientId: '950734388938-8hldjaul248pmbdcjpj0o65m8s8o03qp.apps.googleusercontent.com',
+                  offlineAccess: false,
+                });
+
                 const isSignedIn = await GoogleSignin.isSignedIn();
                 if (isSignedIn) {
                   await GoogleSignin.signOut();
