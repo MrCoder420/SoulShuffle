@@ -133,10 +133,25 @@ export default function Sidebar() {
                   offlineAccess: false,
                 });
 
-                const isSignedIn = await GoogleSignin.isSignedIn();
-                if (isSignedIn) {
+                try {
+                  // If the app was restarted, the native SDK might not know we are signed in,
+                  // so we should try to restore the session silently before signing out,
+                  // otherwise signOut() might throw an error and fail to clear Play Services.
+                  try {
+                    await GoogleSignin.signInSilently();
+                  } catch (e) {}
+                  
                   await GoogleSignin.signOut();
                   console.log('[LOGOUT] Google session cleared.');
+                } catch (e) {
+                  console.log('[LOGOUT] signOut error: ', e);
+                }
+                
+                try {
+                  await GoogleSignin.revokeAccess();
+                  console.log('[LOGOUT] Google access revoked to force account picker next time.');
+                } catch (e) {
+                  console.log('[LOGOUT] revokeAccess error: ', e);
                 }
               } catch (googleErr) {
                 console.log('[LOGOUT] Google sign out error (ignoring):', googleErr);
