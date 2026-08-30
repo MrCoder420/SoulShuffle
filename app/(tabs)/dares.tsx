@@ -513,7 +513,7 @@ export default function Dares() {
                 onPress={() => setSelectedCategory(cat)}
               >
                 <Text className={`font-bold text-sm tracking-wide ${selectedCategory === cat ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                  {cat === 'ALL' ? 'All Dares' : cat.charAt(0) + cat.slice(1).toLowerCase()}
+                  {cat === 'ALL' ? 'All Dares' : cat.split(' ').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')}
                 </Text>
               </TouchableOpacity>
             ))}
