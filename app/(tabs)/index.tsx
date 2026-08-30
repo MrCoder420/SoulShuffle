@@ -999,8 +999,6 @@ export default function Dashboard() {
         return "7 Days";
       case "30_DAYS":
         return "30 Days";
-      case "1_YEAR":
-        return "1 Year";
     }
   };
 
@@ -1127,7 +1125,7 @@ export default function Dashboard() {
                       Room Duration
                     </Text>
                     <View className="flex-row gap-3 mb-8">
-                      {(["7_DAYS", "30_DAYS", "1_YEAR"] as ExpiryType[]).map(
+                      {(["7_DAYS", "30_DAYS"] as ExpiryType[]).map(
                         (type) => (
                           <TouchableOpacity
                             key={type}
