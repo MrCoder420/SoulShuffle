@@ -429,19 +429,26 @@ export default function Dares() {
     });
 
     const backupLimits = limits ? { ...limits } : null;
+    let newOptimisticLimits = limits ? { ...limits } : null;
     if (limits) {
-      setLimits(prev => {
-        if (!prev) return prev;
-        const newLimits = {
-          ...prev,
-          daily_sent: prev.daily_sent + 1,
-          daily_remaining: Math.max(0, prev.daily_remaining - 1),
-          active_count: prev.active_count + 1,
-          active_remaining: Math.max(0, prev.active_remaining - 1),
-        };
-        newLimits.can_send = newLimits.daily_remaining > 0 && newLimits.active_remaining > 0;
-        return newLimits;
-      });
+      newOptimisticLimits = {
+        ...limits,
+        daily_sent: limits.daily_sent + 1,
+        daily_remaining: Math.max(0, limits.daily_remaining - 1),
+        active_count: limits.active_count + 1,
+        active_remaining: Math.max(0, limits.active_remaining - 1),
+      };
+      newOptimisticLimits.can_send = newOptimisticLimits.daily_remaining > 0 && newOptimisticLimits.active_remaining > 0;
+      setLimits(newOptimisticLimits);
+      
+      // Update cache immediately to prevent stale UI on navigation
+      AsyncStorage.getItem(CACHE_KEY).then(cached => {
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          parsed.cachedLimits = newOptimisticLimits;
+          AsyncStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+        }
+      }).catch(() => {});
     }
 
     // 2. BACKGROUND API CALL (Non-blocking execution)
@@ -454,12 +461,28 @@ export default function Dares() {
         try {
           const freshLimits = await fetchSendLimits(activeRoom.id);
           setLimits(freshLimits);
+          AsyncStorage.getItem(CACHE_KEY).then(cached => {
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              parsed.cachedLimits = freshLimits;
+              AsyncStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+            }
+          }).catch(() => {});
         } catch (e) {}
       })
       .catch((error: any) => {
         // Revert optimistic update on failure
         setDares(backupDares);
-        if (backupLimits) setLimits(backupLimits);
+        if (backupLimits) {
+          setLimits(backupLimits);
+          AsyncStorage.getItem(CACHE_KEY).then(cached => {
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              parsed.cachedLimits = backupLimits;
+              AsyncStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+            }
+          }).catch(() => {});
+        }
         if (error.response?.status === 401) {
           Alert.alert('Session Expired', 'Please sign in again before sending a challenge.', [
             { text: 'OK', onPress: () => router.replace('/') },
