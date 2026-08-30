@@ -428,17 +428,38 @@ export default function Dares() {
       return updatedDares;
     });
 
+    const backupLimits = limits ? { ...limits } : null;
+    if (limits) {
+      setLimits(prev => {
+        if (!prev) return prev;
+        const newLimits = {
+          ...prev,
+          daily_sent: prev.daily_sent + 1,
+          daily_remaining: Math.max(0, prev.daily_remaining - 1),
+          active_count: prev.active_count + 1,
+          active_remaining: Math.max(0, prev.active_remaining - 1),
+        };
+        newLimits.can_send = newLimits.daily_remaining > 0 && newLimits.active_remaining > 0;
+        return newLimits;
+      });
+    }
+
     // 2. BACKGROUND API CALL (Non-blocking execution)
     sendChallenge(targetDare.id.toString(), currentNote, activeRoom)
-      .then(() => {
+      .then(async () => {
         // Emit real-time event to partner
         GameSocket.sendGameEvent(activeRoom.code, 'CHALLENGE_SENT', { 
           challenge: { ...targetDare, message: currentNote }
         });
+        try {
+          const freshLimits = await fetchSendLimits(activeRoom.id);
+          setLimits(freshLimits);
+        } catch (e) {}
       })
       .catch((error: any) => {
         // Revert optimistic update on failure
         setDares(backupDares);
+        if (backupLimits) setLimits(backupLimits);
         if (error.response?.status === 401) {
           Alert.alert('Session Expired', 'Please sign in again before sending a challenge.', [
             { text: 'OK', onPress: () => router.replace('/') },
