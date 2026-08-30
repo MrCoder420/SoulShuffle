@@ -127,7 +127,10 @@ const [activeRoomInfo, setActiveRoomInfo] = useState<{ id: string; code: string;
 
 const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number = 0) => {
   const daresMastered = currentRoomHistory.filter(
-    c => (c.status || '').toUpperCase() === 'COMPLETED' || (c.status || '').toUpperCase() === 'CONFIRMED'
+    c => {
+      const s = (c.status || '').toUpperCase();
+      return s === 'COMPLETED' || s === 'CONFIRMED' || s === 'COMPLETED_BY_RECEIVER';
+    }
   ).length;
   
   // Total is now static based on deck size at join, max completion is 100%
@@ -335,7 +338,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
 
       if (activeFilter === 'SENT_BY_ME') return isSentByMe;
       if (activeFilter === 'RECEIVED') return !isSentByMe;
-      if (activeFilter === 'COMPLETED') return rawStatus === 'COMPLETED' || rawStatus === 'CONFIRMED';
+      if (activeFilter === 'COMPLETED') return rawStatus === 'COMPLETED' || rawStatus === 'CONFIRMED' || rawStatus === 'COMPLETED_BY_RECEIVER';
       return true; // 'ALL'
     });
   }, [challengeHistory, activeFilter, myUserId]);
