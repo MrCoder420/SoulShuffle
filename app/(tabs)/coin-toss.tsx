@@ -590,6 +590,50 @@ export default function CoinToss() {
           </View>
         </View>
 
+        {/* Stake / Message Input Area */}
+        <View className="px-6 mt-2 mb-8">
+          <Text className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 px-1">
+            Message / What are you tossing for?
+          </Text>
+          <View className="bg-white dark:bg-[#271318] border border-slate-200 dark:border-rose-950/20 rounded-2xl p-1 shadow-sm">
+            <TextInput
+              value={customStake}
+              onChangeText={(text) => {
+                setCustomStake(text);
+                setIsCustomStake(true);
+              }}
+              placeholder="E.g., Who takes out the trash?"
+              placeholderTextColor={isDark ? "#64748b" : "#94a3b8"}
+              className={`px-4 py-3 text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}
+              maxLength={60}
+            />
+          </View>
+          
+          {/* Quick Preset Chips */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3" contentContainerStyle={{ paddingHorizontal: 4 }}>
+            {PRESET_STAKES.map((stake) => {
+              const isSelected = !isCustomStake && selectedStake === stake.reason;
+              return (
+                <TouchableOpacity
+                  key={stake.id}
+                  onPress={() => handleSelectStake(stake.reason)}
+                  className={`mr-2 px-4 py-2 rounded-full border ${
+                    isSelected 
+                      ? 'bg-rose-100 border-rose-300 dark:bg-rose-900/40 dark:border-rose-700' 
+                      : 'bg-white border-slate-200 dark:bg-[#180D10] dark:border-rose-950/30'
+                  }`}
+                >
+                  <Text className={`text-xs font-bold ${
+                    isSelected ? 'text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400'
+                  }`}>
+                    {stake.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {/* Interactive 3D Flipping Coin Area */}
         <View className="items-center justify-center h-56 relative mb-6">
           <Animated.View 

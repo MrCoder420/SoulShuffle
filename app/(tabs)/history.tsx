@@ -125,12 +125,15 @@ const getDateLabel = (dateStr?: string) => {
 
 const [activeRoomInfo, setActiveRoomInfo] = useState<{ id: string; code: string; partnerName: string; partnerAvatar: string | null; status: string } | null>(null);
 
-const calculateStats = (currentRoomHistory: SentChallenge[]) => {
+const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number = 0) => {
   const daresMastered = currentRoomHistory.filter(
     c => (c.status || '').toUpperCase() === 'COMPLETED' || (c.status || '').toUpperCase() === 'CONFIRMED'
   ).length;
-  const total = currentRoomHistory.length;
-  const completionRate = total > 0 ? Math.round((daresMastered / total) * 100) : 0;
+  
+  // Total is now static based on deck size at join, max completion is 100%
+  const total = staticTotal > 0 ? staticTotal : currentRoomHistory.length; // Fallback to current sent if static not available
+  let completionRate = total > 0 ? Math.round((daresMastered / total) * 100) : 0;
+  if (completionRate > 100) completionRate = 100; // Cap at 100%
 
   let currentStreak = 0;
   if (currentRoomHistory.length > 0) {
@@ -221,6 +224,26 @@ const calculateStats = (currentRoomHistory: SentChallenge[]) => {
 
       const cacheKey = `cached_active_room_history_${activeRoomId}`;
 
+      // Resolve Static Deck Total (Option 1)
+      let staticTotal = 0;
+      const staticTotalKey = `cached_static_total_${activeRoomId}`;
+      try {
+        const storedTotal = await AsyncStorage.getItem(staticTotalKey);
+        if (storedTotal) {
+          staticTotal = parseInt(storedTotal, 10);
+        } else {
+          // Fetch user's cards and save the total as a static snapshot for this room
+          const { fetchCards } = require('@/services/cardService');
+          const cards = await fetchCards();
+          staticTotal = cards?.length || 0;
+          if (staticTotal > 0) {
+            await AsyncStorage.setItem(staticTotalKey, staticTotal.toString());
+          }
+        }
+      } catch (e) {
+        console.log('Error resolving static total', e);
+      }
+
       // Helper: Enrich an item with current room info
       const enrichItem = (item: SentChallenge): SentChallenge => {
         return {
@@ -248,7 +271,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[]) => {
             if (Array.isArray(parsed)) {
               const enriched = parsed.map(enrichItem);
               setChallengeHistory(enriched);
-              calculateStats(enriched);
+              calculateStats(enriched, staticTotal);
             }
           } catch (e) {
             console.log('Cache parse error:', e);
@@ -285,7 +308,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[]) => {
 
       const enriched = currentRoomOnly.map(enrichItem);
       setChallengeHistory(enriched);
-      calculateStats(enriched);
+      calculateStats(enriched, staticTotal);
 
       if (enriched.length > 0) {
         await AsyncStorage.setItem(cacheKey, JSON.stringify(enriched));

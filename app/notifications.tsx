@@ -43,9 +43,11 @@ export default function NotificationCenter() {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
 
-  // Initial fetch
+  // Initial fetch and mark all as read (Instagram style)
   useEffect(() => {
-    fetchNotifications(1);
+    fetchNotifications(1).then(() => {
+      markAllAsRead();
+    });
   }, []);
 
   const onRefresh = useCallback(async () => {
