@@ -233,8 +233,8 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
           staticTotal = parseInt(storedTotal, 10);
         } else {
           // Fetch user's cards and save the total as a static snapshot for this room
-          const { fetchCards } = require('@/services/cardService');
-          const cards = await fetchCards();
+          const { fetchUserDeck } = require('@/services/cardService');
+          const cards = await fetchUserDeck();
           staticTotal = cards?.length || 0;
           if (staticTotal > 0) {
             await AsyncStorage.setItem(staticTotalKey, staticTotal.toString());
