@@ -1013,7 +1013,15 @@ export default function Dashboard() {
           const d = new Date(card.accepted_at.replace(" ", "T"));
           return new Date(d.getTime() + 48 * 60 * 60 * 1000).toISOString();
         }
-      } else if (card.status === "SENT" || card.status === "WAITING") {
+      } else if (card.status === "SENT") {
+        if (card.respond_deadline)
+          return new Date(card.respond_deadline).toISOString();
+        const baseTime = card.created_at || card.sent_at;
+        if (baseTime) {
+          const d = new Date(baseTime.replace(" ", "T"));
+          return new Date(d.getTime() + 24 * 60 * 60 * 1000).toISOString();
+        }
+      } else if (card.status === "WAITING") {
         if (card.penalty_deadline)
           return new Date(card.penalty_deadline).toISOString();
         const baseTime = card.created_at || card.sent_at;
@@ -2568,7 +2576,7 @@ export default function Dashboard() {
                       />
                     ) : (
                       <Text className="text-slate-600 dark:text-slate-300 font-mono text-[12px] font-bold">
-                        48:00:00
+                        24:00:00
                       </Text>
                     )}
                   </View>
