@@ -789,7 +789,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
                         className="text-[10px] font-bold tracking-wider uppercase"
                         style={{ color: isDark ? '#fda4af' : '#7f1d1d' }}
                       >
-                        📅 {dateGroup.dateLabel}
+                        {dateGroup.dateLabel}
                       </Text>
                     </View>
                   </View>
