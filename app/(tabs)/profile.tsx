@@ -2,7 +2,7 @@ import { useSidebar } from '@/context/SidebarContext';
 import { useThemeToggle } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import { Image, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View, ActivityIndicator, DeviceEventEmitter, Modal } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolateColor } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -853,7 +853,10 @@ export default function Profile() {
               <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-row items-center justify-between py-5 border-b border-slate-100 dark:border-rose-950/20">
+            <TouchableOpacity 
+              className="flex-row items-center justify-between py-5 border-b border-slate-100 dark:border-rose-950/20"
+              onPress={() => router.push('/notifications')}
+            >
               <View className="flex-row items-center flex-1">
                 <Ionicons name="notifications" size={18} color={isDark ? "#fff" : "#857169"} />
                 <View className="ml-4 flex-1">
