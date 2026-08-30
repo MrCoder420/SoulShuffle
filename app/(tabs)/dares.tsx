@@ -770,7 +770,7 @@ export default function Dares() {
                     <Ionicons name="warning" size={18} color={isDark ? "#f43f5e" : "#b91c1c"} style={{ marginTop: 1 }} />
                     <Text className="text-rose-700 dark:text-rose-400 text-xs font-semibold ml-2.5 flex-1 leading-5">
                       {limits.daily_remaining === 0 
-                        ? "Daily limit reached. You can only send 3 challenges per day (resets at midnight UTC)." 
+                        ? "Daily limit reached. You can only send 2 challenges per day (resets at midnight UTC)." 
                         : "Active limit reached. You can only have 2 active challenges at the same time."}
                     </Text>
                   </View>
