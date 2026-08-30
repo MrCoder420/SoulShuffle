@@ -279,7 +279,17 @@ export default function Profile() {
         await AsyncStorage.setItem('cachedActiveRoom', JSON.stringify(room));
 
         // Determine if current user is the host
-        const isHost = myUserId ? (myUserId === room.host_id) : true;
+        
+          // Determine if current user is the host. If myUserId is missing, we check if current user is partner.
+          // If we can't tell, default to true but this should rarely happen.
+          let isHost = true;
+          if (myUserId) {
+            isHost = (myUserId === room.host_id);
+          } else {
+            const cachedId = await AsyncStorage.getItem('cachedUserId');
+            if (cachedId) isHost = (cachedId === room.host_id);
+          }
+
 
         // Partner Name
         let resolvedName = isHost ? room.partner_name : room.host_name;
