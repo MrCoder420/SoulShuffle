@@ -16,9 +16,9 @@ const CustomDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: '#0F0608',
-    card: '#271318',
-    text: '#e2e8f0',
+    background: '#121212', // Clean dark background
+    card: '#1E1E1E', // Slightly lighter for cards/surfaces
+    text: '#ECEDEE', // Soft white text
   },
 };
 

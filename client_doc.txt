@@ -1,0 +1,39 @@
+﻿Soul Shuffle — App UI/UX Changes
+Design Reference
+We will use the following Figma UI Kit as the design reference for the Soul Shuffle redesign:
+Friendzy Dating Mobile App UI Kit — Figma
+Changes Required
+1. Fonts
+   * Use only 2 fonts: Heading + Body.
+   * Follow the typography style from the Figma reference.
+2. Colors & Theme
+   * Take inspiration from the Figma color system.
+   * Maintain Soul Shuffle branding.
+   * Create both Light Mode and Dark Mode with proper contrast.
+3. Corner Radius
+   * Reduce excessive rounding.
+   * Keep corner radius consistent across the entire app.
+4. Cards
+   * Redesign cards based on the Figma card style.
+   * Keep them clean, minimal, and easy to scan.
+   * Improve spacing, hierarchy, and image treatment.
+5. Bottom Navigation
+   * Redesign the bottom tab bar inspired by the Figma reference.
+   * Keep navigation simple and intuitive.
+6. Home Page
+   * Simplify the current home screen.
+   * Improve the user flow and prioritize important actions.
+   * Reduce unnecessary content and visual clutter.
+7. Login / Signup
+   * Redesign login and signup screens using the Figma UI style while keeping Soul Shuffle branding.
+8. Alert Popups
+   * Create minimal and consistent alert/modal designs.
+   * Improve clarity of messages and CTAs.
+9. Toss Login
+   * Fix the current Toss login issue.
+   * Test the complete login flow.
+10. Reminder Notifications
+* Add reminder notifications.
+* Use short, catchy, and engaging notification messages.
+Overall Design Direction
+Minimal • Modern • Clean • Premium • User-Friendly

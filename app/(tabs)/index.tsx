@@ -1060,13 +1060,13 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <SafeAreaView
-        className="flex-1 bg-rose-50 dark:bg-[#0F0608]"
+        className="flex-1 bg-white dark:bg-[#121212]"
         edges={["top", "left", "right"]}
       >
         {/* Status bar configuration if needed */}
         <StatusBar
           barStyle={isDark ? "light-content" : "dark-content"}
-          backgroundColor={isDark ? "#0F0608" : "#fff1f2"}
+          backgroundColor={isDark ? "#121212" : "#ffffff"}
         />
 
         {/* ═══════════════════════════════════════════════════════
@@ -1299,55 +1299,41 @@ export default function Dashboard() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 160 }}
         >
-          {/* Header */}
-          <View className="flex-row items-center justify-between px-6 pt-5 pb-3">
-            <TouchableOpacity onPress={openSidebar}>
+          {/* Friendzy Style Header */}
+          <View className="flex-row items-center justify-between px-6 pt-5 pb-4">
+            <TouchableOpacity onPress={openSidebar} className="flex-row items-center gap-2">
               <Ionicons
                 name="menu-outline"
-                size={30}
-                color={isDark ? "#fff" : "#9f1239"}
+                size={26}
+                color={isDark ? "#FFFFFF" : "#1A1A1A"}
               />
-            </TouchableOpacity>
-            <View className="flex-row items-center gap-1.5">
-              <Ionicons
-                name="infinite"
-                size={28}
-                color={isDark ? "#fda4af" : "#be123c"}
-                style={{ transform: [{ rotate: "-15deg" }] }}
-              />
-              <Text className="text-red-700 dark:text-rose-400 font-black text-xl tracking-tight">
+              <Text style={{ color: isDark ? "#FFFFFF" : "#481639" }} className="font-bold text-xl tracking-tight">
                 SoulShuffle
               </Text>
-            </View>
+            </TouchableOpacity>
             <View className="flex-row items-center gap-3">
               <TouchableOpacity
                 onPress={() => navigateTo("/notifications")}
-                style={{ position: "relative" }}
+                style={{
+                  backgroundColor: isDark ? "#2A2A2A" : "#FCEEF5",
+                  width: 40, height: 40, borderRadius: 20,
+                  alignItems: 'center', justifyContent: 'center'
+                }}
               >
                 <Ionicons
                   name="notifications-outline"
-                  size={26}
-                  color={isDark ? "#fff" : "#9f1239"}
+                  size={22}
+                  color={isDark ? "#FFFFFF" : "#481639"}
                 />
                 {unreadCount > 0 && (
                   <View
                     style={{
-                      position: "absolute",
-                      top: -4,
-                      right: -4,
-                      backgroundColor: "#e11d48",
-                      borderRadius: 10,
-                      minWidth: 18,
-                      height: 18,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderWidth: 2,
-                      borderColor: isDark ? "#0F0608" : "#fff1f2",
+                      position: "absolute", top: 0, right: 0,
+                      backgroundColor: "#D36B93", borderRadius: 8,
+                      minWidth: 16, height: 16, alignItems: "center", justifyContent: "center",
                     }}
                   >
-                    <Text
-                      style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}
-                    >
+                    <Text style={{ color: "#fff", fontSize: 9, fontWeight: "bold" }}>
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </Text>
                   </View>
@@ -1384,11 +1370,11 @@ export default function Dashboard() {
             <TouchableOpacity
               activeOpacity={0.92}
               onPress={handleNextCouplePhoto}
-              className="relative overflow-hidden rounded-[36px] shadow-sm bg-rose-100 dark:bg-rose-950/20"
+              className="relative overflow-hidden rounded-3xl shadow-sm bg-rose-100 dark:bg-rose-950/20"
             >
               <Image
                 source={COUPLE_PHOTOS[currentPhotoIndex].source}
-                className="w-full h-56 rounded-[36px]"
+                className="w-full h-56 rounded-3xl"
                 resizeMode="cover"
               />
               {/* Bottom dots indicator */}
@@ -1404,63 +1390,63 @@ export default function Dashboard() {
           </View>
 
           {/* Stats Section */}
-          <View className="flex-row justify-between px-6 mt-5">
+          <View className="flex-row justify-between px-6 mt-4">
             <View
-              className="rounded-[24px] px-5 py-4 w-[47%] shadow-sm border"
+              className="rounded-2xl px-5 py-4 w-[47%] shadow-sm border"
               style={{
-                backgroundColor: isDark ? "#271318" : "#ffffff",
-                borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.15)",
+                backgroundColor: isDark ? "#1E1E1E" : "#F8F8F8",
+                borderColor: isDark ? "#333333" : "#F0F0F0",
               }}
             >
               <View
-                style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
-                className="w-8 h-8 rounded-full items-center justify-center mb-3"
+                style={{ backgroundColor: isDark ? "#33222C" : "#FCEEF5" }}
+                className="w-10 h-10 rounded-full items-center justify-center mb-3"
               >
                 <Ionicons
                   name="medal"
-                  size={17}
-                  color={isDark ? "#f43f5e" : "#e11d48"}
+                  size={20}
+                  color={isDark ? "#D36B93" : "#481639"}
                 />
               </View>
               <Text
-                style={{ color: isDark ? "#fb7185" : "#0f172a" }}
-                className="text-[26px] leading-8 font-black"
+                style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
+                className="text-2xl font-black"
               >
                 {finishedDaresCount}
               </Text>
               <Text
-                style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                className="text-[9px] font-bold mt-1 tracking-widest uppercase"
+                style={{ color: isDark ? "#999999" : "#666666" }}
+                className="text-[10px] font-semibold mt-1 tracking-wider uppercase"
               >
                 Dares Finished
               </Text>
             </View>
             <View
-              className="rounded-[24px] px-5 py-4 w-[47%] shadow-sm border"
+              className="rounded-2xl px-5 py-4 w-[47%] shadow-sm border"
               style={{
-                backgroundColor: isDark ? "#122220" : "#ffffff",
-                borderColor: isDark ? "rgba(13,148,136,0.3)" : "rgba(13,148,136,0.15)",
+                backgroundColor: isDark ? "#1E1E1E" : "#F8F8F8",
+                borderColor: isDark ? "#333333" : "#F0F0F0",
               }}
             >
               <View
-                style={{ backgroundColor: isDark ? "rgba(45,212,191,0.15)" : "#ccfbf1" }}
-                className="w-8 h-8 rounded-full items-center justify-center mb-3"
+                style={{ backgroundColor: isDark ? "#33222C" : "#FCEEF5" }}
+                className="w-10 h-10 rounded-full items-center justify-center mb-3"
               >
                 <Ionicons
                   name="flame"
-                  size={17}
-                  color={isDark ? "#2dd4bf" : "#0d9488"}
+                  size={20}
+                  color={isDark ? "#D36B93" : "#481639"}
                 />
               </View>
               <Text
-                style={{ color: isDark ? "#2dd4bf" : "#0f172a" }}
-                className="text-[26px] leading-8 font-black"
+                style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
+                className="text-2xl font-black"
               >
                 {currentStreak}
               </Text>
               <Text
-                style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                className="text-[9px] font-bold mt-1 tracking-widest uppercase"
+                style={{ color: isDark ? "#999999" : "#666666" }}
+                className="text-[10px] font-semibold mt-1 tracking-wider uppercase"
               >
                 Day Streak
               </Text>
@@ -1474,7 +1460,7 @@ export default function Dashboard() {
             {roomLoading ? (
               /* Loading State */
               <View
-                className="rounded-[28px] p-8 items-center shadow-sm border"
+                className="rounded-2xl p-8 items-center shadow-sm border"
                 style={{
                   backgroundColor: isDark ? "#271318" : "#ffffff",
                   borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
@@ -1496,7 +1482,7 @@ export default function Dashboard() {
                 activeRoom.status === "WAITING") ? (
               <View
                 key="active-room-card"
-                className="rounded-[28px] overflow-hidden shadow-lg border"
+                className="rounded-2xl overflow-hidden shadow-lg border"
                 style={{
                   backgroundColor: isDark ? "#271318" : "#ffffff",
                   borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
@@ -1589,7 +1575,7 @@ export default function Dashboard() {
                       backgroundColor: isDark ? "#180D10" : "#fdf2f4",
                       borderColor: isDark ? "rgba(225,29,72,0.2)" : "#fce7f3",
                     }}
-                    className="border rounded-[20px] p-3.5 mb-4 items-center justify-center"
+                    className="border rounded-xl p-3.5 mb-4 items-center justify-center"
                   >
                     <View className="flex-row items-center justify-center mb-3">
                       {/* User Avatar */}
@@ -1736,7 +1722,7 @@ export default function Dashboard() {
               /* ── NO ROOM CARD ────────────────────────────── */
               <View
                 key="no-room-card"
-                className="rounded-[28px] p-5 shadow-lg relative overflow-hidden border"
+                className="rounded-2xl p-5 shadow-lg relative overflow-hidden border"
                 style={{
                   minHeight: 200,
                   justifyContent: "center",
@@ -1813,7 +1799,7 @@ export default function Dashboard() {
                 {activeChallenges.map((challenge, index) => (
                   <View key={challenge.id}>
                     <View
-                      className="mx-6 mt-6 rounded-[32px] overflow-hidden shadow-lg border"
+                      className="mx-6 mt-6 rounded-2xl overflow-hidden shadow-lg border"
                       style={{
                         backgroundColor: challenge.sender_id === currentUserId
                           ? (isDark ? "#132724" : "#f0fdfa")
@@ -2096,7 +2082,7 @@ export default function Dashboard() {
                         ? (isDark ? "rgba(45,212,191,0.2)" : "rgba(13,148,136,0.15)")
                         : (isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)"),
                     }}
-                    className="rounded-[28px] overflow-hidden shadow-lg border"
+                    className="rounded-2xl overflow-hidden shadow-lg border"
                   >
                     <View className="h-32 relative">
                       <Image
@@ -2265,7 +2251,7 @@ export default function Dashboard() {
 
           {/* Coin Toss Decision Maker Section */}
           <View
-            className="mx-6 mt-6 rounded-[36px] p-7 shadow-lg relative overflow-hidden border"
+            className="mx-6 mt-6 rounded-3xl p-7 shadow-lg relative overflow-hidden border"
             style={{
               backgroundColor: isDark ? "#271318" : "#ffffff",
               borderColor: isDark ? "rgba(245,158,11,0.25)" : "rgba(245,158,11,0.2)",
@@ -2414,7 +2400,7 @@ export default function Dashboard() {
                         backgroundColor: isDark ? "#271318" : "#ffffff",
                         borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
                       }}
-                      className="w-[240px] rounded-[28px] overflow-hidden border shadow-md"
+                      className="w-[240px] rounded-2xl overflow-hidden border shadow-md"
                     >
                       <View className="h-32 relative">
                         <Image
@@ -2479,7 +2465,7 @@ export default function Dashboard() {
                   backgroundColor: isDark ? "#271318" : "#ffffff",
                   borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.25)",
                 }}
-                className="border border-dashed rounded-[28px] p-6 items-center justify-center shadow-sm"
+                className="border border-dashed rounded-2xl p-6 items-center justify-center shadow-sm"
               >
                 <View
                   style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
@@ -2536,7 +2522,7 @@ export default function Dashboard() {
             }}
             className="bg-[#180D10]/90 items-center justify-center"
           >
-            <View className="bg-[#241117] p-8 rounded-[32px] items-center border border-rose-950/40 shadow-rose-900/20">
+            <View className="bg-[#241117] p-8 rounded-2xl items-center border border-rose-950/40 shadow-rose-900/20">
               <ActivityIndicator size="large" color="#e11d48" />
               <Text className="text-white font-bold mt-6 text-lg tracking-wide">
                 Leaving Room...
@@ -2570,9 +2556,9 @@ export default function Dashboard() {
               alignItems: "center",
             }}
           >
-            <View className="bg-white dark:bg-[#180D10] w-[85%] rounded-[32px] p-7 items-center shadow-2xl border border-rose-100 dark:border-rose-900/40">
+            <View className="bg-white dark:bg-[#180D10] w-[85%] rounded-2xl p-7 items-center shadow-2xl border border-rose-100 dark:border-rose-900/40">
               {selectedReceivedCard?.card?.image_url ? (
-                <View className="w-full h-56 rounded-[20px] mb-5 overflow-hidden shadow-sm bg-slate-50 dark:bg-[#0f0608] dark:border dark:border-rose-950/40 relative">
+                <View className="w-full h-56 rounded-xl mb-5 overflow-hidden shadow-sm bg-slate-50 dark:bg-[#0f0608] dark:border dark:border-rose-950/40 relative">
                   <Image
                     source={{ uri: selectedReceivedCard.card.image_url }}
                     className="w-full h-full"
@@ -2834,7 +2820,7 @@ export default function Dashboard() {
           onRequestClose={() => setPenaltyGiftModalVisible(false)}
         >
           <View className="flex-1 justify-center items-center bg-black/60 px-4">
-            <View className="w-full bg-white dark:bg-[#1f0f13] rounded-[32px] overflow-hidden items-center p-6 border border-slate-200 dark:border-rose-950/40 shadow-xl shadow-rose-900/20">
+            <View className="w-full bg-white dark:bg-[#1f0f13] rounded-2xl overflow-hidden items-center p-6 border border-slate-200 dark:border-rose-950/40 shadow-xl shadow-rose-900/20">
               <View className="w-20 h-20 rounded-full bg-rose-100 dark:bg-rose-950/40 items-center justify-center mb-5 border-4 border-white dark:border-[#1f0f13] -mt-12">
                 <Ionicons
                   name="gift"
