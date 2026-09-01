@@ -1,8 +1,7 @@
 {
   "expo": {
     "name": "SoulShuffle",
-    "slug": "soulshuffle",
-    "owner": "anurag_4411",
+    "slug": "soulshuffle-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -98,8 +97,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "6529ac40-cf1a-403b-aae3-1dec0733c4e3"
+        "projectId": "a8229d2a-b2bf-4176-a245-2016dc5e11f1"
       }
-    }
+    },
+    "owner": "mrcoder.420"
   }
 }

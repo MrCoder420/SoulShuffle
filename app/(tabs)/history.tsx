@@ -232,7 +232,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
       const staticTotalKey = `cached_static_total_${activeRoomId}`;
       try {
         const storedTotal = await AsyncStorage.getItem(staticTotalKey);
-        if (storedTotal) {
+        if (storedTotal && parseInt(storedTotal, 10) > 0) {
           staticTotal = parseInt(storedTotal, 10);
         } else {
           // Fetch user's cards and save the total as a static snapshot for this room

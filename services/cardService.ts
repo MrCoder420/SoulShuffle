@@ -60,3 +60,22 @@ export const fetchSendLimits = async (roomId: string): Promise<SendLimits> => {
   return response.data.data;
 };
 
+/**
+ * Fetch the user's full deck (or fallback to master deck)
+ */
+export const fetchUserDeck = async (): Promise<any[]> => {
+  try {
+    const response = await api.get('/user/deck');
+    if (response.data?.data?.cards?.length > 0) {
+      return response.data.data.cards;
+    }
+  } catch (e) {}
+  try {
+    const response = await api.get('/cards');
+    return response.data?.data?.cards || [];
+  } catch (e) {
+    return [];
+  }
+};
+
+
