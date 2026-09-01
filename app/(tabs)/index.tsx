@@ -1815,8 +1815,12 @@ export default function Dashboard() {
                     <View
                       className="mx-6 mt-6 rounded-[32px] overflow-hidden shadow-lg border"
                       style={{
-                        backgroundColor: isDark ? "#271318" : "#ffffff",
-                        borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                        backgroundColor: challenge.sender_id === currentUserId
+                          ? (isDark ? "#132724" : "#f0fdfa")
+                          : (isDark ? "#271318" : "#ffffff"),
+                        borderColor: challenge.sender_id === currentUserId
+                          ? (isDark ? "rgba(45,212,191,0.2)" : "rgba(13,148,136,0.15)")
+                          : (isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)"),
                       }}
                     >
 <View className="h-40 relative">
@@ -1880,9 +1884,29 @@ export default function Dashboard() {
                   })()
                 )}
               </View>
-              <View className="p-6">
+              <View className="p-6 relative overflow-hidden">
+                {/* Magical Watermark Icon */}
+                <Ionicons
+                  name={challenge.sender_id === currentUserId ? "paper-plane" : "mail-open"}
+                  size={180}
+                  color={challenge.sender_id === currentUserId 
+                    ? (isDark ? "rgba(45,212,191,0.06)" : "rgba(13,148,136,0.04)")
+                    : (isDark ? "rgba(225,29,72,0.06)" : "rgba(225,29,72,0.04)")}
+                  style={{
+                    position: 'absolute',
+                    right: -40,
+                    bottom: -30,
+                    transform: [{ rotate: '-15deg' }],
+                    zIndex: 0
+                  }}
+                />
+                <View style={{ zIndex: 1 }}>
                 <Text
-                  style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                  style={{ 
+                    color: challenge.sender_id === currentUserId 
+                      ? (isDark ? "#2dd4bf" : "#0f766e") 
+                      : (isDark ? "#fda4af" : "#be123c") 
+                  }}
                   className="text-[10px] font-bold tracking-widest uppercase mb-2"
                 >
                   {challenge.card.category}
@@ -2031,6 +2055,7 @@ export default function Dashboard() {
                     </Text>
                   </TouchableOpacity>
                 )}
+                </View>
               </View>
             </View>
           
@@ -2064,8 +2089,12 @@ export default function Dashboard() {
                     key={cardSend.id}
                     style={{
                       width: width - 48,
-                      backgroundColor: isDark ? "#271318" : "#ffffff",
-                      borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                      backgroundColor: cardSend.sender_id === currentUserId
+                        ? (isDark ? "#132724" : "#f0fdfa")
+                        : (isDark ? "#271318" : "#ffffff"),
+                      borderColor: cardSend.sender_id === currentUserId
+                        ? (isDark ? "rgba(45,212,191,0.2)" : "rgba(13,148,136,0.15)")
+                        : (isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)"),
                     }}
                     className="rounded-[28px] overflow-hidden shadow-lg border"
                   >
@@ -2116,9 +2145,30 @@ export default function Dashboard() {
                           </View>
                         )}
                     </View>
-                    <View className="p-5">
-                      <Text
-                        style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                    <View className="p-5 relative overflow-hidden">
+                      {/* Magical Watermark Icon */}
+                      <Ionicons
+                        name={cardSend.sender_id === currentUserId ? "paper-plane" : "mail-open"}
+                        size={140}
+                        color={cardSend.sender_id === currentUserId 
+                          ? (isDark ? "rgba(45,212,191,0.08)" : "rgba(13,148,136,0.06)")
+                          : (isDark ? "rgba(225,29,72,0.08)" : "rgba(225,29,72,0.06)")}
+                        style={{
+                          position: 'absolute',
+                          right: -30,
+                          bottom: -20,
+                          transform: [{ rotate: '-15deg' }],
+                          zIndex: 0
+                        }}
+                      />
+                      
+                      <View style={{ zIndex: 1 }}>
+                        <Text
+                        style={{ 
+                          color: cardSend.sender_id === currentUserId 
+                            ? (isDark ? "#2dd4bf" : "#0f766e") 
+                            : (isDark ? "#fda4af" : "#be123c") 
+                        }}
                         className="text-[9px] font-bold tracking-widest uppercase mb-1"
                       >
                         {cardSend.card.category}
@@ -2205,6 +2255,7 @@ export default function Dashboard() {
                           </TouchableOpacity>
                         </View>
                       )}
+                      </View>
                     </View>
                   </View>
                 ))}
@@ -2530,34 +2581,49 @@ export default function Dashboard() {
                   <View className="absolute inset-0 bg-black/10" />
                   <View className="absolute top-3 left-3 bg-white/95 dark:bg-black/70 px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
                     <Ionicons
-                      name="mail-unread"
+                      name={selectedReceivedCard.sender_id === currentUserId ? "paper-plane" : "mail-unread"}
                       size={12}
-                      color={isDark ? "#fda4af" : "#e11d48"}
+                      color={selectedReceivedCard.sender_id === currentUserId 
+                        ? (isDark ? "#2dd4bf" : "#0d5f5a") 
+                        : (isDark ? "#fda4af" : "#e11d48")}
                     />
-                    <Text className="font-bold text-[9px] tracking-widest uppercase ml-1.5 text-rose-600 dark:text-rose-400">
-                      New Dare
+                    <Text 
+                      className="font-bold text-[9px] tracking-widest uppercase ml-1.5"
+                      style={{
+                        color: selectedReceivedCard.sender_id === currentUserId 
+                          ? (isDark ? "#2dd4bf" : "#0d5f5a") 
+                          : (isDark ? "#fda4af" : "#e11d48")
+                      }}
+                    >
+                      {selectedReceivedCard.sender_id === currentUserId ? "Sent Dare" : "New Dare"}
                     </Text>
                   </View>
                 </View>
               ) : (
                 <View className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-900/30 items-center justify-center mb-5 shadow-sm dark:shadow-none border border-rose-100 dark:border-rose-900/20">
-                  <Ionicons name="mail-unread" size={32} color="#e11d48" />
+                  <Ionicons 
+                    name={selectedReceivedCard?.sender_id === currentUserId ? "paper-plane" : "mail-unread"} 
+                    size={32} 
+                    color={selectedReceivedCard?.sender_id === currentUserId ? "#0d5f5a" : "#e11d48"} 
+                  />
                 </View>
               )}
 
               <Text className="text-2xl font-black text-slate-900 dark:text-white mb-2 text-center tracking-tight px-2">
-                {selectedReceivedCard?.card?.title || "New Challenge!"}
+                {selectedReceivedCard?.card?.title || (selectedReceivedCard?.sender_id === currentUserId ? "Sent Challenge" : "New Challenge!")}
               </Text>
 
               <Text className="text-slate-500 dark:text-slate-400 text-center mb-4 font-medium leading-5 px-3 text-[14px]">
                 {selectedReceivedCard?.card?.description ||
-                  "Your partner has sent you a new intimacy dare. What would you like to do?"}
+                  (selectedReceivedCard?.sender_id === currentUserId 
+                    ? "You sent this dare to your partner. Waiting for them to complete it!" 
+                    : "Your partner has sent you a new intimacy dare. What would you like to do?")}
               </Text>
 
               {selectedReceivedCard?.message ? (
                 <View className="bg-rose-50/50 dark:bg-rose-950/20 px-4 py-3.5 rounded-xl border border-rose-100/30 dark:border-rose-950/40 mb-6 w-full shadow-sm dark:shadow-none">
                   <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[10px] uppercase tracking-wider mb-1">
-                    Note from partner
+                    {selectedReceivedCard.sender_id === currentUserId ? "Your Note" : "Note from partner"}
                   </Text>
                   <Text className="text-slate-700 dark:text-slate-300 text-[13px] italic font-medium leading-5">
                     &quot;{selectedReceivedCard.message}&quot;

@@ -904,22 +904,22 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
                           className="px-4 py-1.5 flex-row items-center justify-between"
                           style={{
                             backgroundColor: isSentByMe
-                              ? (isDark ? 'rgba(225,29,72,0.06)' : '#fff8f8')
-                              : (isDark ? 'rgba(14,165,233,0.06)' : '#f8fafc'),
+                              ? (isDark ? 'rgba(20,184,166,0.06)' : '#f0fdfa')
+                              : (isDark ? 'rgba(225,29,72,0.06)' : '#fff8f8'),
                             borderBottomWidth: 1,
                             borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
                           }}
                         >
                           <View className="flex-row items-center gap-1.5">
                             <Ionicons
-                              name={isSentByMe ? 'paper-plane' : 'arrow-down-circle'}
+                              name={isSentByMe ? 'paper-plane' : 'mail-unread'}
                               size={12}
-                              color={isSentByMe ? (isDark ? '#fb7185' : '#e11d48') : (isDark ? '#38bdf8' : '#0284c7')}
+                              color={isSentByMe ? (isDark ? '#2dd4bf' : '#0d5f5a') : (isDark ? '#fda4af' : '#e11d48')}
                             />
                             <Text
                               className="text-[10px] font-bold"
                               style={{
-                                color: isSentByMe ? (isDark ? '#fb7185' : '#be123c') : (isDark ? '#38bdf8' : '#0369a1'),
+                                color: isSentByMe ? (isDark ? '#2dd4bf' : '#0d5f5a') : (isDark ? '#fb7185' : '#be123c'),
                               }}
                             >
                               {isSentByMe
