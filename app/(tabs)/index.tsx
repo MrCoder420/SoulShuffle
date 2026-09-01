@@ -409,7 +409,7 @@ export default function Dashboard() {
   const pendingChallenges = cardSends.filter((c) => c.status === "SENT") || [];
   const activeChallenges =
     cardSends.filter(
-      (c) => c.status === "IN_PROGRESS" || c.status === "COMPLETED_BY_RECEIVER",
+      (c) => c.status === "IN_PROGRESS",
     ) || [];
   const activeChallenge =
     activeChallenges.length > 0 ? activeChallenges[0] : null;
@@ -844,7 +844,7 @@ export default function Dashboard() {
     // Optimistic update
     setCardSends((prev) =>
       prev.map((s) =>
-        s.id === sendId ? { ...s, status: "COMPLETED_BY_RECEIVER" } : s,
+        s.id === sendId ? { ...s, status: "COMPLETED" } : s,
       ),
     );
 
