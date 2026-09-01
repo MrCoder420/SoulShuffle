@@ -302,9 +302,13 @@ export default function Profile() {
 
         // Partner Avatar
         let resolvedAvatar = isHost ? room.partner_avatar : room.host_avatar;
+        if (resolvedAvatar?.includes("dicebear")) resolvedAvatar = null;
+
         if (!resolvedAvatar) {
           resolvedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
+          if (resolvedAvatar?.includes("dicebear")) resolvedAvatar = null;
         }
+        
         const finalPartnerAvatar = resolvedAvatar || ANIMATED_AVATARS[1].url;
         setPartnerAvatar(finalPartnerAvatar);
         if (room.id) await AsyncStorage.setItem(`partnerAvatar_${room.id}`, finalPartnerAvatar);
@@ -382,11 +386,13 @@ export default function Profile() {
           }
         }
         if (avatar_url) {
-          setPartnerAvatar(avatar_url);
-          const currentRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
-          if (currentRoomStr) {
-            const currentRoom = JSON.parse(currentRoomStr);
-            if (currentRoom && currentRoom.id) await AsyncStorage.setItem(`partnerAvatar_${currentRoom.id}`, avatar_url);
+          if (!avatar_url.includes("dicebear")) {
+            setPartnerAvatar(avatar_url);
+            const currentRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
+            if (currentRoomStr) {
+              const currentRoom = JSON.parse(currentRoomStr);
+              if (currentRoom && currentRoom.id) await AsyncStorage.setItem(`partnerAvatar_${currentRoom.id}`, avatar_url);
+            }
           }
         }
       }
@@ -401,6 +407,7 @@ export default function Profile() {
 
     const onPartnerAvatarUpdated = async (data: any) => {
       if (data && data.avatar_url) {
+        if (data.avatar_url.includes("dicebear")) return;
         setPartnerAvatar(data.avatar_url);
         if (activeRoom?.id) {
           await AsyncStorage.setItem(`partnerAvatar_${activeRoom.id}`, data.avatar_url);

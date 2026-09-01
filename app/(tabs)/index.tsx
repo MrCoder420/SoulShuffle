@@ -576,7 +576,11 @@ export default function Dashboard() {
     const handlePartnerJoined = (payload: any) => {
       fetchActiveRoom(true);
       if (payload?.partnerName) setPartnerName(payload.partnerName);
-      if (payload?.partnerAvatar) setPartnerAvatar(payload.partnerAvatar);
+      if (payload?.partnerAvatar) {
+        if (!payload.partnerAvatar.includes("dicebear")) {
+          setPartnerAvatar(payload.partnerAvatar);
+        }
+      }
       // Share our own info back to partner
       shareInfoWithPartner();
     };
@@ -642,6 +646,7 @@ export default function Dashboard() {
 
     const handlePartnerAvatarUpdated = async (data: any) => {
       if (data && data.avatar_url) {
+        if (data.avatar_url.includes("dicebear")) return;
         setPartnerAvatar(data.avatar_url);
         if (activeRoom) {
           await AsyncStorage.setItem(`partnerAvatar_${activeRoom.id}`, data.avatar_url);
