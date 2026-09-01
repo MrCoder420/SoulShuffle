@@ -541,6 +541,7 @@ export default function Profile() {
                       source={{ uri: partnerAvatar || ANIMATED_AVATARS[1].url }}
                       className="w-24 h-24"
                       resizeMode="contain"
+                      style={{ transform: [{ scaleX: -1 }] }}
                     />
                   </View>
 

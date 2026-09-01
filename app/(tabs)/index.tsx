@@ -1633,6 +1633,7 @@ export default function Dashboard() {
                             }}
                             className="w-7 h-7"
                             resizeMode="contain"
+                            style={{ transform: [{ scaleX: -1 }] }}
                           />
                         </View>
                       ) : (
