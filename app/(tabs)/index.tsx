@@ -335,10 +335,13 @@ export default function Dashboard() {
         }
 
         // 2. Partner Avatar
-        const resolvedAvatar =
+        let resolvedAvatar =
           currentUserId === activeRoom.host_id
             ? activeRoom.partner_avatar
             : activeRoom.host_avatar;
+            
+        if (resolvedAvatar?.includes("dicebear")) resolvedAvatar = null;
+
         if (resolvedAvatar) {
           setPartnerAvatar(resolvedAvatar);
           await AsyncStorage.setItem(
@@ -346,9 +349,11 @@ export default function Dashboard() {
             resolvedAvatar,
           );
         } else {
-          const cachedAvatar = await AsyncStorage.getItem(
+          let cachedAvatar = await AsyncStorage.getItem(
             `partnerAvatar_${activeRoom.id}`,
           );
+          if (cachedAvatar?.includes("dicebear")) cachedAvatar = null;
+          
           if (cachedAvatar) {
             setPartnerAvatar(cachedAvatar);
           } else {
@@ -544,7 +549,7 @@ export default function Dashboard() {
       setLocalPendingChallenges([]);
       setRoomHistoryData([]);
       setPartnerName("Partner");
-      setPartnerAvatar(null);
+      setPartnerAvatar(ANIMATED_AVATARS[1].url);
       setRoomLoading(false);
     });
     const penaltyGiftSub = DeviceEventEmitter.addListener(
@@ -593,7 +598,7 @@ export default function Dashboard() {
       setLocalPendingChallenges([]);
       setRoomHistoryData([]);
       setPartnerName("Partner");
-      setPartnerAvatar(null);
+      setPartnerAvatar(ANIMATED_AVATARS[1].url);
       setRoomLoading(false);
 
       await clearRoomCache(payload?.room_id || activeRoom?.id);
@@ -942,7 +947,7 @@ export default function Dashboard() {
               setLocalPendingChallenges([]);
               setRoomHistoryData([]);
               setPartnerName("Partner");
-              setPartnerAvatar(null);
+              setPartnerAvatar(ANIMATED_AVATARS[1].url);
 
               DeviceEventEmitter.emit("app:clearRoom");
 

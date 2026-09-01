@@ -173,7 +173,9 @@ export default function Profile() {
             const cachedPartnerName = await AsyncStorage.getItem(`partnerName_${cachedRoom.id}`);
             if (cachedPartnerName) setPartnerName(cachedPartnerName);
 
-            const cachedPartnerAvatar = await AsyncStorage.getItem(`partnerAvatar_${cachedRoom.id}`);
+            let cachedPartnerAvatar = await AsyncStorage.getItem(`partnerAvatar_${cachedRoom.id}`);
+            if (cachedPartnerAvatar?.includes("dicebear")) cachedPartnerAvatar = null;
+            if (cachedPartnerAvatar === "null") cachedPartnerAvatar = null;
             if (cachedPartnerAvatar) setPartnerAvatar(cachedPartnerAvatar);
           }
         }
@@ -308,6 +310,7 @@ export default function Profile() {
           resolvedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
           if (resolvedAvatar?.includes("dicebear")) resolvedAvatar = null;
         }
+        if (resolvedAvatar === "null") resolvedAvatar = null;
         
         const finalPartnerAvatar = resolvedAvatar || ANIMATED_AVATARS[1].url;
         setPartnerAvatar(finalPartnerAvatar);
@@ -319,17 +322,20 @@ export default function Profile() {
       } else if (room && room.status === 'WAITING') {
         setActiveRoom(room);
         setPartnerName('');
-        setPartnerAvatar('');
+        // Keep existing partner avatar or fallback to default instead of clearing
+        const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
+        setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
         setRoomActiveTimeText('Waiting for Partner...');
       } else {
         // Only clear if confirmed no active room
         const cachedRoomStr = await AsyncStorage.getItem('cachedActiveRoom');
-        if (!cachedRoomStr) {
-          setActiveRoom(null);
-          setPartnerName('');
-          setPartnerAvatar('');
-          setRoomActiveTimeText('No Active Room');
-        }
+          if (!cachedRoomStr) {
+            setActiveRoom(null);
+            setPartnerName('');
+            const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room?.id}`);
+            setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
+            setRoomActiveTimeText('No Active Room');
+          }
       }
     } catch (err) {
       console.log('Active room fetch failed in profile.tsx:', err);
@@ -345,10 +351,12 @@ export default function Profile() {
       if (data?.firstName) setUserName(data.firstName);
     });
 
-    const clearSub = DeviceEventEmitter.addListener('app:clearRoom', () => {
+    const clearSub = DeviceEventEmitter.addListener('app:clearRoom', async () => {
       setActiveRoom(null);
       setPartnerName('');
-      setPartnerAvatar('');
+      // Keep existing partner avatar or fallback to default
+      const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
+      setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
       setRoomActiveTimeText('No Active Room');
     });
 
@@ -365,7 +373,9 @@ export default function Profile() {
       await clearRoomCache();
       setActiveRoom(null);
       setPartnerName('');
-      setPartnerAvatar('');
+      // Keep existing partner avatar or fallback to default
+      const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
+      setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
       setRoomActiveTimeText('No Active Room');
     };
 
