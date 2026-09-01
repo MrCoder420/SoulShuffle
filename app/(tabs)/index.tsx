@@ -1786,23 +1786,34 @@ export default function Dashboard() {
           </View>
 
           {/* Active Challenge Section */}
-          {activeChallenge && (
-            <View
-              className="mx-6 mt-6 rounded-[32px] overflow-hidden shadow-lg border"
-              style={{
-                backgroundColor: isDark ? "#271318" : "#ffffff",
-                borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
-              }}
-            >
-              <View className="h-40 relative">
+          {activeChallenges.length > 0 && (
+            <View>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={width}
+                decelerationRate="fast"
+                contentContainerStyle={{ paddingBottom: 16 }}
+              >
+                {activeChallenges.map((challenge, index) => (
+                  <View key={challenge.id} style={{ width }}>
+                    <View
+                      className="mx-6 mt-6 rounded-[32px] overflow-hidden shadow-lg border"
+                      style={{
+                        backgroundColor: isDark ? "#271318" : "#ffffff",
+                        borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                      }}
+                    >
+<View className="h-40 relative">
                 <Image
-                  source={{ uri: activeChallenge.card.image_url }}
+                  source={{ uri: challenge.card.image_url }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
                 <View className="absolute inset-0 bg-black/25" />
-                {activeChallenge.status === "COMPLETED_BY_RECEIVER" ? (
-                  activeChallenge.sender_id === currentUserId ? (
+                {challenge.status === "COMPLETED_BY_RECEIVER" ? (
+                  challenge.sender_id === currentUserId ? (
                     <View className="absolute top-4 left-4 bg-amber-500 dark:bg-amber-600 px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
                       <Ionicons name="alert-circle" size={12} color="white" />
                       <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">
@@ -1819,7 +1830,7 @@ export default function Dashboard() {
                   )
                 ) : (
                   (() => {
-                    const targetDateStr = getTargetDateStr(activeChallenge);
+                    const targetDateStr = getTargetDateStr(challenge);
                     const targetTime = targetDateStr
                       ? new Date(targetDateStr).getTime()
                       : 0;
@@ -1837,7 +1848,7 @@ export default function Dashboard() {
                       );
                     }
 
-                    return activeChallenge.sender_id === currentUserId ? (
+                    return challenge.sender_id === currentUserId ? (
                       <View className="absolute top-4 left-4 bg-teal-500 dark:bg-teal-600 px-3 py-1.5 rounded-full flex-row items-center">
                         <Ionicons name="paper-plane" size={12} color="white" />
                         <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">
@@ -1860,17 +1871,17 @@ export default function Dashboard() {
                   style={{ color: isDark ? "#fda4af" : "#be123c" }}
                   className="text-[10px] font-bold tracking-widest uppercase mb-2"
                 >
-                  {activeChallenge.card.category}
+                  {challenge.card.category}
                 </Text>
                 <Text
                   style={{ color: isDark ? "#ffffff" : "#0f172a" }}
                   className="text-2xl font-black tracking-tight mb-3"
                 >
-                  {activeChallenge.card.title}
+                  {challenge.card.title}
                 </Text>
 
-                {activeChallenge.sender_id === currentUserId &&
-                  (activeChallenge.status === "COMPLETED_BY_RECEIVER" ? (
+                {challenge.sender_id === currentUserId &&
+                  (challenge.status === "COMPLETED_BY_RECEIVER" ? (
                     <View
                       style={{
                         backgroundColor: isDark ? "#271318" : "#fffbeb",
@@ -1917,10 +1928,10 @@ export default function Dashboard() {
                   style={{ color: isDark ? "#cbd5e1" : "#475569" }}
                   className="text-[14px] leading-6 font-medium mb-5"
                 >
-                  {activeChallenge.card.description}
+                  {challenge.card.description}
                 </Text>
 
-                {activeChallenge.message ? (
+                {challenge.message ? (
                   <View
                     style={{
                       backgroundColor: isDark ? "rgba(244,63,94,0.08)" : "#fff1f2",
@@ -1932,7 +1943,7 @@ export default function Dashboard() {
                       style={{ color: isDark ? "#fda4af" : "#be123c" }}
                       className="font-bold text-[10px] uppercase tracking-wider mb-1"
                     >
-                      {activeChallenge.sender_id === currentUserId
+                      {challenge.sender_id === currentUserId
                         ? "Your note to partner"
                         : "Note from partner"}
                     </Text>
@@ -1940,7 +1951,7 @@ export default function Dashboard() {
                       style={{ color: isDark ? "#cbd5e1" : "#475569" }}
                       className="text-[13px] italic font-medium leading-5"
                     >
-                      &quot;{activeChallenge.message}&quot;
+                      &quot;{challenge.message}&quot;
                     </Text>
                   </View>
                 ) : null}
@@ -1954,16 +1965,16 @@ export default function Dashboard() {
                     <Text className="text-slate-500 dark:text-slate-400 font-bold text-[12.5px] ml-2 mr-2">
                       Time Left:
                     </Text>
-                    {getTargetDateStr(activeChallenge) ? (
+                    {getTargetDateStr(challenge) ? (
                       <CountdownTimer
-                        targetDate={getTargetDateStr(activeChallenge)}
+                        targetDate={getTargetDateStr(challenge)}
                       />
                     ) : null}
                   </View>
                 </View>
 
-                {activeChallenge.sender_id !== currentUserId ? (
-                  activeChallenge.status === "COMPLETED_BY_RECEIVER" ? (
+                {challenge.sender_id !== currentUserId ? (
+                  challenge.status === "COMPLETED_BY_RECEIVER" ? (
                     <View className="bg-slate-100 dark:bg-[#271318]/50 py-3.5 rounded-2xl border border-slate-200/45 dark:border-rose-950/10 items-center">
                       <Text className="text-slate-400 dark:text-slate-500 font-bold text-[12.5px]">
                         Waiting for confirmation...
@@ -1972,7 +1983,7 @@ export default function Dashboard() {
                   ) : (
                     <TouchableOpacity
                       className="bg-emerald-500 dark:bg-emerald-600 py-3.5 rounded-full flex-row items-center justify-center shadow-md dark:shadow-none active:opacity-85"
-                      onPress={() => handleCompleteCard(activeChallenge.id)}
+                      onPress={() => handleCompleteCard(challenge.id)}
                     >
                       <Ionicons
                         name="checkmark-circle"
@@ -1984,11 +1995,11 @@ export default function Dashboard() {
                       </Text>
                     </TouchableOpacity>
                   )
-                ) : activeChallenge.status === "COMPLETED_BY_RECEIVER" ? (
+                ) : challenge.status === "COMPLETED_BY_RECEIVER" ? (
                   <TouchableOpacity
                     className="bg-emerald-500 dark:bg-emerald-600 py-3.5 rounded-full flex-row items-center justify-center shadow-md dark:shadow-none active:opacity-85"
                     onPress={() =>
-                      handleConfirmCompleteCard(activeChallenge.id)
+                      handleConfirmCompleteCard(challenge.id)
                     }
                   >
                     <Ionicons name="checkmark-circle" size={16} color="white" />
@@ -2007,6 +2018,23 @@ export default function Dashboard() {
                   </TouchableOpacity>
                 )}
               </View>
+            </View>
+          
+                  </View>
+                ))}
+              </ScrollView>
+              
+              {activeChallenges.length > 1 && (
+                <View className="flex-row justify-center mt-2 mb-2 gap-1.5">
+                  {activeChallenges.map((_, idx) => (
+                    <View 
+                      key={idx} 
+                      className="w-1.5 h-1.5 rounded-full" 
+                      style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }}
+                    />
+                  ))}
+                </View>
+              )}
             </View>
           )}
 
