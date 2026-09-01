@@ -136,7 +136,10 @@ export const sendChallenge = async (
   providedRoom?: Room | null,
   providedUserId?: string | null
 ) => {
-  const room = providedRoom || await getActiveRoom();
+  let room = providedRoom;
+  if (!room || !room.host_id || !room.partner_id) {
+    room = await getActiveRoom();
+  }
   if (!room) {
     throw new Error('No active room found.');
   }
