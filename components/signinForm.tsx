@@ -228,7 +228,7 @@ const SigninForm = () => {
                             <View className="mb-5">
                                 <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Email</Text>
                                 <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
-                                    <Ionicons name="mail-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                    <Ionicons name="mail-outline" size={20} color={isDark ? "#D36B93" : "#666666"} />
                                     <TextInput
                                         placeholder="Enter your email"
                                         placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
@@ -243,7 +243,7 @@ const SigninForm = () => {
                             <View className="mb-6">
                                 <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Password</Text>
                                 <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
-                                    <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                    <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#D36B93" : "#666666"} />
                                     <TextInput
                                         placeholder="Enter your password"
                                         placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
@@ -254,7 +254,7 @@ const SigninForm = () => {
                                         autoCapitalize="none"
                                     />
                                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="p-1">
-                                        <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                        <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={isDark ? "#D36B93" : "#666666"} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -351,8 +351,8 @@ const SigninForm = () => {
                                     <Text className="text-slate-500 dark:text-slate-400 mb-4 font-medium text-sm">
                                         Enter your email address and we'll send you an OTP to reset your password.
                                     </Text>
-                                    <View className="flex-row items-center border border-slate-200 dark:border-rose-950/60 bg-slate-50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden mb-6">
-                                        <Ionicons name="mail-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                    <View className="flex-row items-center border border-slate-200 dark:border-rose-950/60 bg-gray-50 dark:bg-[#1E1E1E] rounded-2xl h-14 px-4 overflow-hidden mb-6">
+                                        <Ionicons name="mail-outline" size={20} color={isDark ? "#D36B93" : "#666666"} />
                                         <TextInput
                                             placeholder="Enter your email"
                                             placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
@@ -363,7 +363,7 @@ const SigninForm = () => {
                                         />
                                     </View>
                                     <TouchableOpacity
-                                        className={`bg-rose-500 dark:bg-rose-600 rounded-2xl h-14 items-center justify-center flex-row shadow-rose-300 ${isSubmitting ? 'opacity-70' : ''}`}
+                                        className={`bg-[#481639] dark:bg-[#D36B93] rounded-2xl h-14 items-center justify-center flex-row shadow-rose-300 ${isSubmitting ? 'opacity-70' : ''}`}
                                         onPress={handleForgotPassword}
                                         disabled={isSubmitting}
                                     >
@@ -375,8 +375,8 @@ const SigninForm = () => {
                                     <Text className="text-slate-500 dark:text-slate-400 mb-4 font-medium text-sm">
                                         Enter the OTP sent to {forgotPasswordEmail} and choose a new password.
                                     </Text>
-                                    <View className="flex-row items-center border border-slate-200 dark:border-rose-950/60 bg-slate-50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden mb-4">
-                                        <Ionicons name="keypad-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                    <View className="flex-row items-center border border-slate-200 dark:border-rose-950/60 bg-gray-50 dark:bg-[#1E1E1E] rounded-2xl h-14 px-4 overflow-hidden mb-4">
+                                        <Ionicons name="keypad-outline" size={20} color={isDark ? "#D36B93" : "#666666"} />
                                         <TextInput
                                             placeholder="Enter OTP"
                                             placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
@@ -386,8 +386,8 @@ const SigninForm = () => {
                                             keyboardType="number-pad"
                                         />
                                     </View>
-                                    <View className="flex-row items-center border border-slate-200 dark:border-rose-950/60 bg-slate-50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden mb-6">
-                                        <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                    <View className="flex-row items-center border border-slate-200 dark:border-rose-950/60 bg-gray-50 dark:bg-[#1E1E1E] rounded-2xl h-14 px-4 overflow-hidden mb-6">
+                                        <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#D36B93" : "#666666"} />
                                         <TextInput
                                             placeholder="New Password"
                                             placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
@@ -398,7 +398,7 @@ const SigninForm = () => {
                                         />
                                     </View>
                                     <TouchableOpacity
-                                        className={`bg-rose-500 dark:bg-rose-600 rounded-2xl h-14 items-center justify-center flex-row shadow-rose-300 ${isSubmitting ? 'opacity-70' : ''}`}
+                                        className={`bg-[#481639] dark:bg-[#D36B93] rounded-2xl h-14 items-center justify-center flex-row shadow-rose-300 ${isSubmitting ? 'opacity-70' : ''}`}
                                         onPress={handleResetPassword}
                                         disabled={isSubmitting}
                                     >

@@ -69,7 +69,7 @@ const SignupForm = () => {
                         <View className="mb-4">
                             <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Full Name</Text>
                             <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
-                                <Ionicons name="person-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                <Ionicons name="person-outline" size={20} color={isDark ? "#D36B93" : "#666666"} />
                                 <TextInput
                                     placeholder="Enter your full name"
                                     placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
@@ -84,7 +84,7 @@ const SignupForm = () => {
                         <View className="mb-4">
                             <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Email  </Text>
                             <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
-                                <Ionicons name="mail-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                <Ionicons name="mail-outline" size={20} color={isDark ? "#D36B93" : "#666666"} />
                                 <TextInput
                                     placeholder="Enter your email"
                                     placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
@@ -99,7 +99,7 @@ const SignupForm = () => {
                         <View className="mb-4">
                             <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Password</Text>
                             <View className="flex-row items-center border border-slate-100 dark:border-rose-950/40 bg-slate-50/50 dark:bg-[#0F0608] rounded-2xl h-14 px-4 overflow-hidden">
-                                <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                <Ionicons name="lock-closed-outline" size={20} color={isDark ? "#D36B93" : "#666666"} />
                                 <TextInput
                                     placeholder="Create a password"
                                     placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
@@ -109,13 +109,13 @@ const SignupForm = () => {
                                     secureTextEntry={!showPassword}
                                 />
                                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="p-1">
-                                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={isDark ? "#f43f5e" : "#94a3b8"} />
+                                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={isDark ? "#D36B93" : "#666666"} />
                                 </TouchableOpacity>
                             </View>
                         </View>
 
                         <TouchableOpacity
-                            className={`bg-rose-500 dark:bg-rose-600 rounded-2xl h-14 items-center justify-center flex-row shadow-rose-300 ${isLoading ? 'opacity-70' : ''}`}
+                            className={`bg-[#481639] dark:bg-[#D36B93] rounded-2xl h-14 items-center justify-center flex-row shadow-rose-300 ${isLoading ? 'opacity-70' : ''}`}
                             activeOpacity={0.8}
                             onPress={handleSignUp}
                             disabled={isLoading}

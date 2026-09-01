@@ -2309,207 +2309,161 @@ export default function Dashboard() {
             </TouchableOpacity>
           </View>
 
-          {/* Card History Section */}
-          <View className="mt-10 mb-8 px-6">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center">
-                <View
-                  style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
-                  className="w-8 h-8 rounded-full items-center justify-center mr-2.5"
-                >
-                  <Ionicons
-                    name="time"
-                    size={16}
-                    color={isDark ? "#f43f5e" : "#e11d48"}
-                  />
-                </View>
-                <Text
-                  style={{ color: isDark ? "#fda4af" : "#0f172a" }}
-                  className="text-xl font-black tracking-tight"
-                >
-                  Card History
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => navigateTo("/history")}>
-                <Text
-                  style={{ color: isDark ? "#fda4af" : "#be123c" }}
-                  className="text-[11px] font-bold uppercase tracking-widest"
-                >
-                  View All →
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {cardHistoryList.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="-mx-6 px-6 pb-2"
-                contentContainerStyle={{ paddingRight: 48, gap: 14 }}
-              >
-                {cardHistoryList.slice(0, 6).map((item: any, idx: number) => {
-                  const title =
-                    item.title ||
-                    item.card?.title ||
-                    item.cards?.name ||
-                    "Completed Challenge";
-                  const category =
-                    item.category ||
-                    item.card?.category ||
-                    item.cards?.card_categories?.name?.split("_")[0] ||
-                    "DARE";
-                  const dateStr =
-                    item.sent_at || item.created_at || item.updated_at;
-                  const formattedDate = dateStr
-                    ? new Date(dateStr).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })
-                    : "Recently";
-                  const isCompleted =
-                    item.status === "COMPLETED" || item.status === "CONFIRMED";
-                  const isDeflected = item.status === "DEFLECTED";
-                  const isExpired = item.status === "EXPIRED";
-
-                  const statusBg = isCompleted
-                    ? "bg-emerald-500/90"
-                    : isDeflected
-                      ? "bg-indigo-500/90"
-                      : isExpired
-                        ? "bg-slate-500/90"
-                        : "bg-rose-500/90";
-
-                  const statusLabel = isCompleted
-                    ? "Completed"
-                    : isDeflected
-                      ? "Deflected"
-                      : isExpired
-                        ? "Expired"
-                        : "Sent";
-                  const imageUrl =
-                    item.image ||
-                    item.card?.image_url ||
-                    "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&h=400&fit=crop";
-
-                  return (
-                    <TouchableOpacity
-                      key={item.id || idx}
-                      activeOpacity={0.88}
-                      onPress={() => navigateTo("/history")}
-                      style={{
-                        backgroundColor: isDark ? "#271318" : "#ffffff",
-                        borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
-                      }}
-                      className="w-[240px] rounded-2xl overflow-hidden border shadow-md"
-                    >
-                      <View className="h-32 relative">
-                        <Image
-                          source={{ uri: imageUrl }}
-                          className="w-full h-full"
-                          resizeMode="cover"
-                        />
-                        <View className="absolute inset-0 bg-black/30" />
-
-                        {/* Top Status Tag */}
-                        <View
-                          className={`absolute top-3 left-3 ${statusBg} px-2.5 py-1 rounded-full flex-row items-center`}
-                        >
-                          <Ionicons
-                            name={
-                              isCompleted
-                                ? "checkmark-circle"
-                                : isDeflected
-                                  ? "return-up-back"
-                                  : "time"
-                            }
-                            size={11}
-                            color="white"
-                          />
-                          <Text className="text-white font-bold text-[9px] uppercase tracking-wider ml-1">
-                            {statusLabel}
-                          </Text>
-                        </View>
-
-                        {/* Date Badge */}
-                        <View className="absolute bottom-2.5 right-3 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
-                          <Text className="text-white/90 text-[10px] font-semibold">
-                            {formattedDate}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View className="p-4">
-                        <Text
-                          style={{ color: isDark ? "#fda4af" : "#be123c" }}
-                          className="text-[9px] font-bold tracking-widest uppercase mb-1"
-                        >
-                          {category}
-                        </Text>
-                        <Text
-                          style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-                          className="text-base font-black tracking-tight"
-                          numberOfLines={1}
-                        >
-                          {title}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            ) : (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => navigateTo("/dares")}
-                style={{
-                  backgroundColor: isDark ? "#271318" : "#ffffff",
-                  borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.25)",
-                }}
-                className="border border-dashed rounded-2xl p-6 items-center justify-center shadow-sm"
-              >
-                <View
-                  style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
-                  className="w-12 h-12 rounded-full items-center justify-center mb-3"
-                >
-                  <Ionicons
-                    name="card"
-                    size={22}
-                    color={isDark ? "#f43f5e" : "#e11d48"}
-                  />
-                </View>
-                <Text
-                  style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-                  className="text-base font-bold mb-1 text-center"
-                >
-                  No Card History Yet
-                </Text>
-                <Text
-                  style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                  className="text-xs font-medium text-center mb-4 leading-4 px-4"
-                >
-                  Send your first dare card to your partner to start creating
-                  history together! 💕
-                </Text>
-                <View
-                  style={{ backgroundColor: isDark ? "#e11d48" : "#af2c3b" }}
-                  className="px-5 py-2.5 rounded-full flex-row items-center"
-                >
-                  <Text className="text-white font-bold text-xs">
-                    Send a Dare
+          {/* Friendzy Style Card History Section */}
+            <View className="mt-8 mb-8 px-6">
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-row items-center">
+                  <Text
+                    style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
+                    className="text-xl font-black tracking-tight"
+                  >
+                    Recent History
                   </Text>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={14}
-                    color="white"
-                    style={{ marginLeft: 4 }}
-                  />
                 </View>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
-
-        {/* FULL-SCREEN LOADING SPINNER */}
+                <TouchableOpacity onPress={() => navigateTo("/history")}>
+                  <Text
+                    style={{ color: isDark ? "#D36B93" : "#481639" }}
+                    className="text-[12px] font-bold uppercase tracking-widest"
+                  >
+                    View All
+                  </Text>
+                </TouchableOpacity>
+              </View>
+  
+              {cardHistoryList.length > 0 ? (
+                <View className="flex-col gap-4">
+                  {cardHistoryList.slice(0, 4).map((item: any, idx: number) => {
+                    const title =
+                      item.title ||
+                      item.card?.title ||
+                      item.cards?.name ||
+                      "Completed Challenge";
+                    const category =
+                      item.category ||
+                      item.card?.category ||
+                      item.cards?.card_categories?.name?.split("_")[0] ||
+                      "DARE";
+                    const dateStr =
+                      item.sent_at || item.created_at || item.updated_at;
+                    const formattedDate = dateStr
+                      ? new Date(dateStr).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : "Recently";
+                    const isCompleted =
+                      item.status === "COMPLETED" || item.status === "CONFIRMED";
+                    const isDeflected = item.status === "DEFLECTED";
+                    const isExpired = item.status === "EXPIRED";
+  
+                    const statusBg = isCompleted
+                      ? "bg-[#481639]/90"
+                      : isDeflected
+                        ? "bg-indigo-500/90"
+                        : isExpired
+                          ? "bg-slate-500/90"
+                          : "bg-[#D36B93]/90";
+  
+                    const statusLabel = isCompleted
+                      ? "Completed"
+                      : isDeflected
+                        ? "Deflected"
+                        : isExpired
+                          ? "Expired"
+                          : "Sent";
+                    const imageUrl =
+                      item.image ||
+                      item.card?.image_url ||
+                      "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&h=400&fit=crop";
+  
+                    return (
+                      <TouchableOpacity
+                        key={item.id || idx}
+                        activeOpacity={0.88}
+                        onPress={() => navigateTo("/history")}
+                        style={{
+                          backgroundColor: isDark ? "#1E1E1E" : "#F8F8F8",
+                          borderColor: isDark ? "#333333" : "#F0F0F0",
+                        }}
+                        className="w-full rounded-2xl overflow-hidden border shadow-sm mb-3 flex-row"
+                      >
+                        <View className="w-24 h-24 relative">
+                          <Image
+                            source={{ uri: imageUrl }}
+                            className="w-full h-full"
+                            resizeMode="cover"
+                          />
+                          <View className="absolute inset-0 bg-black/10" />
+                        </View>
+  
+                        <View className="flex-1 p-3 justify-center">
+                          <View className="flex-row items-center justify-between mb-1">
+                            <Text
+                              style={{ color: isDark ? "#D36B93" : "#481639" }}
+                              className="text-[9px] font-bold tracking-widest uppercase"
+                            >
+                              {category}
+                            </Text>
+                            <Text className="text-[10px] font-semibold text-gray-400">
+                              {formattedDate}
+                            </Text>
+                          </View>
+                          <Text
+                            style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
+                            className="text-base font-black tracking-tight mb-2"
+                            numberOfLines={1}
+                          >
+                            {title}
+                          </Text>
+                          <View className={`self-start ${statusBg} px-2 py-0.5 rounded flex-row items-center`}>
+                            <Text className="text-white font-bold text-[9px] uppercase tracking-wider">
+                              {statusLabel}
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => navigateTo("/dares")}
+                  style={{
+                    backgroundColor: isDark ? "#1E1E1E" : "#F8F8F8",
+                    borderColor: isDark ? "#333333" : "#F0F0F0",
+                  }}
+                  className="border border-dashed rounded-2xl p-6 items-center justify-center shadow-sm"
+                >
+                  <View
+                    style={{ backgroundColor: isDark ? "#33222C" : "#FCEEF5" }}
+                    className="w-12 h-12 rounded-full items-center justify-center mb-3"
+                  >
+                    <Ionicons
+                      name="card"
+                      size={22}
+                      color={isDark ? "#D36B93" : "#481639"}
+                    />
+                  </View>
+                  <Text
+                    style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
+                    className="text-base font-bold mb-1 text-center"
+                  >
+                    No Card History Yet
+                  </Text>
+                  <Text
+                    style={{ color: isDark ? "#999999" : "#666666" }}
+                    className="text-xs font-medium text-center mb-4 leading-4 px-4"
+                  >
+                    Send your first card to your partner to start creating
+                    history together!
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
+  
+          {/* FULL-SCREEN LOADING SPINNER */}
         {isLeavingRoom && (
           <View
             style={{
