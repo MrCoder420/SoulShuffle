@@ -100,6 +100,12 @@ class GameSocket {
         roomCbs.forEach(cb => cb(payload));
       });
 
+      // ── Partner Avatar Updated Listener ──
+      this.socket.on('partner_avatar_updated', (payload) => {
+        const cbs = this.callbacks['partner_avatar_updated'] || [];
+        cbs.forEach(cb => cb(payload));
+      });
+
       // ── Remote Card Engine Event Listeners ──
       const cardEvents = [
         'card_received',
