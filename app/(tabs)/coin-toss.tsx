@@ -678,7 +678,7 @@ export default function CoinToss() {
         {/* Dynamic Synchronized Result Card */}
         {showResultCard && result && lastFlipContext && (
           <View className="px-6 mb-8">
-            <View className={`border rounded-[24px] p-5 items-center shadow-sm ${
+            <View className={`border rounded-xl p-5 items-center shadow-sm ${
               lastFlipContext.isMeWinner 
                 ? 'bg-teal-50/70 border-teal-200 dark:bg-teal-950/20 dark:border-teal-900/40' 
                 : 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/20 dark:border-rose-900/40'
@@ -727,7 +727,7 @@ export default function CoinToss() {
                 activeOpacity={0.7}
                 className="px-3 py-1 bg-rose-50 dark:bg-rose-950/40 rounded-full border border-rose-200/60 dark:border-rose-900/40 flex-row items-center"
               >
-                <Ionicons name="trash-outline" size={13} color={isDark ? "#fda4af" : "#e11d48"} style={{ marginRight: 4 }} />
+                <Ionicons name="trash-outline" size={13} color={isDark ? "#D36B93" : "#481639"} style={{ marginRight: 4 }} />
                 <Text className="text-xs font-bold text-rose-600 dark:text-rose-400">Clear</Text>
               </TouchableOpacity>
             )}

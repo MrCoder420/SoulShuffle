@@ -166,7 +166,7 @@ export default function Chat() {
           </View>
 
           {/* System/Dare Message Context Card */}
-          <View className="w-[90%] self-center bg-white dark:bg-[#271318] rounded-[32px] overflow-hidden border border-white dark:border-rose-950/20 mb-6">
+          <View className="w-[90%] self-center bg-white dark:bg-[#271318] rounded-2xl overflow-hidden border border-white dark:border-rose-950/20 mb-6">
             <View className="relative h-40 bg-rose-300">
               <Image 
                 source={activeChallenge?.image ? (typeof activeChallenge.image === 'string' ? { uri: activeChallenge.image } : activeChallenge.image) : require('@/assets/images/couple_cover.jpeg')} 
@@ -205,7 +205,7 @@ export default function Chat() {
                 </View>
               ) : (
                 <TouchableOpacity
-                  className="bg-rose-50 dark:bg-[#0F0608] rounded-full py-4 items-center justify-center border border-rose-100 dark:border-rose-950/40 active:opacity-80"
+                  className="bg-white dark:bg-[#121212] rounded-full py-4 items-center justify-center border border-rose-100 dark:border-rose-950/40 active:opacity-80"
                   onPress={() => {
                     if (!activeChallenge) {
                       Alert.alert('No Challenge', 'There is no active challenge to accept yet.');

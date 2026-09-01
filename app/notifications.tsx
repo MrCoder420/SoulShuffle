@@ -228,7 +228,7 @@ export default function NotificationCenter() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-rose-50 dark:bg-[#0F0608]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-white dark:bg-[#121212]" edges={['top']}>
       {/* Header */}
       <View className={`flex-row items-center justify-between px-4 py-3 border-b ${isDark ? 'border-rose-950/20' : 'border-rose-100/50'}`}>
         <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
@@ -238,7 +238,7 @@ export default function NotificationCenter() {
           Notifications
         </Text>
         <TouchableOpacity onPress={markAllAsRead} className="p-2 -mr-2">
-           <Ionicons name="checkmark-done" size={22} color={isDark ? "#fda4af" : "#e11d48"} />
+           <Ionicons name="checkmark-done" size={22} color={isDark ? "#D36B93" : "#481639"} />
         </TouchableOpacity>
       </View>
 
@@ -262,7 +262,7 @@ export default function NotificationCenter() {
           !isLoading ? (
             <View className="flex-1 items-center justify-center p-8 mt-20">
               <View className="w-20 h-20 rounded-full bg-rose-100 dark:bg-rose-950/40 items-center justify-center mb-4">
-                <Ionicons name="notifications-off-outline" size={32} color={isDark ? "#fda4af" : "#e11d48"} />
+                <Ionicons name="notifications-off-outline" size={32} color={isDark ? "#D36B93" : "#481639"} />
               </View>
               <Text className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>No notifications yet</Text>
               <Text className={`text-center text-[13px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -274,7 +274,7 @@ export default function NotificationCenter() {
         ListFooterComponent={
           isLoading && notifications.length > 0 ? (
             <View className="py-6 items-center">
-              <ActivityIndicator size="small" color={isDark ? "#fda4af" : "#e11d48"} />
+              <ActivityIndicator size="small" color={isDark ? "#D36B93" : "#481639"} />
             </View>
           ) : null
         }

@@ -1468,7 +1468,7 @@ export default function Dashboard() {
               >
                 <ActivityIndicator
                   size="large"
-                  color={isDark ? "#f43f5e" : "#e11d48"}
+                  color={isDark ? "#D36B93" : "#481639"}
                 />
                 <Text
                   style={{ color: isDark ? "#fda4af" : "#64748b" }}
@@ -2474,14 +2474,14 @@ export default function Dashboard() {
               bottom: 0,
               zIndex: 9999,
             }}
-            className="bg-[#180D10]/90 items-center justify-center"
+            className="bg-black/60 items-center justify-center"
           >
-            <View className="bg-[#241117] p-8 rounded-2xl items-center border border-rose-950/40 shadow-rose-900/20">
-              <ActivityIndicator size="large" color="#e11d48" />
+            <View className="bg-white dark:bg-[#1E1E1E] p-8 rounded-2xl items-center border border-gray-200 dark:border-[#333333] shadow-sm">
+              <ActivityIndicator size="large" color="#481639" />
               <Text className="text-white font-bold mt-6 text-lg tracking-wide">
                 Leaving Room...
               </Text>
-              <Text className="text-rose-400/80 text-xs font-medium mt-2">
+              <Text className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-2">
                 Disconnecting from partner
               </Text>
             </View>
@@ -2510,9 +2510,9 @@ export default function Dashboard() {
               alignItems: "center",
             }}
           >
-            <View className="bg-white dark:bg-[#180D10] w-[85%] rounded-2xl p-7 items-center shadow-2xl border border-rose-100 dark:border-rose-900/40">
+            <View className="bg-white dark:bg-[#1E1E1E] w-[85%] rounded-2xl p-7 items-center shadow-2xl border border-gray-200 dark:border-[#333333]">
               {selectedReceivedCard?.card?.image_url ? (
-                <View className="w-full h-56 rounded-xl mb-5 overflow-hidden shadow-sm bg-slate-50 dark:bg-[#0f0608] dark:border dark:border-rose-950/40 relative">
+                <View className="w-full h-56 rounded-xl mb-5 overflow-hidden shadow-sm bg-gray-50 dark:bg-[#121212] dark:border dark:border-[#333333] relative">
                   <Image
                     source={{ uri: selectedReceivedCard.card.image_url }}
                     className="w-full h-full"
@@ -2540,7 +2540,7 @@ export default function Dashboard() {
                   </View>
                 </View>
               ) : (
-                <View className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-900/30 items-center justify-center mb-5 shadow-sm dark:shadow-none border border-rose-100 dark:border-rose-900/20">
+                <View className="w-16 h-16 rounded-full bg-[#FCEEF5] dark:bg-[#33222C] items-center justify-center mb-5 shadow-sm dark:shadow-none border border-rose-100 dark:border-rose-900/20">
                   <Ionicons 
                     name={selectedReceivedCard?.sender_id === currentUserId ? "paper-plane" : "mail-unread"} 
                     size={32} 
@@ -2774,12 +2774,12 @@ export default function Dashboard() {
           onRequestClose={() => setPenaltyGiftModalVisible(false)}
         >
           <View className="flex-1 justify-center items-center bg-black/60 px-4">
-            <View className="w-full bg-white dark:bg-[#1f0f13] rounded-2xl overflow-hidden items-center p-6 border border-slate-200 dark:border-rose-950/40 shadow-xl shadow-rose-900/20">
-              <View className="w-20 h-20 rounded-full bg-rose-100 dark:bg-rose-950/40 items-center justify-center mb-5 border-4 border-white dark:border-[#1f0f13] -mt-12">
+            <View className="w-full bg-white dark:bg-[#1E1E1E] rounded-2xl overflow-hidden items-center p-6 border border-gray-200 dark:border-[#333333] shadow-xl shadow-rose-900/20">
+              <View className="w-20 h-20 rounded-full bg-[#FCEEF5] dark:bg-[#33222C] items-center justify-center mb-5 border-4 border-white dark:border-[#1E1E1E] -mt-12">
                 <Ionicons
                   name="gift"
                   size={32}
-                  color={isDark ? "#fda4af" : "#e11d48"}
+                  color={isDark ? "#D36B93" : "#481639"}
                 />
               </View>
               <Text className="text-2xl font-black text-slate-900 dark:text-white text-center mb-2 tracking-tight">
@@ -2791,23 +2791,23 @@ export default function Dashboard() {
               </Text>
 
               {penaltyGiftCard && (
-                <View className="w-full bg-slate-50 dark:bg-[#271318]/50 rounded-2xl p-4 border border-slate-200 dark:border-rose-950/30 mb-6 flex-row items-center">
+                <View className="w-full bg-gray-50 dark:bg-[#2A2A2A]/50 rounded-2xl p-4 border border-gray-200 dark:border-[#333333] mb-6 flex-row items-center">
                   {penaltyGiftCard.image_url ? (
                     <Image
                       source={{ uri: penaltyGiftCard.image_url }}
                       className="w-14 h-14 rounded-xl mr-4"
                     />
                   ) : (
-                    <View className="w-14 h-14 rounded-xl bg-rose-100 dark:bg-rose-950/40 items-center justify-center mr-4">
+                    <View className="w-14 h-14 rounded-xl bg-[#FCEEF5] dark:bg-[#33222C] items-center justify-center mr-4">
                       <Ionicons
                         name="card"
                         size={24}
-                        color={isDark ? "#fda4af" : "#e11d48"}
+                        color={isDark ? "#D36B93" : "#481639"}
                       />
                     </View>
                   )}
                   <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">
+                    <Text className="text-[10px] font-bold text-[#481639] dark:text-[#D36B93] uppercase tracking-widest mb-1">
                       {penaltyGiftCard.category || "REWARD CARD"}
                     </Text>
                     <Text className="text-[15px] font-bold text-slate-800 dark:text-white leading-tight">
@@ -2820,7 +2820,7 @@ export default function Dashboard() {
               )}
 
               <TouchableOpacity
-                className="w-full bg-rose-500 dark:bg-rose-600 py-4 rounded-2xl items-center"
+                className="w-full bg-[#481639] dark:bg-[#D36B93] py-4 rounded-2xl items-center"
                 onPress={() => setPenaltyGiftModalVisible(false)}
               >
                 <Text className="text-white font-bold text-[15px] tracking-wide">

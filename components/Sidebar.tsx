@@ -312,7 +312,7 @@ export default function Sidebar() {
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
           className="bg-[#180D10]/90 items-center justify-center"
         >
-          <View className="bg-[#241117] p-8 rounded-[32px] items-center border border-rose-950/40 shadow-rose-900/20">
+          <View className="bg-white dark:bg-[#1E1E1E] p-8 rounded-2xl items-center border border-rose-950/40 shadow-rose-900/20">
             <ActivityIndicator size="large" color="#e11d48" />
             <Text className="text-white font-bold mt-6 text-lg tracking-wide">
               Signing Out...

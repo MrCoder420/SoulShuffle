@@ -223,7 +223,7 @@ const SigninForm = () => {
                             <Text className="text-slate-500 dark:text-slate-400 mt-2 text-base font-medium">Ignite the spark, play together.</Text>
                         </View>
 
-                        <View className="bg-white/90 dark:bg-[#271318]/90 rounded-[32px] p-6 shadow-rose-100 border border-white/60 dark:border-rose-950/20">
+                        <View className="bg-white/90 dark:bg-[#271318]/90 rounded-2xl p-6 shadow-rose-100 border border-white/60 dark:border-rose-950/20">
 
                             <View className="mb-5">
                                 <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Email</Text>

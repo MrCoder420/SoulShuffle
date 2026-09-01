@@ -335,9 +335,9 @@ export default function Dares() {
   const renderDisconnectedState = () => {
     return (
       <View className="flex-1 justify-center items-center px-8 py-16">
-        <View className="bg-white dark:bg-[#271318] rounded-[32px] p-8 items-center shadow-rose-100/50 border border-rose-100/50 dark:border-rose-950/20 w-full max-w-sm">
+        <View className="bg-white dark:bg-[#271318] rounded-2xl p-8 items-center shadow-rose-100/50 border border-rose-100/50 dark:border-rose-950/20 w-full max-w-sm">
           <View className="w-20 h-20 bg-rose-50 dark:bg-rose-950/30 rounded-full items-center justify-center mb-6">
-            <Ionicons name="heart-dislike-outline" size={42} color={isDark ? "#f43f5e" : "#e11d48"} />
+            <Ionicons name="heart-dislike-outline" size={42} color={isDark ? "#D36B93" : "#481639"} />
           </View>
           
           <Text className="text-2xl font-black text-slate-800 dark:text-white text-center mb-3 tracking-tight">
@@ -569,7 +569,7 @@ export default function Dares() {
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
                 <View className="bg-rose-100 dark:bg-rose-900/30 w-8 h-8 rounded-full items-center justify-center mr-2.5">
-                  <Ionicons name="cart" size={16} color={isDark ? "#f43f5e" : "#e11d48"} />
+                  <Ionicons name="cart" size={16} color={isDark ? "#D36B93" : "#481639"} />
                 </View>
                 <Text className="text-xl font-black text-slate-900 dark:text-rose-100 tracking-tight">
                   SoulStore
@@ -578,7 +578,7 @@ export default function Dares() {
               <TouchableOpacity 
                 activeOpacity={0.8}
                 onPress={() => router.push('/store')}
-                className="flex-row items-center bg-rose-500 dark:bg-rose-600 px-3.5 py-1.5 rounded-full shadow-sm"
+                className="flex-row items-center bg-[#481639] dark:bg-[#D36B93] px-3.5 py-1.5 rounded-full shadow-sm"
               >
                 <Text className="text-[11px] font-extrabold text-white uppercase tracking-wider mr-1">
                   Visit Store
@@ -592,7 +592,7 @@ export default function Dares() {
               activeOpacity={0.9}
               onPress={() => router.push('/store')}
               style={{ backgroundColor: isDark ? '#34121a' : '#e11d48' }}
-              className="rounded-[28px] p-5 mb-5 overflow-hidden relative shadow-lg border border-rose-400/30 dark:border-rose-900/40"
+              className="rounded-2xl p-5 mb-5 overflow-hidden relative shadow-lg border border-rose-400/30 dark:border-rose-900/40"
             >
               <View className="flex-row items-center justify-between z-10">
                 <View className="flex-1 pr-3">
@@ -635,7 +635,7 @@ export default function Dares() {
                   <TouchableOpacity
                     key={bundle.id}
                     activeOpacity={0.88}
-                    className="w-[260px] h-52 bg-white dark:bg-[#271318] rounded-[28px] overflow-hidden relative shadow-md border border-slate-100 dark:border-rose-950/30"
+                    className="w-[260px] h-52 bg-white dark:bg-[#271318] rounded-2xl overflow-hidden relative shadow-md border border-slate-100 dark:border-rose-950/30"
                     onPress={() => handleOpenStoreItem(bundle.id)}
                   >
                     <Image 
@@ -697,7 +697,7 @@ export default function Dares() {
               }).map((dare) => (
                 <TouchableOpacity
                   key={dare.id}
-                  className="w-[48%] bg-white dark:bg-[#271318] rounded-[24px] overflow-hidden border border-slate-50 dark:border-rose-950/20 pb-4"
+                  className="w-[48%] bg-white dark:bg-[#271318] rounded-xl overflow-hidden border border-slate-50 dark:border-rose-950/20 pb-4"
                   activeOpacity={0.85}
                   onPress={() => setSelectedDare(dare)}
                 >
@@ -759,7 +759,7 @@ export default function Dares() {
                   </TouchableOpacity>
                 </View>
 
-                <Text className="text-[11px] font-bold text-rose-500 dark:text-rose-400 tracking-widest uppercase mb-2">{selectedDare.category}</Text>
+                <Text className="text-[11px] font-bold text-[#481639] dark:text-[#D36B93] tracking-widest uppercase mb-2">{selectedDare.category}</Text>
                 <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-3">{selectedDare.title}</Text>
                 <Text className="text-slate-600 dark:text-slate-300 font-medium text-[14px] leading-6 mb-5">{selectedDare.description}</Text>
 

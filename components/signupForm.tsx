@@ -64,7 +64,7 @@ const SignupForm = () => {
                         <Text className="text-slate-500 dark:text-slate-400 mt-1.5 text-base font-medium">Join us and start the journey.</Text>
                     </View>
 
-                    <View className="bg-white/90 dark:bg-[#271318]/90 rounded-[32px] p-5 shadow-rose-100 border border-white/60 dark:border-rose-950/20">
+                    <View className="bg-white/90 dark:bg-[#271318]/90 rounded-2xl p-5 shadow-rose-100 border border-white/60 dark:border-rose-950/20">
 
                         <View className="mb-4">
                             <Text className="text-slate-700 dark:text-slate-300 font-semibold mb-2 ml-1 text-sm">Full Name</Text>
@@ -147,7 +147,7 @@ const SignupForm = () => {
                 onRequestClose={() => setErrorModalVisible(false)}
             >
                 <View className="flex-1 justify-center items-center bg-black/60 px-6">
-                    <View className="bg-white dark:bg-[#1f0f13] w-full rounded-[32px] p-6 items-center">
+                    <View className="bg-white dark:bg-[#1f0f13] w-full rounded-2xl p-6 items-center">
                         <View className="w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-950/50 items-center justify-center mb-5">
                             <Ionicons name="alert-circle" size={32} color="#e11d48" />
                         </View>

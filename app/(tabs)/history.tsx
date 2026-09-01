@@ -1002,7 +1002,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
                             >
                               <Ionicons name="heart" size={14} color={isDark ? "#fb7185" : "#e11d48"} style={{ marginTop: 2 }} />
                               <View className="flex-1">
-                                <Text className="text-[9px] font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400 mb-0.5">
+                                <Text className="text-[9px] font-bold uppercase tracking-wider text-[#481639] dark:text-[#D36B93] mb-0.5">
                                   Note from {isSentByMe ? 'You' : roomGroup.partnerName}:
                                 </Text>
                                 <Text className="text-xs italic text-slate-700 dark:text-rose-100">

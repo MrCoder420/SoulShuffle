@@ -585,7 +585,7 @@ export default function Profile() {
                 <TouchableOpacity 
                   onPress={() => setIsAvatarModalOpen(true)}
                   activeOpacity={0.9}
-                  className="bg-slate-900 dark:bg-[#200e14] rounded-[36px] overflow-hidden w-36 h-36 border-2 border-rose-400/40 shadow-xl items-center justify-center p-3"
+                  className="bg-slate-900 dark:bg-[#200e14] rounded-2xl overflow-hidden w-36 h-36 border-2 border-rose-400/40 shadow-xl items-center justify-center p-3"
                 >
                   <Image
                     source={{ uri: userAvatar }}
@@ -618,7 +618,7 @@ export default function Profile() {
 
         {/* Top Cards Info */}
         <View className="px-6 mt-8">
-          <View className="bg-[#e4dad6]/30 dark:bg-[#271318]/80 rounded-[24px] p-6 border border-slate-100 dark:border-rose-950/30 overflow-hidden relative">
+          <View className="bg-[#e4dad6]/30 dark:bg-[#271318]/80 rounded-xl p-6 border border-slate-100 dark:border-rose-950/30 overflow-hidden relative">
             {isEditingMemory ? (
               <View className="z-10">
                 <View className="flex-row items-center justify-between mb-3">
@@ -859,7 +859,7 @@ export default function Profile() {
         <View className="mt-8 px-6 mb-4">
           <Text className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">Settings</Text>
 
-          <View className="bg-white dark:bg-[#271318] rounded-[32px] p-6 py-2 border border-slate-50/50 dark:border-rose-950/20">
+          <View className="bg-white dark:bg-[#271318] rounded-2xl p-6 py-2 border border-slate-50/50 dark:border-rose-950/20">
             {/* Dark Mode Switch Toggle */}
             <TouchableOpacity 
               activeOpacity={0.7}

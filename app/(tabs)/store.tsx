@@ -328,7 +328,7 @@ export default function StoreScreen() {
           return (
             <TouchableOpacity
               key={bundle.id}
-              className="bg-white dark:bg-[#271318] rounded-[24px] border border-slate-100 dark:border-rose-950/20 shadow-sm dark:shadow-none overflow-hidden mb-5 w-[48%] active:opacity-90"
+              className="bg-white dark:bg-[#271318] rounded-xl border border-slate-100 dark:border-rose-950/20 shadow-sm dark:shadow-none overflow-hidden mb-5 w-[48%] active:opacity-90"
               onPress={() => handleSelectBundle(bundle)}
             >
               {/* Banner Image */}
@@ -531,7 +531,7 @@ export default function StoreScreen() {
                             onPress={() => setSelectedPlan(plan)}
                           >
                             <View className={`mr-2 w-4 h-4 rounded-full items-center justify-center ${
-                              isSelected ? 'bg-[#e11d48]' : 'bg-slate-300 dark:bg-[#4A232A]'
+                              isSelected ? 'bg-[#481639]' : 'bg-slate-300 dark:bg-[#4A232A]'
                             }`}>
                               <Ionicons name="checkmark" size={10} color="white" />
                             </View>

@@ -485,7 +485,7 @@ export default function Questionnaire() {
         style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}
       >
         <StatusBar barStyle="light-content" backgroundColor="#0B0508" />
-        <View className="bg-[#1A0B13] w-20 h-20 rounded-[28px] items-center justify-center mb-6 border border-rose-500/20 shadow-lg shadow-rose-950/50">
+        <View className="bg-[#1A0B13] w-20 h-20 rounded-2xl items-center justify-center mb-6 border border-rose-500/20 shadow-lg shadow-rose-950/50">
           <Text className="text-4xl">💕</Text>
         </View>
         <ActivityIndicator size="large" color="#FF2D55" />
@@ -504,7 +504,7 @@ export default function Questionnaire() {
         style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}
       >
         <StatusBar barStyle="light-content" backgroundColor="#0B0508" />
-        <View className="bg-[#1A0B13] w-20 h-20 rounded-[28px] items-center justify-center mb-6 border border-rose-500/20 shadow-lg shadow-rose-950/50">
+        <View className="bg-[#1A0B13] w-20 h-20 rounded-2xl items-center justify-center mb-6 border border-rose-500/20 shadow-lg shadow-rose-950/50">
           <Ionicons name="alert-circle-outline" size={40} color="#FF2D55" />
         </View>
         <Text className="text-white font-bold text-lg text-center mb-2">
@@ -603,7 +603,7 @@ export default function Questionnaire() {
           >
             {/* Emoji & Question Header */}
             <View className="items-center mb-2">
-              <View className="bg-[#1A0B13] w-20 h-20 rounded-[28px] items-center justify-center mb-5 border border-rose-500/20 shadow-lg shadow-rose-950/50">
+              <View className="bg-[#1A0B13] w-20 h-20 rounded-2xl items-center justify-center mb-5 border border-rose-500/20 shadow-lg shadow-rose-950/50">
                 <Text className="text-4xl">
                   {QUESTION_EMOJIS[currentStep] ?? DEFAULT_EMOJI}
                 </Text>
@@ -640,7 +640,7 @@ export default function Questionnaire() {
                     ],
                   }}
                 >
-                  <View className="bg-[#1A0B13] rounded-[28px] p-2 border border-rose-500/30">
+                  <View className="bg-[#1A0B13] rounded-2xl p-2 border border-rose-500/30">
                     <TextInput
                       placeholder={
                         inputType === 'slider' ? 'Enter a number...' : inputType === 'date_picker' ? 'YYYY-MM-DD' : 'Type here...'
