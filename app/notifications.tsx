@@ -174,7 +174,7 @@ export default function NotificationCenter() {
 
   const renderItem = ({ item }: { item: AppNotification }) => (
     <TouchableOpacity
-      className={`px-4 py-4 border-b ${isDark ? 'border-rose-950/40 bg-[#180D10]' : 'border-rose-100 bg-white'} ${!item.is_read ? (isDark ? 'bg-[#271318]' : 'bg-rose-50/50') : ''}`}
+      className={`px-4 py-4 border-b ${isDark ? 'border-[#333333] bg-[#1E1E1E]' : 'border-[#F0F0F0] bg-white'} ${!item.is_read ? (isDark ? 'bg-[#2A2A2A]' : 'bg-[#FCEEF5]') : ''}`}
       onPress={() => handleNotificationClick(item)}
       onLongPress={() => confirmDelete(item.id)}
       activeOpacity={0.7}
@@ -182,7 +182,7 @@ export default function NotificationCenter() {
       <View className="flex-row items-start">
         <View className="mr-3 mt-1">
            {/* Dynamic icon based on type could be added here, for now using a default */}
-          <View className={`w-10 h-10 rounded-full items-center justify-center ${!item.is_read ? 'bg-rose-100 dark:bg-rose-500/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+          <View className={`w-10 h-10 rounded-full items-center justify-center ${!item.is_read ? 'bg-[#FCEEF5] dark:bg-[#D36B93]/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
             <Ionicons 
               name={
                 item.type.includes('CARD') || item.type.includes('DARE') ? "card-outline" : 
@@ -201,7 +201,7 @@ export default function NotificationCenter() {
         </View>
         <View className="flex-1">
           <View className="flex-row justify-between items-start mb-1">
-            <Text className={`font-bold flex-1 mr-2 text-[15px] ${isDark ? 'text-white' : 'text-slate-900'}`} numberOfLines={1}>
+            <Text className={`font-bold flex-1 mr-2 text-[15px] ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`} numberOfLines={1}>
               {item.title}
             </Text>
             {item.created_at && (
@@ -230,11 +230,11 @@ export default function NotificationCenter() {
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-[#121212]" edges={['top']}>
       {/* Header */}
-      <View className={`flex-row items-center justify-between px-4 py-3 border-b ${isDark ? 'border-rose-950/20' : 'border-rose-100/50'}`}>
+      <View className={`flex-row items-center justify-between px-4 py-3 border-b ${isDark ? 'border-[#333333]' : 'border-[#333333]'}`}>
         <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2 rounded-full" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }}>
           <Ionicons name="arrow-back" size={22} color={isDark ? "#fff" : "#1e293b"} />
         </TouchableOpacity>
-        <Text className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+        <Text className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-[#1A1A1A]'}`}>
           Notifications
         </Text>
         <TouchableOpacity onPress={markAllAsRead} className="p-2 -mr-2">
@@ -261,7 +261,7 @@ export default function NotificationCenter() {
         ListEmptyComponent={
           !isLoading ? (
             <View className="flex-1 items-center justify-center p-8 mt-20">
-              <View className="w-20 h-20 rounded-full bg-rose-100 dark:bg-rose-950/40 items-center justify-center mb-4">
+              <View className="w-20 h-20 rounded-full bg-[#FCEEF5] dark:bg-rose-950/40 items-center justify-center mb-4">
                 <Ionicons name="notifications-off-outline" size={32} color={isDark ? "#D36B93" : "#481639"} />
               </View>
               <Text className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>No notifications yet</Text>
