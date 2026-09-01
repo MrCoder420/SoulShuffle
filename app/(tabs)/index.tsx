@@ -640,12 +640,22 @@ export default function Dashboard() {
       }
     };
 
+    const handlePartnerAvatarUpdated = async (data: any) => {
+      if (data && data.avatar_url) {
+        setPartnerAvatar(data.avatar_url);
+        if (activeRoom) {
+          await AsyncStorage.setItem(`partnerAvatar_${activeRoom.id}`, data.avatar_url);
+        }
+      }
+    };
+
     GameSocket.on("partner_joined", handlePartnerJoined);
     GameSocket.on("room_updated", handlePartnerJoined);
     GameSocket.on("game_event", handleGameEvent);
     GameSocket.on("partner_left", handleRoomLeft);
     GameSocket.on("room_left", handleRoomLeft);
     GameSocket.on("room_closed", handleRoomLeft);
+    GameSocket.on("partner_avatar_updated", handlePartnerAvatarUpdated);
 
     return () => {
       GameSocket.off("partner_joined", handlePartnerJoined);
@@ -654,6 +664,7 @@ export default function Dashboard() {
       GameSocket.off("partner_left", handleRoomLeft);
       GameSocket.off("room_left", handleRoomLeft);
       GameSocket.off("room_closed", handleRoomLeft);
+      GameSocket.off("partner_avatar_updated", handlePartnerAvatarUpdated);
     };
   }, [
     fetchActiveRoom,

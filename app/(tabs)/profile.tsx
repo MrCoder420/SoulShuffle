@@ -399,6 +399,16 @@ export default function Profile() {
     GameSocket.on('room_updated', loadProfileAndRoom);
     GameSocket.on('game_event', onGameEvent);
 
+    const onPartnerAvatarUpdated = async (data: any) => {
+      if (data && data.avatar_url) {
+        setPartnerAvatar(data.avatar_url);
+        if (activeRoom?.id) {
+          await AsyncStorage.setItem(`partnerAvatar_${activeRoom.id}`, data.avatar_url);
+        }
+      }
+    };
+    GameSocket.on('partner_avatar_updated', onPartnerAvatarUpdated);
+
     return () => {
       sub.remove();
       clearSub.remove();
@@ -410,8 +420,9 @@ export default function Profile() {
       GameSocket.off('partner_joined', onPartnerJoined);
       GameSocket.off('room_updated', loadProfileAndRoom);
       GameSocket.off('game_event', onGameEvent);
+      GameSocket.off('partner_avatar_updated', onPartnerAvatarUpdated);
     };
-  }, [loadProfileAndRoom]);
+  }, [loadProfileAndRoom, activeRoom]);
 
   // Reload dynamically whenever screen comes into focus
   useFocusEffect(

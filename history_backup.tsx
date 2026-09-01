@@ -520,24 +520,13 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
 
     // Case 5: Rejected / Declined
     if (rawStatus === 'REJECTED' || rawStatus === 'DECLINED') {
-      const penaltyLog = (challenge as any).penalty_log && (challenge as any).penalty_log.length > 0 ? (challenge as any).penalty_log[0] : null;
-      const transferredCardName = penaltyLog?.user_card_deck?.cards?.name;
-      
-      let newSubtext = isSender
-        ? `${partnerName} chose not to accept this dare.`
-        : `You chose to decline this dare from ${partnerName}.`;
-        
-      if (transferredCardName) {
-         newSubtext = isSender 
-           ? `${partnerName} declined this dare. You received "${transferredCardName}" as compensation!`
-           : `You declined this dare. Your "${transferredCardName}" was transferred to ${partnerName} as a penalty.`;
-      }
-
       return {
         headline: isSender
-          ? (transferredCardName ? 'Card is sent • Declined by partner (Penalty Applied)' : 'Card is sent • Declined by partner (Not completed)')
-          : (transferredCardName ? 'Card received • You declined this dare (Penalty Applied)' : 'Card received • You declined this dare'),
-        subtext: newSubtext,
+          ? 'Card is sent • Declined by partner (Not completed)'
+          : 'Card received • You declined this dare',
+        subtext: isSender
+          ? `${partnerName} chose not to accept this dare.`
+          : `You chose to decline this dare from ${partnerName}.`,
         statusText: 'Declined',
         actionLabel: isSender ? 'Passed' : 'Declined by You',
         statusIcon: 'close-circle',

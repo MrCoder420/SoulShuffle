@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+﻿import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, StatusBar, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -434,8 +434,8 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
     if (rawStatus === 'COMPLETED' || rawStatus === 'CONFIRMED') {
       return {
         headline: isSender
-          ? 'Card Completed • Dare Mastered 🎉'
-          : 'Card Completed • You Mastered This Dare! 🎉',
+          ? 'Card Completed â€¢ Dare Mastered ðŸŽ‰'
+          : 'Card Completed â€¢ You Mastered This Dare! ðŸŽ‰',
         subtext: isSender
           ? `${partnerName} finished this dare and it was confirmed.`
           : `You completed this dare and ${partnerName} confirmed it.`,
@@ -456,8 +456,8 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
     if (rawStatus === 'COMPLETED_BY_RECEIVER') {
       return {
         headline: isSender
-          ? 'Card is sent • Completed by partner, awaiting your confirmation'
-          : "Card is done • You finished, awaiting partner's confirmation",
+          ? 'Card is sent â€¢ Completed by partner, awaiting your confirmation'
+          : "Card is done â€¢ You finished, awaiting partner's confirmation",
         subtext: isSender
           ? `${partnerName} finished this dare. Please confirm it in your active game session.`
           : `You completed this dare. Waiting for ${partnerName} to review & confirm.`,
@@ -478,8 +478,8 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
     if (rawStatus === 'ACCEPTED' || rawStatus === 'ACTIVE' || rawStatus === 'IN_PROGRESS') {
       return {
         headline: isSender
-          ? 'Card is sent • Accepted by partner, not complete yet'
-          : 'Card received • You accepted, not complete yet',
+          ? 'Card is sent â€¢ Accepted by partner, not complete yet'
+          : 'Card received â€¢ You accepted, not complete yet',
         subtext: isSender
           ? `${partnerName} accepted your dare and is currently completing the challenge.`
           : `You accepted this dare from ${partnerName}. Complete it in the dashboard to finish!`,
@@ -500,8 +500,8 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
     if (rawStatus === 'DEFLECTED') {
       return {
         headline: isSender
-          ? 'Card is sent • Deflected by partner (Not completed)'
-          : 'Card received • Deflected with your Shield card',
+          ? 'Card is sent â€¢ Deflected by partner (Not completed)'
+          : 'Card received â€¢ Deflected with your Shield card',
         subtext: isSender
           ? `${partnerName} used a Deflect Shield card to safely skip this dare.`
           : 'You blocked this dare using a Deflect Shield card.',
@@ -520,24 +520,13 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
 
     // Case 5: Rejected / Declined
     if (rawStatus === 'REJECTED' || rawStatus === 'DECLINED') {
-      const penaltyLog = (challenge as any).penalty_log && (challenge as any).penalty_log.length > 0 ? (challenge as any).penalty_log[0] : null;
-      const transferredCardName = penaltyLog?.user_card_deck?.cards?.name;
-      
-      let newSubtext = isSender
-        ? `${partnerName} chose not to accept this dare.`
-        : `You chose to decline this dare from ${partnerName}.`;
-        
-      if (transferredCardName) {
-         newSubtext = isSender 
-           ? `${partnerName} declined this dare. You received "${transferredCardName}" as compensation!`
-           : `You declined this dare. Your "${transferredCardName}" was transferred to ${partnerName} as a penalty.`;
-      }
-
       return {
         headline: isSender
-          ? (transferredCardName ? 'Card is sent • Declined by partner (Penalty Applied)' : 'Card is sent • Declined by partner (Not completed)')
-          : (transferredCardName ? 'Card received • You declined this dare (Penalty Applied)' : 'Card received • You declined this dare'),
-        subtext: newSubtext,
+          ? 'Card is sent â€¢ Declined by partner (Not completed)'
+          : 'Card received â€¢ You declined this dare',
+        subtext: isSender
+          ? `${partnerName} chose not to accept this dare.`
+          : `You chose to decline this dare from ${partnerName}.`,
         statusText: 'Declined',
         actionLabel: isSender ? 'Passed' : 'Declined by You',
         statusIcon: 'close-circle',
@@ -555,8 +544,8 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
     if (rawStatus === 'EXPIRED' || rawStatus === 'PENALTY') {
       return {
         headline: isSender
-          ? 'Card is sent • Expired before completion'
-          : 'Card received • Expired before completion',
+          ? 'Card is sent â€¢ Expired before completion'
+          : 'Card received â€¢ Expired before completion',
         subtext: isSender
           ? 'The time window or session ended before this dare was fulfilled.'
           : 'Time limit passed before this dare was completed.',
@@ -576,8 +565,8 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
     // Case 7: Default / Sent / Waiting for Acceptance (Pending state)
     return {
       headline: isSender
-        ? 'Card is sent • Not complete yet (Awaiting acceptance)'
-        : 'New Card received • Not complete yet (Awaiting your action)',
+        ? 'Card is sent â€¢ Not complete yet (Awaiting acceptance)'
+        : 'New Card received â€¢ Not complete yet (Awaiting your action)',
       subtext: isSender
         ? `You sent this dare to ${partnerName}. Waiting for them to accept the challenge.`
         : `${partnerName} challenged you! Head to Dashboard to accept and play.`,
@@ -688,7 +677,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
           <View className="flex-1 bg-[#ab2f33] dark:bg-rose-950 rounded-2xl p-4">
             <Text className="text-[9px] font-bold text-white/80 tracking-wider uppercase mb-1">Mastered</Text>
             <Text className="text-2xl font-black text-white tracking-tight">{stats.daresMastered}</Text>
-            <Text className="text-[10px] text-white/70 font-medium mt-1">Dares Won 🎉</Text>
+            <Text className="text-[10px] text-white/70 font-medium mt-1">Dares Won ðŸŽ‰</Text>
           </View>
         </View>
 
@@ -776,7 +765,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
                           className="text-[9px] font-bold uppercase tracking-wider"
                           style={{ color: isActiveRoom ? '#10b981' : '#64748b' }}
                         >
-                          {isActiveRoom ? '🟢 Active' : '⚪ Session Ended'}
+                          {isActiveRoom ? 'ðŸŸ¢ Active' : 'âšª Session Ended'}
                         </Text>
                       </View>
                     </View>
@@ -829,7 +818,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
                           opacity: isExpired ? 0.8 : 1,
                         }}
                       >
-                        {/* ── TOP INDICATION BANNER (All Conditions Indicated) ── */}
+                        {/* â”€â”€ TOP INDICATION BANNER (All Conditions Indicated) â”€â”€ */}
                         <View
                           style={{
                             backgroundColor: statusDetail.bannerBg,
@@ -923,7 +912,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
                               }}
                             >
                               {isSentByMe
-                                ? `Sent by You ➔ ${roomGroup.partnerName}`
+                                ? `Sent by You âž” ${roomGroup.partnerName}`
                                 : `Received from ${roomGroup.partnerName}`}
                             </Text>
                           </View>
@@ -1044,7 +1033,7 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
               {!activeRoomInfo
                 ? 'Join or create a room with your partner to start sending dares and track your live game journey!'
                 : activeFilter === 'ALL'
-                  ? `Send a dare card to ${activeRoomInfo.partnerName} to begin building your moments in this room! 💕`
+                  ? `Send a dare card to ${activeRoomInfo.partnerName} to begin building your moments in this room! ðŸ’•`
                   : 'Try switching to "All Dares" to view all challenges in this room session.'}
             </Text>
           </View>
