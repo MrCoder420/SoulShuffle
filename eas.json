@@ -1,26 +1,36 @@
-{
-  "cli": {
-    "version": ">= 19.0.8",
-    "appVersionSource": "remote"
-  },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
-    },
-    "production": {
-      "android": {
-        "buildType": "apk"
-      }
-    }
-  },
-  "submit": {
-    "production": {}
-  }
+﻿{
+    "cli":  {
+                "version":  "\u003e= 19.0.8",
+                "appVersionSource":  "remote"
+            },
+    "build":  {
+                  "development":  {
+                                      "developmentClient":  true,
+                                      "distribution":  "internal"
+                                  },
+                  "preview":  {
+                                  "distribution":  "internal",
+                                  "android":  {
+                                                  "buildType":  "apk"
+                                              },
+                                  "env":  {
+                                              "GRADLE_OPTS":  "-Dorg.gradle.jvmargs=\"-Xmx2048m -XX:MaxMetaspaceSize=512m\"",
+                                              "NODE_OPTIONS":  "--max-old-space-size=4096"
+                                          }
+                              },
+                  "production":  {
+                                     "android":  {
+                                                     "buildType":  "apk"
+                                                 },
+                                     "env":  {
+                                                 "GRADLE_OPTS":  "-Dorg.gradle.jvmargs=\"-Xmx2048m -XX:MaxMetaspaceSize=512m\"",
+                                                 "NODE_OPTIONS":  "--max-old-space-size=4096"
+                                             }
+                                 }
+              },
+    "submit":  {
+                   "production":  {
+
+                                  }
+               }
 }
