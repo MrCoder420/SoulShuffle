@@ -1809,16 +1809,9 @@ export default function Dashboard() {
           {/* Active Challenge Section */}
           {activeChallenges.length > 0 && (
             <View>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={width}
-                decelerationRate="fast"
-                contentContainerStyle={{ paddingBottom: 16 }}
-              >
+              <View className="pb-4">
                 {activeChallenges.map((challenge, index) => (
-                  <View key={challenge.id} style={{ width }}>
+                  <View key={challenge.id}>
                     <View
                       className="mx-6 mt-6 rounded-[32px] overflow-hidden shadow-lg border"
                       style={{
@@ -2043,19 +2036,7 @@ export default function Dashboard() {
           
                   </View>
                 ))}
-              </ScrollView>
-              
-              {activeChallenges.length > 1 && (
-                <View className="flex-row justify-center mt-2 mb-2 gap-1.5">
-                  {activeChallenges.map((_, idx) => (
-                    <View 
-                      key={idx} 
-                      className="w-1.5 h-1.5 rounded-full" 
-                      style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }}
-                    />
-                  ))}
-                </View>
-              )}
+              </View>
             </View>
           )}
 
