@@ -312,95 +312,6 @@ const fetchDeflectCards = async (userId, roomId) => {
     return data || [];
 };
 
-// ─── 9. Request a Hint ────────────────────────────────────────────────────────
-const requestHint = async (userId, sendId) => {
-    const send = await getSendWithDetails(sendId);
-    if (send.receiver_id !== userId) throw Object.assign(new Error('Not authorized.'), { status: 403 });
-    if (send.status !== 'IN_PROGRESS') throw Object.assign(new Error('Card is not in progress.'), { status: 400 });
-
-    const receiverName = await getUserName(userId);
-    const cardName = send.cards?.name || 'the dare card';
-
-    // Notify sender
-    await createNotification(
-        send.sender_id,
-        'PARTNER_REQUESTED_HINT',
-        '💡 Hint Requested!',
-        `${receiverName} is stuck on "${cardName}" and requested a hint.`,
-        { send_id: sendId, room_id: send.room_id }
-    );
-
-    return { message: 'Hint requested.' };
-};
-
-// ─── 10. Abandon a Card ──────────────────────────────────────────────────────
-const abandonCard = async (userId, sendId) => {
-    const send = await getSendWithDetails(sendId);
-    if (send.receiver_id !== userId) throw Object.assign(new Error('Not authorized.'), { status: 403 });
-    if (send.status !== 'IN_PROGRESS') throw Object.assign(new Error('Card is not in progress.'), { status: 400 });
-
-    // Mark as abandoned (using REJECTED status or a new one, here we map to REJECTED with penalty)
-    await supabase
-        .from('room_card_sends')
-        .update({ status: 'REJECTED' })
-        .eq('id', sendId);
-
-    const receiverName = await getUserName(userId);
-    const cardName = send.cards?.name || 'the dare card';
-
-    // Notify sender
-    await createNotification(
-        send.sender_id,
-        'DARE_ABANDONED',
-        '🏳️ Dare Abandoned',
-        `${receiverName} gave up and abandoned "${cardName}".`,
-        { send_id: sendId, room_id: send.room_id }
-    );
-
-    // Apply penalty logic identical to reject
-    const { data: penaltyCards } = await supabase
-        .from('user_card_deck')
-        .select('id, card_id, cards(name, image_url)')
-        .eq('user_id', userId)
-        .eq('room_id', send.room_id)
-        .eq('is_used', false)
-        .eq('expired', false)
-        .limit(1);
-
-    if (penaltyCards && penaltyCards.length > 0) {
-        const penaltyCard = penaltyCards[0];
-        await supabase.from('user_card_deck').update({ is_used: true }).eq('id', penaltyCard.id);
-        await supabase
-            .from('user_card_deck')
-            .insert([{
-                user_id: send.sender_id,
-                room_id: send.room_id,
-                card_id: penaltyCard.card_id,
-                is_used: false,
-                expired: false,
-                is_penalty_card: true
-            }]);
-
-        await createNotification(
-            userId,
-            'PENALTY_RECEIVED',
-            '⚠️ Penalty Applied',
-            `You abandoned "${cardName}". One of your cards was transferred as a penalty.`,
-            { send_id: sendId, room_id: send.room_id }
-        );
-
-        await createNotification(
-            send.sender_id,
-            'PENALTY_CARD_STOLEN',
-            '🎁 Penalty Card Received!',
-            `Your partner abandoned a dare! "${penaltyCard.cards?.name || 'A card'}" was transferred to you.`,
-            { send_id: sendId, room_id: send.room_id, card_id: penaltyCard.card_id }
-        );
-    }
-
-    return { message: 'Card abandoned and penalty applied.' };
-};
-
 module.exports = {
     sendCard,
     acceptCard,
@@ -410,7 +321,5 @@ module.exports = {
     deflectCard,
     fetchSends,
     fetchDeflectCards,
-    requestHint,
-    abandonCard,
 };
 

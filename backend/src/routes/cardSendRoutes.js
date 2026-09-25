@@ -10,8 +10,8 @@ const {
     confirmCtrl,
     deflectCtrl,
     deflectCardsCtrl,
-    requestHintCtrl,
-    abandonCardCtrl,
+    
+    
 } = require('../controllers/cardSendController');
 
 router.use(authenticate);
@@ -24,8 +24,8 @@ router.patch('/deck/sends/:id/reject', rejectCtrl);
 router.patch('/deck/sends/:id/complete', completeCtrl);
 router.patch('/deck/sends/:id/confirm', confirmCtrl);
 router.post('/deck/sends/:id/use-deflect', deflectCtrl);
-router.patch('/deck/sends/:id/hint', requestHintCtrl);
-router.patch('/deck/sends/:id/abandon', abandonCardCtrl);
+
+
 router.get('/deck/deflect-cards', deflectCardsCtrl);
 
 module.exports = router;

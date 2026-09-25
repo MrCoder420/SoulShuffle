@@ -7,9 +7,7 @@ const {
     deflectCard,
     fetchSends,
     fetchDeflectCards,
-    requestHint,
-    abandonCard,
-} = require('../services/cardSendService');
+    } = require('../services/cardSendService');
 
 // POST /user/deck/:deckCardId/send
 const sendCardCtrl = async (req, res, next) => {
@@ -72,22 +70,6 @@ const deflectCtrl = async (req, res, next) => {
     } catch (err) { next(err); }
 };
 
-// PATCH /user/deck/sends/:id/hint
-const requestHintCtrl = async (req, res, next) => {
-    try {
-        const result = await requestHint(req.user.id, req.params.id);
-        res.status(200).json({ status: 'success', ...result });
-    } catch (err) { next(err); }
-};
-
-// PATCH /user/deck/sends/:id/abandon
-const abandonCardCtrl = async (req, res, next) => {
-    try {
-        const result = await abandonCard(req.user.id, req.params.id);
-        res.status(200).json({ status: 'success', ...result });
-    } catch (err) { next(err); }
-};
-
 // GET /user/deck/deflect-cards?room_id=xxx
 const deflectCardsCtrl = async (req, res, next) => {
     try {
@@ -99,6 +81,6 @@ const deflectCardsCtrl = async (req, res, next) => {
 };
 
 module.exports = {
-    sendCardCtrl, fetchSendsCtrl, acceptCtrl, rejectCtrl, completeCtrl, confirmCtrl, deflectCtrl, deflectCardsCtrl, requestHintCtrl, abandonCardCtrl
+    sendCardCtrl, fetchSendsCtrl, acceptCtrl, rejectCtrl, completeCtrl, confirmCtrl, deflectCtrl, deflectCardsCtrl
 };
 

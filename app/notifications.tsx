@@ -84,8 +84,8 @@ export default function NotificationCenter() {
       case 'CARD_DEADLINE_WARN':
       case 'CARD_DEFLECTED':
       case 'DARE_EXPIRED_FAILED':
-      case 'PARTNER_REQUESTED_HINT':
-      case 'DARE_ABANDONED':
+      
+      
         router.push('/(tabs)');
         break;
 
