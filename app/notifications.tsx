@@ -130,7 +130,7 @@ export default function NotificationCenter() {
       case 'STREAK_AT_RISK':
       case 'STREAK_LOST':
       case 'WEEKLY_RECAP':
-      case 'PROFILE_UPDATED':
+      
       case 'RELATIONSHIP_MILESTONE':
       case 'COMPLETION_RATE_MILESTONE':
       case 'LEVEL_UP':
