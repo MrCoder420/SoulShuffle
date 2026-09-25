@@ -137,8 +137,8 @@ export default function NotificationCenter() {
         router.push('/(tabs)/profile');
         break;
 
-      case 'MANUAL_BROADCAST':
-      case 'MANUAL_SINGLE':
+      case 'ADMIN_BROADCAST':
+      
         Alert.alert(notification.title, notification.body);
         break;
 
