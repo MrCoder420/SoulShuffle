@@ -104,7 +104,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       if (page === 1) {
         setNotifications(list);
       } else {
-        setNotifications(prev => [...prev, ...list]);
+        setNotifications(prev => {
+          const newMap = new Map(prev.map(n => [n.id, n]));
+          list.forEach(n => newMap.set(n.id, n));
+          return Array.from(newMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        });
       }
     } catch (e) {
       // silently fail
