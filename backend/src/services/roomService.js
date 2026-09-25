@@ -409,12 +409,13 @@ const leaveRoom = async (userId, roomId) => {
     if (otherUserId) {
         await createNotification(
             otherUserId,
-            'ROOM_LEFT',
-            'Partner Left',
+            'PARTNER_LEFT_ROOM',
+            '💔 Partner Left',
             'Your partner has left the room. The game has ended.',
             { room_id: roomId }
         );
     }
+
 
     return { message: 'You have left the room.' };
 };
@@ -582,18 +583,112 @@ const coinFlip = async (userId, chosenSide, reason) => {
     // Determine the partner
     const partnerId = room.host_id === userId ? room.partner_id : room.host_id;
 
+    // Determine result (random)
+    const result = Math.random() < 0.5 ? 'HEADS' : 'TAILS';
+    const winnerId = result === chosenSide ? userId : partnerId;
+    const loserId  = winnerId === userId ? partnerId : userId;
+
     if (partnerId) {
-        // Send push notification
+        // Notify partner: invite/result
         await createNotification(
             partnerId,
-            'COIN_TOSS',
+            'COIN_TOSS_INVITE',
             '🪙 Coin Toss!',
-            `Your partner flipped the coin for: ${reason}`,
-            { room_id: room.id, chosen_side: chosenSide }
+            `Your partner flipped the coin for: ${reason || 'a decision'}`,
+            { room_id: room.id, chosen_side: chosenSide, result }
         );
     }
 
-    return { success: true };
+    // Notify winner
+    if (winnerId) {
+        await createNotification(
+            winnerId,
+            'COIN_TOSS_WON',
+            '🏆 You Won the Coin Toss!',
+            `The coin landed on ${result}. You won the toss!`,
+            { room_id: room.id, result, reason }
+        );
+    }
+
+    // Notify loser
+    if (loserId && loserId !== winnerId) {
+        await createNotification(
+            loserId,
+            'COIN_TOSS_LOST',
+            '😢 You Lost the Coin Toss',
+            `The coin landed on ${result}. Better luck next time!`,
+            { room_id: room.id, result, reason }
+        );
+    }
+
+    return { success: true, result, winner_id: winnerId };
+};
+
+
+// ─────────────────────────────────────────────────────────────
+// Extend Room Expiry
+// ─────────────────────────────────────────────────────────────
+const extendRoom = async (userId, roomId, days = 7) => {
+    const { data: room, error } = await supabase
+        .from('rooms')
+        .select('*')
+        .eq('id', roomId)
+        .single();
+    
+    if (error || !room) throw Object.assign(new Error('Room not found.'), { status: 404 });
+    if (room.host_id !== userId && room.partner_id !== userId) throw Object.assign(new Error('Not authorized.'), { status: 403 });
+
+    const newExpiry = new Date(Math.max(Date.now(), new Date(room.expires_at || Date.now()).getTime()) + days * 24 * 60 * 60 * 1000).toISOString();
+
+    await supabase
+        .from('rooms')
+        .update({ expires_at: newExpiry, status: 'ACTIVE' })
+        .eq('id', roomId);
+
+    const notifyIds = [room.host_id, room.partner_id].filter(Boolean);
+    for (const id of notifyIds) {
+        await createNotification(
+            id,
+            'ROOM_EXTENDED',
+            '⏱️ Room Extended!',
+            `Your game room has been extended by ${days} days. Keep playing!`,
+            { room_id: roomId, expires_at: newExpiry }
+        );
+    }
+    
+    return { expires_at: newExpiry };
+};
+
+// ─────────────────────────────────────────────────────────────
+// Invite Partner
+// ─────────────────────────────────────────────────────────────
+const invitePartner = async (userId, roomId, partnerPhoneOrEmail) => {
+    const { data: room, error } = await supabase
+        .from('rooms')
+        .select('*')
+        .eq('id', roomId)
+        .single();
+    
+    if (error || !room) throw Object.assign(new Error('Room not found.'), { status: 404 });
+    if (room.host_id !== userId) throw Object.assign(new Error('Only host can invite.'), { status: 403 });
+
+    // Look up partner by email
+    const { data: partnerUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', partnerPhoneOrEmail)
+        .single();
+
+    if (partnerUser) {
+        await createNotification(
+            partnerUser.id,
+            'PARTNER_JOIN_INVITE',
+            '💌 You\'re Invited!',
+            `You have been invited to join a game room. Use code: ${room.code}`,
+            { room_id: roomId, code: room.code }
+        );
+    }
+    return { success: true, message: 'Invite sent if user exists.' };
 };
 
 module.exports = {
@@ -602,5 +697,7 @@ module.exports = {
     getActiveRoom,
     leaveRoom,
     getRoomHistory,
-    coinFlip
+    coinFlip,
+    extendRoom,
+    invitePartner,
 };

@@ -112,6 +112,18 @@ const updateProfile = async (userId, updateData) => {
       .eq('id', userId);
   }
 
+  // Notify user their profile was updated
+  try {
+    const { createNotification } = require('./notificationService');
+    await createNotification(
+      userId,
+      'PROFILE_UPDATED',
+      '✅ Profile Updated',
+      'Your profile has been updated successfully.',
+      {}
+    );
+  } catch (_) {}
+
   return profileData;
 };
 

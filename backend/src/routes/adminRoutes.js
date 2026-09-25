@@ -17,4 +17,10 @@ router.get('/dashboard/stats', adminProtect, adminController.getDashboardStats);
  */
 router.post('/dashboard/questions', adminProtect, adminController.createNewQuestion);
 
+router.post('/notifications/broadcast', adminProtect, adminController.manualBroadcast);
+router.post('/notifications/single', adminProtect, adminController.manualSingle);
+router.post('/users/ban', adminProtect, adminController.applySendBan);
+router.post('/users/unban', adminProtect, adminController.liftSendBan);
+router.post('/store/bundle', adminProtect, adminController.publishNewBundle);
+
 module.exports = router;

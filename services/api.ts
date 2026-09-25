@@ -7,7 +7,7 @@ import Constants from 'expo-constants';
 // Set to true to use your local Express backend, or false to use the AWS test server.
 const USE_LOCAL_BACKEND = false; 
 
-const AWS_BACKEND_URL = 'http://54.91.119.137:3000/api/v1';
+const AWS_BACKEND_URL = 'https://api.mrcoder420.me/api/v1';
 
 // Dynamic Localhost Resolution (for iOS Simulators, Android Emulators, and Physical Devices)
 const getLocalBackendUrl = () => {

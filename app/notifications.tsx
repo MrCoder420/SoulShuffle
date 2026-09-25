@@ -85,13 +85,8 @@ export default function NotificationCenter() {
       case 'CARD_DEFLECTED':
       case 'DARE_EXPIRED_FAILED':
       case 'PARTNER_REQUESTED_HINT':
-      case 'HINT_PROVIDED':
       case 'DARE_ABANDONED':
-      case 'REVENGE_DARE_UNLOCKED':
-      case 'MYSTERY_CARD_RECEIVED':
-      case 'PHOTO_PROOF_UPLOADED':
-      case 'PHOTO_PROOF_REJECTED':
-        router.push('/(tabs)'); 
+        router.push('/(tabs)');
         break;
 
       // ── Penalties & History ──
@@ -101,14 +96,12 @@ export default function NotificationCenter() {
       case 'DEFLECT_CARD_EARNED':
         router.push('/(tabs)/history');
         break;
-        
+
       // ── Store & Decks ──
       case 'SEND_BAN_RECEIVED':
       case 'SEND_BAN_LIFTED':
       case 'NEW_BUNDLE_AVAILABLE':
-      case 'BUNDLE_GIFT_RECEIVED':
-      case 'FLASH_SALE_STARTED':
-      case 'FREE_CARD_READY':
+      case 'FREE_CARDS_GRANTED':
         router.push('/(tabs)/store');
         break;
 
@@ -118,9 +111,9 @@ export default function NotificationCenter() {
       case 'ROOM_EXPIRED':
       case 'ROOM_EXTENDED':
       case 'PARTNER_LEFT_ROOM':
+      case 'ROOM_LEFT':
       case 'PARTNER_JOIN_INVITE':
       case 'PARTNER_INACTIVE':
-      case 'NUDGE_RECEIVED':
         router.push('/(tabs)');
         break;
 
@@ -128,6 +121,7 @@ export default function NotificationCenter() {
       case 'COIN_TOSS_INVITE':
       case 'COIN_TOSS_WON':
       case 'COIN_TOSS_LOST':
+      case 'COIN_TOSS':
         router.push('/(tabs)/coin-toss');
         break;
 
@@ -136,25 +130,23 @@ export default function NotificationCenter() {
       case 'STREAK_AT_RISK':
       case 'STREAK_LOST':
       case 'WEEKLY_RECAP':
-      case 'MONTHLY_ANNIVERSARY':
       case 'PROFILE_UPDATED':
       case 'RELATIONSHIP_MILESTONE':
       case 'COMPLETION_RATE_MILESTONE':
       case 'LEVEL_UP':
-      case 'FAVORITE_CATEGORY_IDENTIFIED':
-        router.push('/(tabs)/profile'); // Or history, profile is good
+        router.push('/(tabs)/profile');
         break;
 
       case 'MANUAL_BROADCAST':
       case 'MANUAL_SINGLE':
-        // These are admin custom messages
         Alert.alert(notification.title, notification.body);
         break;
 
       default:
-        // No specific route
+        // No specific route — just mark as read
         break;
     }
+
   };
 
   const confirmDelete = (id: string) => {

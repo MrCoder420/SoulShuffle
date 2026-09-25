@@ -29,11 +29,11 @@ import Animated, {
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const TABS = [
-  { name: 'index',     label: 'Home',      icon: 'home-outline',      activeIcon: 'home'      },
-  { name: 'dares',     label: 'Dares',     icon: 'compass-outline',   activeIcon: 'compass'   },
-  { name: 'coin-toss', label: 'Toss',      icon: 'add-outline',       activeIcon: 'add'       },
-  { name: 'history',   label: 'History',   icon: 'people-outline',    activeIcon: 'people'    },
-  { name: 'store',     label: 'Store',     icon: 'bag-outline',       activeIcon: 'bag'       },
+  { name: 'index',     label: 'Home',      icon: 'heart-outline',     activeIcon: 'heart'     },
+  { name: 'dares',     label: 'Dares',     icon: 'copy-outline',      activeIcon: 'copy'      },
+  { name: 'coin-toss', label: 'Coin Toss', icon: 'aperture-outline',  activeIcon: 'aperture'  },
+  { name: 'history',   label: 'History',   icon: 'hourglass-outline', activeIcon: 'hourglass' },
+  { name: 'store',     label: 'Store',     icon: 'cart-outline',      activeIcon: 'cart'      },
 ];
 
 // ─── Tab Button Item ──────────────────────────────────────────────────────────
@@ -48,12 +48,12 @@ function TabItem({
   isDark: boolean;
   onPress: () => void;
 }) {
-  const width = useSharedValue(focused ? 100 : 46);
+  const width = useSharedValue(focused ? 110 : 46);
   const textOpacity = useSharedValue(focused ? 1 : 0);
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    width.value = withSpring(focused ? 100 : 46, {
+    width.value = withSpring(focused ? 110 : 46, {
       damping: 18,
       stiffness: 150,
       mass: 0.8,
@@ -79,10 +79,12 @@ function TabItem({
     transform: [{ translateX: withSpring(focused ? 0 : -6) }],
   }));
 
-  // Friendzy Colors
-  const activeBg = isDark ? '#481639' : '#FCEEF5';
-  const activeColor = isDark ? '#FFFFFF' : '#481639';
-  const inactiveColor = isDark ? '#777777' : '#999999';
+  // Define tab item colors dynamically
+  // Light mode (on a black bar): active has light pink bg, rose text.
+  // Dark mode (on a rose-charcoal bar): active has bright rose bg, white text.
+  const activeBg = isDark ? '#e11d48' : '#ffe4e6';
+  const activeColor = isDark ? '#ffffff' : '#f43f5e';
+  const inactiveColor = 'rgba(255, 255, 255, 0.45)'; // Always light white on dark bar containers
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.95}>
@@ -94,7 +96,7 @@ function TabItem({
         ]}
       >
         <Ionicons
-          size={focused ? 20 : 24}
+          size={18}
           name={(focused ? tab.activeIcon : tab.icon) as any}
           color={focused ? activeColor : inactiveColor}
         />
@@ -126,14 +128,10 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         style={[
           styles.tabBar,
           {
-            backgroundColor: isDark ? '#1E1E1E' : '#FFFFFF',
-            borderColor: isDark ? '#333333' : '#F0F0F0',
-            borderWidth: 1,
-            shadowColor: isDark ? '#000000' : '#481639',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: isDark ? 0.5 : 0.08,
-            shadowRadius: 16,
-            elevation: 10,
+            // Light mode: solid black bar. Dark mode: slightly lighter rose-charcoal to avoid blending.
+            backgroundColor: isDark ? '#261216' : '#14080B',
+            borderColor: isDark ? '#4A232A' : '#221115',
+            shadowColor: '#000',
           },
         ]}
       >

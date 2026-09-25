@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = 'http://54.91.119.137:3000/api/v1';
+const BASE_URL = 'https://api.mrcoder420.me/api/v1';
 
 async function probe() {
   const email = `probe_${Date.now()}@test.com`;

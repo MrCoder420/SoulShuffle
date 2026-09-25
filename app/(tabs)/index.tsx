@@ -1060,13 +1060,13 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <SafeAreaView
-        className="flex-1 bg-white dark:bg-[#121212]"
+        className="flex-1 bg-rose-50 dark:bg-[#0F0608]"
         edges={["top", "left", "right"]}
       >
         {/* Status bar configuration if needed */}
         <StatusBar
           barStyle={isDark ? "light-content" : "dark-content"}
-          backgroundColor={isDark ? "#121212" : "#ffffff"}
+          backgroundColor={isDark ? "#0F0608" : "#fff1f2"}
         />
 
         {/* ═══════════════════════════════════════════════════════
@@ -1299,41 +1299,55 @@ export default function Dashboard() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 160 }}
         >
-          {/* Friendzy Style Header */}
-          <View className="flex-row items-center justify-between px-6 pt-5 pb-4">
-            <TouchableOpacity onPress={openSidebar} className="flex-row items-center gap-2">
+          {/* Header */}
+          <View className="flex-row items-center justify-between px-6 pt-5 pb-3">
+            <TouchableOpacity onPress={openSidebar}>
               <Ionicons
                 name="menu-outline"
-                size={26}
-                color={isDark ? "#FFFFFF" : "#1A1A1A"}
+                size={30}
+                color={isDark ? "#fff" : "#9f1239"}
               />
-              <Text style={{ color: isDark ? "#FFFFFF" : "#481639" }} className="font-bold text-xl tracking-tight">
+            </TouchableOpacity>
+            <View className="flex-row items-center gap-1.5">
+              <Ionicons
+                name="infinite"
+                size={28}
+                color={isDark ? "#fda4af" : "#be123c"}
+                style={{ transform: [{ rotate: "-15deg" }] }}
+              />
+              <Text className="text-red-700 dark:text-rose-400 font-black text-xl tracking-tight">
                 SoulShuffle
               </Text>
-            </TouchableOpacity>
+            </View>
             <View className="flex-row items-center gap-3">
               <TouchableOpacity
                 onPress={() => navigateTo("/notifications")}
-                style={{
-                  backgroundColor: isDark ? "#2A2A2A" : "#FCEEF5",
-                  width: 40, height: 40, borderRadius: 20,
-                  alignItems: 'center', justifyContent: 'center'
-                }}
+                style={{ position: "relative" }}
               >
                 <Ionicons
                   name="notifications-outline"
-                  size={22}
-                  color={isDark ? "#FFFFFF" : "#481639"}
+                  size={26}
+                  color={isDark ? "#fff" : "#9f1239"}
                 />
                 {unreadCount > 0 && (
                   <View
                     style={{
-                      position: "absolute", top: 0, right: 0,
-                      backgroundColor: "#D36B93", borderRadius: 8,
-                      minWidth: 16, height: 16, alignItems: "center", justifyContent: "center",
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      backgroundColor: "#e11d48",
+                      borderRadius: 10,
+                      minWidth: 18,
+                      height: 18,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: 2,
+                      borderColor: isDark ? "#0F0608" : "#fff1f2",
                     }}
                   >
-                    <Text style={{ color: "#fff", fontSize: 9, fontWeight: "bold" }}>
+                    <Text
+                      style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}
+                    >
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </Text>
                   </View>
@@ -1370,11 +1384,11 @@ export default function Dashboard() {
             <TouchableOpacity
               activeOpacity={0.92}
               onPress={handleNextCouplePhoto}
-              className="relative overflow-hidden rounded-3xl shadow-sm bg-rose-100 dark:bg-rose-950/20"
+              className="relative overflow-hidden rounded-[36px] shadow-sm bg-rose-100 dark:bg-rose-950/20"
             >
               <Image
                 source={COUPLE_PHOTOS[currentPhotoIndex].source}
-                className="w-full h-56 rounded-3xl"
+                className="w-full h-56 rounded-[36px]"
                 resizeMode="cover"
               />
               {/* Bottom dots indicator */}
@@ -1390,63 +1404,63 @@ export default function Dashboard() {
           </View>
 
           {/* Stats Section */}
-          <View className="flex-row justify-between px-6 mt-4">
+          <View className="flex-row justify-between px-6 mt-5">
             <View
-              className="rounded-2xl px-5 py-4 w-[47%] shadow-sm border"
+              className="rounded-[24px] px-5 py-4 w-[47%] shadow-sm border"
               style={{
-                backgroundColor: isDark ? "#1E1E1E" : "#F8F8F8",
-                borderColor: isDark ? "#333333" : "#F0F0F0",
+                backgroundColor: isDark ? "#271318" : "#ffffff",
+                borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.15)",
               }}
             >
               <View
-                style={{ backgroundColor: isDark ? "#33222C" : "#FCEEF5" }}
-                className="w-10 h-10 rounded-full items-center justify-center mb-3"
+                style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
+                className="w-8 h-8 rounded-full items-center justify-center mb-3"
               >
                 <Ionicons
                   name="medal"
-                  size={20}
-                  color={isDark ? "#D36B93" : "#481639"}
+                  size={17}
+                  color={isDark ? "#f43f5e" : "#e11d48"}
                 />
               </View>
               <Text
-                style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
-                className="text-2xl font-black"
+                style={{ color: isDark ? "#fb7185" : "#0f172a" }}
+                className="text-[26px] leading-8 font-black"
               >
                 {finishedDaresCount}
               </Text>
               <Text
-                style={{ color: isDark ? "#999999" : "#666666" }}
-                className="text-[10px] font-semibold mt-1 tracking-wider uppercase"
+                style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                className="text-[9px] font-bold mt-1 tracking-widest uppercase"
               >
                 Dares Finished
               </Text>
             </View>
             <View
-              className="rounded-2xl px-5 py-4 w-[47%] shadow-sm border"
+              className="rounded-[24px] px-5 py-4 w-[47%] shadow-sm border"
               style={{
-                backgroundColor: isDark ? "#1E1E1E" : "#F8F8F8",
-                borderColor: isDark ? "#333333" : "#F0F0F0",
+                backgroundColor: isDark ? "#122220" : "#ffffff",
+                borderColor: isDark ? "rgba(13,148,136,0.3)" : "rgba(13,148,136,0.15)",
               }}
             >
               <View
-                style={{ backgroundColor: isDark ? "#33222C" : "#FCEEF5" }}
-                className="w-10 h-10 rounded-full items-center justify-center mb-3"
+                style={{ backgroundColor: isDark ? "rgba(45,212,191,0.15)" : "#ccfbf1" }}
+                className="w-8 h-8 rounded-full items-center justify-center mb-3"
               >
                 <Ionicons
                   name="flame"
-                  size={20}
-                  color={isDark ? "#D36B93" : "#481639"}
+                  size={17}
+                  color={isDark ? "#2dd4bf" : "#0d9488"}
                 />
               </View>
               <Text
-                style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
-                className="text-2xl font-black"
+                style={{ color: isDark ? "#2dd4bf" : "#0f172a" }}
+                className="text-[26px] leading-8 font-black"
               >
                 {currentStreak}
               </Text>
               <Text
-                style={{ color: isDark ? "#999999" : "#666666" }}
-                className="text-[10px] font-semibold mt-1 tracking-wider uppercase"
+                style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                className="text-[9px] font-bold mt-1 tracking-widest uppercase"
               >
                 Day Streak
               </Text>
@@ -1460,7 +1474,7 @@ export default function Dashboard() {
             {roomLoading ? (
               /* Loading State */
               <View
-                className="rounded-2xl p-8 items-center shadow-sm border"
+                className="rounded-[28px] p-8 items-center shadow-sm border"
                 style={{
                   backgroundColor: isDark ? "#271318" : "#ffffff",
                   borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
@@ -1468,7 +1482,7 @@ export default function Dashboard() {
               >
                 <ActivityIndicator
                   size="large"
-                  color={isDark ? "#D36B93" : "#481639"}
+                  color={isDark ? "#f43f5e" : "#e11d48"}
                 />
                 <Text
                   style={{ color: isDark ? "#fda4af" : "#64748b" }}
@@ -1482,7 +1496,7 @@ export default function Dashboard() {
                 activeRoom.status === "WAITING") ? (
               <View
                 key="active-room-card"
-                className="rounded-2xl overflow-hidden shadow-lg border"
+                className="rounded-[28px] overflow-hidden shadow-lg border"
                 style={{
                   backgroundColor: isDark ? "#271318" : "#ffffff",
                   borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
@@ -1575,7 +1589,7 @@ export default function Dashboard() {
                       backgroundColor: isDark ? "#180D10" : "#fdf2f4",
                       borderColor: isDark ? "rgba(225,29,72,0.2)" : "#fce7f3",
                     }}
-                    className="border rounded-xl p-3.5 mb-4 items-center justify-center"
+                    className="border rounded-[20px] p-3.5 mb-4 items-center justify-center"
                   >
                     <View className="flex-row items-center justify-center mb-3">
                       {/* User Avatar */}
@@ -1722,7 +1736,7 @@ export default function Dashboard() {
               /* ── NO ROOM CARD ────────────────────────────── */
               <View
                 key="no-room-card"
-                className="rounded-2xl p-5 shadow-lg relative overflow-hidden border"
+                className="rounded-[28px] p-5 shadow-lg relative overflow-hidden border"
                 style={{
                   minHeight: 200,
                   justifyContent: "center",
@@ -1799,7 +1813,7 @@ export default function Dashboard() {
                 {activeChallenges.map((challenge, index) => (
                   <View key={challenge.id}>
                     <View
-                      className="mx-6 mt-6 rounded-2xl overflow-hidden shadow-lg border"
+                      className="mx-6 mt-6 rounded-[32px] overflow-hidden shadow-lg border"
                       style={{
                         backgroundColor: challenge.sender_id === currentUserId
                           ? (isDark ? "#132724" : "#f0fdfa")
@@ -2082,7 +2096,7 @@ export default function Dashboard() {
                         ? (isDark ? "rgba(45,212,191,0.2)" : "rgba(13,148,136,0.15)")
                         : (isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)"),
                     }}
-                    className="rounded-2xl overflow-hidden shadow-lg border"
+                    className="rounded-[28px] overflow-hidden shadow-lg border"
                   >
                     <View className="h-32 relative">
                       <Image
@@ -2251,7 +2265,7 @@ export default function Dashboard() {
 
           {/* Coin Toss Decision Maker Section */}
           <View
-            className="mx-6 mt-6 rounded-3xl p-7 shadow-lg relative overflow-hidden border"
+            className="mx-6 mt-6 rounded-[36px] p-7 shadow-lg relative overflow-hidden border"
             style={{
               backgroundColor: isDark ? "#271318" : "#ffffff",
               borderColor: isDark ? "rgba(245,158,11,0.25)" : "rgba(245,158,11,0.2)",
@@ -2309,161 +2323,207 @@ export default function Dashboard() {
             </TouchableOpacity>
           </View>
 
-          {/* Friendzy Style Card History Section */}
-            <View className="mt-8 mb-8 px-6">
-              <View className="flex-row items-center justify-between mb-4">
-                <View className="flex-row items-center">
-                  <Text
-                    style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
-                    className="text-xl font-black tracking-tight"
-                  >
-                    Recent History
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => navigateTo("/history")}>
-                  <Text
-                    style={{ color: isDark ? "#D36B93" : "#481639" }}
-                    className="text-[12px] font-bold uppercase tracking-widest"
-                  >
-                    View All
-                  </Text>
-                </TouchableOpacity>
-              </View>
-  
-              {cardHistoryList.length > 0 ? (
-                <View className="flex-col gap-4">
-                  {cardHistoryList.slice(0, 4).map((item: any, idx: number) => {
-                    const title =
-                      item.title ||
-                      item.card?.title ||
-                      item.cards?.name ||
-                      "Completed Challenge";
-                    const category =
-                      item.category ||
-                      item.card?.category ||
-                      item.cards?.card_categories?.name?.split("_")[0] ||
-                      "DARE";
-                    const dateStr =
-                      item.sent_at || item.created_at || item.updated_at;
-                    const formattedDate = dateStr
-                      ? new Date(dateStr).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                        })
-                      : "Recently";
-                    const isCompleted =
-                      item.status === "COMPLETED" || item.status === "CONFIRMED";
-                    const isDeflected = item.status === "DEFLECTED";
-                    const isExpired = item.status === "EXPIRED";
-  
-                    const statusBg = isCompleted
-                      ? "bg-[#481639]/90"
-                      : isDeflected
-                        ? "bg-indigo-500/90"
-                        : isExpired
-                          ? "bg-slate-500/90"
-                          : "bg-[#D36B93]/90";
-  
-                    const statusLabel = isCompleted
-                      ? "Completed"
-                      : isDeflected
-                        ? "Deflected"
-                        : isExpired
-                          ? "Expired"
-                          : "Sent";
-                    const imageUrl =
-                      item.image ||
-                      item.card?.image_url ||
-                      "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&h=400&fit=crop";
-  
-                    return (
-                      <TouchableOpacity
-                        key={item.id || idx}
-                        activeOpacity={0.88}
-                        onPress={() => navigateTo("/history")}
-                        style={{
-                          backgroundColor: isDark ? "#1E1E1E" : "#F8F8F8",
-                          borderColor: isDark ? "#333333" : "#F0F0F0",
-                        }}
-                        className="w-full rounded-2xl overflow-hidden border shadow-sm mb-3 flex-row"
-                      >
-                        <View className="w-24 h-24 relative">
-                          <Image
-                            source={{ uri: imageUrl }}
-                            className="w-full h-full"
-                            resizeMode="cover"
-                          />
-                          <View className="absolute inset-0 bg-black/10" />
-                        </View>
-  
-                        <View className="flex-1 p-3 justify-center">
-                          <View className="flex-row items-center justify-between mb-1">
-                            <Text
-                              style={{ color: isDark ? "#D36B93" : "#481639" }}
-                              className="text-[9px] font-bold tracking-widest uppercase"
-                            >
-                              {category}
-                            </Text>
-                            <Text className="text-[10px] font-semibold text-gray-400">
-                              {formattedDate}
-                            </Text>
-                          </View>
-                          <Text
-                            style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
-                            className="text-base font-black tracking-tight mb-2"
-                            numberOfLines={1}
-                          >
-                            {title}
-                          </Text>
-                          <View className={`self-start ${statusBg} px-2 py-0.5 rounded flex-row items-center`}>
-                            <Text className="text-white font-bold text-[9px] uppercase tracking-wider">
-                              {statusLabel}
-                            </Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => navigateTo("/dares")}
-                  style={{
-                    backgroundColor: isDark ? "#1E1E1E" : "#F8F8F8",
-                    borderColor: isDark ? "#333333" : "#F0F0F0",
-                  }}
-                  className="border border-dashed rounded-2xl p-6 items-center justify-center shadow-sm"
+          {/* Card History Section */}
+          <View className="mt-10 mb-8 px-6">
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center">
+                <View
+                  style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
+                  className="w-8 h-8 rounded-full items-center justify-center mr-2.5"
                 >
-                  <View
-                    style={{ backgroundColor: isDark ? "#33222C" : "#FCEEF5" }}
-                    className="w-12 h-12 rounded-full items-center justify-center mb-3"
-                  >
-                    <Ionicons
-                      name="card"
-                      size={22}
-                      color={isDark ? "#D36B93" : "#481639"}
-                    />
-                  </View>
-                  <Text
-                    style={{ color: isDark ? "#FFFFFF" : "#1A1A1A" }}
-                    className="text-base font-bold mb-1 text-center"
-                  >
-                    No Card History Yet
-                  </Text>
-                  <Text
-                    style={{ color: isDark ? "#999999" : "#666666" }}
-                    className="text-xs font-medium text-center mb-4 leading-4 px-4"
-                  >
-                    Send your first card to your partner to start creating
-                    history together!
-                  </Text>
-                </TouchableOpacity>
-              )}
+                  <Ionicons
+                    name="time"
+                    size={16}
+                    color={isDark ? "#f43f5e" : "#e11d48"}
+                  />
+                </View>
+                <Text
+                  style={{ color: isDark ? "#fda4af" : "#0f172a" }}
+                  className="text-xl font-black tracking-tight"
+                >
+                  Card History
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => navigateTo("/history")}>
+                <Text
+                  style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                  className="text-[11px] font-bold uppercase tracking-widest"
+                >
+                  View All →
+                </Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-  
-          {/* FULL-SCREEN LOADING SPINNER */}
+
+            {cardHistoryList.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="-mx-6 px-6 pb-2"
+                contentContainerStyle={{ paddingRight: 48, gap: 14 }}
+              >
+                {cardHistoryList.slice(0, 6).map((item: any, idx: number) => {
+                  const title =
+                    item.title ||
+                    item.card?.title ||
+                    item.cards?.name ||
+                    "Completed Challenge";
+                  const category =
+                    item.category ||
+                    item.card?.category ||
+                    item.cards?.card_categories?.name?.split("_")[0] ||
+                    "DARE";
+                  const dateStr =
+                    item.sent_at || item.created_at || item.updated_at;
+                  const formattedDate = dateStr
+                    ? new Date(dateStr).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "Recently";
+                  const isCompleted =
+                    item.status === "COMPLETED" || item.status === "CONFIRMED";
+                  const isDeflected = item.status === "DEFLECTED";
+                  const isExpired = item.status === "EXPIRED";
+
+                  const statusBg = isCompleted
+                    ? "bg-emerald-500/90"
+                    : isDeflected
+                      ? "bg-indigo-500/90"
+                      : isExpired
+                        ? "bg-slate-500/90"
+                        : "bg-rose-500/90";
+
+                  const statusLabel = isCompleted
+                    ? "Completed"
+                    : isDeflected
+                      ? "Deflected"
+                      : isExpired
+                        ? "Expired"
+                        : "Sent";
+                  const imageUrl =
+                    item.image ||
+                    item.card?.image_url ||
+                    "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&h=400&fit=crop";
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id || idx}
+                      activeOpacity={0.88}
+                      onPress={() => navigateTo("/history")}
+                      style={{
+                        backgroundColor: isDark ? "#271318" : "#ffffff",
+                        borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                      }}
+                      className="w-[240px] rounded-[28px] overflow-hidden border shadow-md"
+                    >
+                      <View className="h-32 relative">
+                        <Image
+                          source={{ uri: imageUrl }}
+                          className="w-full h-full"
+                          resizeMode="cover"
+                        />
+                        <View className="absolute inset-0 bg-black/30" />
+
+                        {/* Top Status Tag */}
+                        <View
+                          className={`absolute top-3 left-3 ${statusBg} px-2.5 py-1 rounded-full flex-row items-center`}
+                        >
+                          <Ionicons
+                            name={
+                              isCompleted
+                                ? "checkmark-circle"
+                                : isDeflected
+                                  ? "return-up-back"
+                                  : "time"
+                            }
+                            size={11}
+                            color="white"
+                          />
+                          <Text className="text-white font-bold text-[9px] uppercase tracking-wider ml-1">
+                            {statusLabel}
+                          </Text>
+                        </View>
+
+                        {/* Date Badge */}
+                        <View className="absolute bottom-2.5 right-3 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                          <Text className="text-white/90 text-[10px] font-semibold">
+                            {formattedDate}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View className="p-4">
+                        <Text
+                          style={{ color: isDark ? "#fda4af" : "#be123c" }}
+                          className="text-[9px] font-bold tracking-widest uppercase mb-1"
+                        >
+                          {category}
+                        </Text>
+                        <Text
+                          style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+                          className="text-base font-black tracking-tight"
+                          numberOfLines={1}
+                        >
+                          {title}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => navigateTo("/dares")}
+                style={{
+                  backgroundColor: isDark ? "#271318" : "#ffffff",
+                  borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.25)",
+                }}
+                className="border border-dashed rounded-[28px] p-6 items-center justify-center shadow-sm"
+              >
+                <View
+                  style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
+                  className="w-12 h-12 rounded-full items-center justify-center mb-3"
+                >
+                  <Ionicons
+                    name="card"
+                    size={22}
+                    color={isDark ? "#f43f5e" : "#e11d48"}
+                  />
+                </View>
+                <Text
+                  style={{ color: isDark ? "#ffffff" : "#0f172a" }}
+                  className="text-base font-bold mb-1 text-center"
+                >
+                  No Card History Yet
+                </Text>
+                <Text
+                  style={{ color: isDark ? "#94a3b8" : "#64748b" }}
+                  className="text-xs font-medium text-center mb-4 leading-4 px-4"
+                >
+                  Send your first dare card to your partner to start creating
+                  history together! 💕
+                </Text>
+                <View
+                  style={{ backgroundColor: isDark ? "#e11d48" : "#af2c3b" }}
+                  className="px-5 py-2.5 rounded-full flex-row items-center"
+                >
+                  <Text className="text-white font-bold text-xs">
+                    Send a Dare
+                  </Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={14}
+                    color="white"
+                    style={{ marginLeft: 4 }}
+                  />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* FULL-SCREEN LOADING SPINNER */}
         {isLeavingRoom && (
           <View
             style={{
@@ -2474,14 +2534,14 @@ export default function Dashboard() {
               bottom: 0,
               zIndex: 9999,
             }}
-            className="bg-black/60 items-center justify-center"
+            className="bg-[#180D10]/90 items-center justify-center"
           >
-            <View className="bg-white dark:bg-[#1E1E1E] p-8 rounded-2xl items-center border border-gray-200 dark:border-[#333333] shadow-sm">
-              <ActivityIndicator size="large" color="#481639" />
+            <View className="bg-[#241117] p-8 rounded-[32px] items-center border border-rose-950/40 shadow-rose-900/20">
+              <ActivityIndicator size="large" color="#e11d48" />
               <Text className="text-white font-bold mt-6 text-lg tracking-wide">
                 Leaving Room...
               </Text>
-              <Text className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-2">
+              <Text className="text-rose-400/80 text-xs font-medium mt-2">
                 Disconnecting from partner
               </Text>
             </View>
@@ -2510,9 +2570,9 @@ export default function Dashboard() {
               alignItems: "center",
             }}
           >
-            <View className="bg-white dark:bg-[#1E1E1E] w-[85%] rounded-2xl p-7 items-center shadow-2xl border border-gray-200 dark:border-[#333333]">
+            <View className="bg-white dark:bg-[#180D10] w-[85%] rounded-[32px] p-7 items-center shadow-2xl border border-rose-100 dark:border-rose-900/40">
               {selectedReceivedCard?.card?.image_url ? (
-                <View className="w-full h-56 rounded-xl mb-5 overflow-hidden shadow-sm bg-gray-50 dark:bg-[#121212] dark:border dark:border-[#333333] relative">
+                <View className="w-full h-56 rounded-[20px] mb-5 overflow-hidden shadow-sm bg-slate-50 dark:bg-[#0f0608] dark:border dark:border-rose-950/40 relative">
                   <Image
                     source={{ uri: selectedReceivedCard.card.image_url }}
                     className="w-full h-full"
@@ -2540,7 +2600,7 @@ export default function Dashboard() {
                   </View>
                 </View>
               ) : (
-                <View className="w-16 h-16 rounded-full bg-[#FCEEF5] dark:bg-[#33222C] items-center justify-center mb-5 shadow-sm dark:shadow-none border border-rose-100 dark:border-rose-900/20">
+                <View className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-900/30 items-center justify-center mb-5 shadow-sm dark:shadow-none border border-rose-100 dark:border-rose-900/20">
                   <Ionicons 
                     name={selectedReceivedCard?.sender_id === currentUserId ? "paper-plane" : "mail-unread"} 
                     size={32} 
@@ -2774,12 +2834,12 @@ export default function Dashboard() {
           onRequestClose={() => setPenaltyGiftModalVisible(false)}
         >
           <View className="flex-1 justify-center items-center bg-black/60 px-4">
-            <View className="w-full bg-white dark:bg-[#1E1E1E] rounded-2xl overflow-hidden items-center p-6 border border-gray-200 dark:border-[#333333] shadow-xl shadow-rose-900/20">
-              <View className="w-20 h-20 rounded-full bg-[#FCEEF5] dark:bg-[#33222C] items-center justify-center mb-5 border-4 border-white dark:border-[#1E1E1E] -mt-12">
+            <View className="w-full bg-white dark:bg-[#1f0f13] rounded-[32px] overflow-hidden items-center p-6 border border-slate-200 dark:border-rose-950/40 shadow-xl shadow-rose-900/20">
+              <View className="w-20 h-20 rounded-full bg-rose-100 dark:bg-rose-950/40 items-center justify-center mb-5 border-4 border-white dark:border-[#1f0f13] -mt-12">
                 <Ionicons
                   name="gift"
                   size={32}
-                  color={isDark ? "#D36B93" : "#481639"}
+                  color={isDark ? "#fda4af" : "#e11d48"}
                 />
               </View>
               <Text className="text-2xl font-black text-slate-900 dark:text-white text-center mb-2 tracking-tight">
@@ -2791,23 +2851,23 @@ export default function Dashboard() {
               </Text>
 
               {penaltyGiftCard && (
-                <View className="w-full bg-gray-50 dark:bg-[#2A2A2A]/50 rounded-2xl p-4 border border-gray-200 dark:border-[#333333] mb-6 flex-row items-center">
+                <View className="w-full bg-slate-50 dark:bg-[#271318]/50 rounded-2xl p-4 border border-slate-200 dark:border-rose-950/30 mb-6 flex-row items-center">
                   {penaltyGiftCard.image_url ? (
                     <Image
                       source={{ uri: penaltyGiftCard.image_url }}
                       className="w-14 h-14 rounded-xl mr-4"
                     />
                   ) : (
-                    <View className="w-14 h-14 rounded-xl bg-[#FCEEF5] dark:bg-[#33222C] items-center justify-center mr-4">
+                    <View className="w-14 h-14 rounded-xl bg-rose-100 dark:bg-rose-950/40 items-center justify-center mr-4">
                       <Ionicons
                         name="card"
                         size={24}
-                        color={isDark ? "#D36B93" : "#481639"}
+                        color={isDark ? "#fda4af" : "#e11d48"}
                       />
                     </View>
                   )}
                   <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-[#481639] dark:text-[#D36B93] uppercase tracking-widest mb-1">
+                    <Text className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">
                       {penaltyGiftCard.category || "REWARD CARD"}
                     </Text>
                     <Text className="text-[15px] font-bold text-slate-800 dark:text-white leading-tight">
@@ -2820,7 +2880,7 @@ export default function Dashboard() {
               )}
 
               <TouchableOpacity
-                className="w-full bg-[#481639] dark:bg-[#D36B93] py-4 rounded-2xl items-center"
+                className="w-full bg-rose-500 dark:bg-rose-600 py-4 rounded-2xl items-center"
                 onPress={() => setPenaltyGiftModalVisible(false)}
               >
                 <Text className="text-white font-bold text-[15px] tracking-wide">

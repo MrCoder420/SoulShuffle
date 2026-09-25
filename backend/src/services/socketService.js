@@ -4,6 +4,9 @@ const { env } = require('../config/env');
 
 let io;
 
+// Map userId → Set of socket IDs (user can have multiple tabs open)
+const userSocketMap = new Map();
+
 const initSocket = (server) => {
     io = socketIo(server, {
         cors: {
@@ -15,12 +18,10 @@ const initSocket = (server) => {
     // Authentication Middleware
     io.use((socket, next) => {
         try {
-            // Expect token in handshake auth or header
             const token = socket.handshake.auth.token || socket.handshake.headers['authorization']?.split(' ')[1];
             if (!token) throw new Error('Authentication error');
-
             const decoded = verifyAccessToken(token);
-            socket.user = decoded; // Attach user payload to socket
+            socket.user = decoded;
             next();
         } catch (err) {
             next(new Error('Authentication error'));
@@ -28,39 +29,48 @@ const initSocket = (server) => {
     });
 
     io.on('connection', (socket) => {
-        console.log(`🔌 User connected: ${socket.user.id} (Socket ID: ${socket.id})`);
+        const userId = socket.user.id;
+        console.log(`🔌 User connected: ${userId} (Socket ID: ${socket.id})`);
+
+        // Register user socket
+        if (!userSocketMap.has(userId)) userSocketMap.set(userId, new Set());
+        userSocketMap.get(userId).add(socket.id);
 
         let currentRoomCode = null;
 
         // Join a specific room channel
         socket.on('join_room', (roomCode) => {
-            console.log(`User ${socket.user.id} joining room ${roomCode}`);
+            console.log(`User ${userId} joining room ${roomCode}`);
             socket.join(roomCode);
             currentRoomCode = roomCode;
 
             // Notify others in room that partner is ONLINE
             socket.to(roomCode).emit('partner_joined', {
-                userId: socket.user.id,
+                userId,
                 status: 'online'
             });
         });
 
         // Generic game event transmitter
         socket.on('game_event', (payload) => {
-            // payload expects { roomCode: 'ELV...', eventType: 'SCORE_UPDATE', data: {} }
             const { roomCode, eventType, data } = payload;
             if (!roomCode) return;
-
             console.log(`Game Event [${eventType}] in room ${roomCode}`);
-            socket.to(roomCode).emit('game_event', { eventType, data, senderId: socket.user.id });
+            socket.to(roomCode).emit('game_event', { eventType, data, senderId: userId });
         });
 
         socket.on('disconnect', () => {
-            console.log(`🔌 User disconnected: ${socket.user.id}`);
+            console.log(`🔌 User disconnected: ${userId}`);
+
+            // Remove socket from map
+            if (userSocketMap.has(userId)) {
+                userSocketMap.get(userId).delete(socket.id);
+                if (userSocketMap.get(userId).size === 0) userSocketMap.delete(userId);
+            }
+
             if (currentRoomCode) {
-                // Notify others in room that partner is OFFLINE
                 io.to(currentRoomCode).emit('partner_offline', {
-                    userId: socket.user.id,
+                    userId,
                     status: 'offline'
                 });
             }
@@ -69,10 +79,20 @@ const initSocket = (server) => {
 };
 
 const getIo = () => {
-    if (!io) {
-        throw new Error('Socket.io not initialized!');
-    }
+    if (!io) throw new Error('Socket.io not initialized!');
     return io;
 };
 
-module.exports = { initSocket, getIo };
+// Emit an event directly to a specific user (by userId)
+const emitToUser = (userId, event, data) => {
+    if (!io || !userId) return;
+    const socketIds = userSocketMap.get(String(userId));
+    if (socketIds && socketIds.size > 0) {
+        socketIds.forEach((socketId) => {
+            io.to(socketId).emit(event, data);
+        });
+    }
+};
+
+module.exports = { initSocket, getIo, emitToUser };
+

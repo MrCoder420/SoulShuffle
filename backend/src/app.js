@@ -34,6 +34,8 @@ const adminAuthRoutes = require('./routes/adminAuthRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const cardRoutes = require('./routes/cardRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const cardSendRoutes = require('./routes/cardSendRoutes');
 
 // Setup Routes
 app.use('/api/v1/auth', authRoutes);
@@ -41,10 +43,13 @@ app.use('/api/v1/profile', profileRoutes);
 app.use('/api/v1/questionnaire', questionnaireRoutes);
 app.use('/api/v1/rooms', roomRoutes);
 app.use('/api/v1/cards', cardRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/user', cardSendRoutes);
 
 // Admin Routes (Isolated)
 app.use('/api/v1/admin/auth', adminAuthRoutes);
 app.use('/api/v1/admin', adminRoutes);
+
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -55,5 +60,12 @@ app.use((err, req, res, next) => {
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 });
+
+// Start scheduled background jobs
+try {
+  require('./services/scheduledNotificationService').startScheduledJobs();
+} catch (e) {
+  console.error('Failed to start scheduled jobs:', e.message);
+}
 
 module.exports = app;
