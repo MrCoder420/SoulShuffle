@@ -114,7 +114,7 @@ function TabItem({
 }
 
 // ─── Custom Floating Tab Bar ──────────────────────────────────────────────────
-function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+function CustomTabBar({ state, navigation }: any) {
   const isDark = useColorScheme() === 'dark';
   const insets = useSafeAreaInsets();
 
@@ -136,9 +136,9 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         ]}
       >
         {TABS.map((tab, index) => {
-          const route = state.routes.find((r) => r.name === tab.name);
+          const route = state.routes.find((r: any) => r.name === tab.name);
           if (!route) return null;
-          const focused = state.index === state.routes.findIndex((r) => r.name === tab.name);
+          const focused = state.index === state.routes.findIndex((r: any) => r.name === tab.name);
 
           return (
             <TabItem

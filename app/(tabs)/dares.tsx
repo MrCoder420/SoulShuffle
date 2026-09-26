@@ -115,7 +115,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH * 0.72;
 const SPACING = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
 
-const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }) => {
+const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }: any) => {
   const inputRange = [
     (index - 1) * ITEM_WIDTH,
     index * ITEM_WIDTH,
@@ -188,7 +188,7 @@ const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }) => {
   );
 };
 
-const DareCarousel = ({ data, isDark, onSelectDare }) => {
+const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
   const scrollX = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollX.value = event.contentOffset.x;
@@ -624,8 +624,8 @@ export default function Dares() {
           <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
         <View className="flex-row items-center gap-1.5">
-          <Ionicons name="infinite" size={28} color="#ff1b6b" style={{ transform: [{ rotate: '-15deg' }] }} />
-          <Text className="text-[#ff1b6b] font-black text-xl tracking-tight">SoulShuffle</Text>
+          <Ionicons name="infinite" size={28} color={isDark ? "#fda4af" : "#be123c"} style={{ transform: [{ rotate: '-15deg' }] }} />
+          <Text className="text-[#a12338] dark:text-rose-400 font-black text-xl tracking-tight">SoulShuffle</Text>
         </View>
         <TouchableOpacity onPress={() => router.push('/profile')}>
           <Image 
@@ -674,7 +674,7 @@ export default function Dares() {
                 { id: 'fun', label: 'Fun', image: require('@/assets/images/bundle_cozy.jpg'), color: 'text-purple-500' },
                 { id: 'deep', label: 'Deep', image: require('@/assets/images/sunset_picnic.jpeg'), color: 'text-blue-600 dark:text-blue-400' },
                 { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: 'text-[#ff1b6b]' }
-              ].map((cat) => (
+              ].map((cat: any) => (
                 <TouchableOpacity key={cat.id} activeOpacity={0.9} className="w-[100px] h-[120px] bg-white dark:bg-[#1C1215] rounded-3xl overflow-hidden mr-3 items-center shadow-sm border border-slate-50 dark:border-rose-950/20">
                   <View className="w-full h-[65%]">
                     <Image source={cat.image} className="w-full h-full" resizeMode="cover" />
@@ -687,38 +687,7 @@ export default function Dares() {
             </ScrollView>
           </View>
         </ScrollView>
-            ) : (
-              dares.filter(dare => {
-                const matchesCategory = selectedCategory === 'ALL' || dare.category.toUpperCase() === selectedCategory.toUpperCase();
-                const matchesSearch = dare.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                      (dare.description && dare.description.toLowerCase().includes(searchQuery.toLowerCase()));
-                return matchesCategory && matchesSearch;
-              }).map((dare) => (
-                <TouchableOpacity
-                  key={dare.id}
-                  className="w-[48%] bg-white dark:bg-[#271318] rounded-xl overflow-hidden border border-slate-50 dark:border-rose-950/20 pb-4"
-                  activeOpacity={0.85}
-                  onPress={() => setSelectedDare(dare)}
-                >
-                  <View className="w-full h-40 relative">
-                    <Image source={typeof dare.image === 'string' ? { uri: dare.image } : dare.image} className="w-full h-full" />
-                    
-                    {dare.isPaid && (
-                      <View className="absolute top-3 right-3 bg-white/95 dark:bg-[#0F0608]/95 w-6 h-6 rounded-full flex-row items-center justify-center">
-                        <Ionicons name="lock-closed" size={10} color={isDark ? "#f43f5e" : "#ab2f33"} />
-                      </View>
-                    )}
-                  </View>
 
-                  <View className="px-4 pt-4">
-                    <Text className="text-[9px] font-bold text-slate-500 dark:text-rose-400 tracking-wider uppercase mb-1">{dare.category}</Text>
-                    <Text className="text-[17px] font-bold text-slate-800 dark:text-white tracking-tight leading-5 mb-3">{dare.title}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </ScrollView>
       ) : (
         <ScrollView 
           contentContainerStyle={{ flexGrow: 1 }}
