@@ -731,10 +731,8 @@ export default function Dares() {
       ) : room && room.status === 'ACTIVE' ? (
         <ScrollView 
           showsVerticalScrollIndicator={false} 
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF296D']} tintColor={isDark ? '#fff' : '#FF296D'} />
-          }
           contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}
+          bounces={false}
         >
           {/* Header Title */}
           <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}>
