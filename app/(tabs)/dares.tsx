@@ -1,5 +1,6 @@
+import Animated, { useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Image, TouchableOpacity, Platform, StatusBar, TextInput, Modal, ActivityIndicator, Alert, RefreshControl, DeviceEventEmitter } from 'react-native';
+import { View, Text, ScrollView, Dimensions, Image, TouchableOpacity, Platform, StatusBar, TextInput, Modal, ActivityIndicator, Alert, RefreshControl, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -108,6 +109,119 @@ const mapCardToDare = (card: any): Dare => {
     isPaid: false
   };
 };
+
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ITEM_WIDTH = SCREEN_WIDTH * 0.72;
+const SPACING = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
+
+const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }) => {
+  const inputRange = [
+    (index - 1) * ITEM_WIDTH,
+    index * ITEM_WIDTH,
+    (index + 1) * ITEM_WIDTH
+  ];
+
+  const style = useAnimatedStyle(() => {
+    const scale = interpolate(scrollX.value, inputRange, [0.85, 1, 0.85], Extrapolation.CLAMP);
+    const translateX = interpolate(scrollX.value, inputRange, [ITEM_WIDTH * 0.22, 0, -ITEM_WIDTH * 0.22], Extrapolation.CLAMP);
+    const zIndex = interpolate(scrollX.value, [
+      (index - 0.5) * ITEM_WIDTH,
+      index * ITEM_WIDTH,
+      (index + 0.5) * ITEM_WIDTH,
+    ], [0, 100, 0], Extrapolation.CLAMP);
+
+    return {
+      transform: [{ translateX }, { scale }],
+      zIndex: Math.round(zIndex)
+    };
+  });
+  
+  if (item.spacer) {
+    return <View style={{ width: SPACING }} />;
+  }
+
+  const getCatColor = (cat) => {
+    const c = (cat || '').toLowerCase();
+    if(c.includes('romance')) return 'bg-[#ff1b6b]';
+    if(c.includes('fun')) return 'bg-purple-500';
+    if(c.includes('spicy')) return 'bg-[#af2c3b]';
+    return 'bg-blue-500';
+  };
+
+  return (
+    <Animated.View style={[{ width: ITEM_WIDTH, height: ITEM_WIDTH * 1.45, justifyContent: 'center', alignItems: 'center' }, style]}>
+      <TouchableOpacity 
+         activeOpacity={0.95} 
+         onPress={() => onSelect(item)}
+         className="w-full h-full rounded-[30px] overflow-hidden bg-slate-200 dark:bg-slate-800 shadow-xl"
+         style={{ elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 15 }}
+      >
+        <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
+
+        <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
+          <View className={`px-3.5 py-1.5 rounded-full ${getCatColor(item.category)}`}>
+             <Text className="text-white text-[10px] font-black tracking-widest uppercase">{item.category}</Text>
+          </View>
+          <TouchableOpacity className="w-9 h-9 rounded-full bg-white/25 items-center justify-center">
+             <Ionicons name="heart-outline" size={18} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        <View className="absolute bottom-6 left-5 right-5">
+           <Text className="text-white text-[22px] font-black mb-1 tracking-tight leading-7">{item.title}</Text>
+           <Text className="text-white/80 text-[13px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
+           
+           <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                 <Ionicons name="people" size={16} color="white" />
+                 <Text className="text-white text-xs font-semibold ml-1.5">2+ People</Text>
+              </View>
+              <View className="w-11 h-11 rounded-full bg-[#ff1b6b] items-center justify-center">
+                 <Ionicons name="arrow-forward" size={20} color="white" />
+              </View>
+           </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const DareCarousel = ({ data, isDark, onSelectDare }) => {
+  const scrollX = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollX.value = event.contentOffset.x;
+  });
+  
+  const paddedData = data && data.length > 0 ? [{ id: 'left-pad', spacer: true }, ...data, { id: 'right-pad', spacer: true }] : [];
+
+  return (
+    <View>
+      <Animated.FlatList
+        data={paddedData}
+        keyExtractor={(item, index) => item.id || `spacer-${index}`}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={ITEM_WIDTH}
+        decelerationRate="fast"
+        bounces={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        renderItem={({ item, index }) => (
+          <DareCarouselItem item={item} index={index} scrollX={scrollX} isDark={isDark} onSelect={onSelectDare} />
+        )}
+      />
+      <View className="flex-row justify-center items-center mt-6 gap-2">
+        <View className="w-6 h-2 rounded-full bg-[#ff1b6b]" />
+        <View className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+        <View className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+        <View className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+      </View>
+    </View>
+  );
+};
+
 
 export default function Dares() {
   const { openSidebar } = useSidebar();
@@ -505,21 +619,27 @@ export default function Dares() {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff8f7"} />
       
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
-        <TouchableOpacity onPress={openSidebar}>
-          <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
-        </TouchableOpacity>
-        <View className="flex-row items-center gap-1.5">
-          <Ionicons name="infinite" size={28} color={isDark ? "#fda4af" : "#be123c"} style={{ transform: [{ rotate: '-15deg' }] }} />
-          <Text className="text-[#a12338] dark:text-rose-400 font-black text-xl tracking-tight">SoulShuffle</Text>
+        <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
+          <TouchableOpacity onPress={openSidebar}>
+            <Ionicons name="menu-outline" size={32} color={isDark ? "#fff" : "#000"} />
+          </TouchableOpacity>
+          <View className="flex-row items-center justify-center absolute left-0 right-0 z-[-1]" pointerEvents="none">
+            <Ionicons name="infinite" size={28} color="#ff1b6b" style={{ transform: [{ rotate: '-15deg' }] }} />
+            <Text className="text-[#ff1b6b] font-black text-2xl tracking-tight ml-1">SoulShuffle</Text>
+          </View>
+          <View className="flex-row items-center gap-4">
+            <TouchableOpacity>
+               <Ionicons name="notifications-outline" size={26} color={isDark ? "#fff" : "#000"} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/profile')}>
+              <Image 
+                source={{ uri: userAvatar }} 
+                className="w-9 h-9 rounded-full border border-slate-200 dark:border-rose-950/30"
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity onPress={() => router.push('/profile')}>
-          <Image 
-            source={{ uri: userAvatar }} 
-            className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
-          />
-        </TouchableOpacity>
-      </View>
+      
 
       {loading ? (
         <View className="flex-1 items-center justify-center bg-[#fff8f7] dark:bg-[#0F0608]">
@@ -529,170 +649,50 @@ export default function Dares() {
       ) : room && room.status === 'ACTIVE' ? (
         <ScrollView 
           showsVerticalScrollIndicator={false} 
-          contentContainerStyle={{ paddingBottom: 160 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e11d48']} tintColor={isDark ? '#fff' : '#e11d48'} />
           }
+          contentContainerStyle={{ paddingBottom: 100 }}
         >
-          {/* Search Bar */}
-          <View className="px-6 mt-2 mb-6">
-            <View className="bg-white dark:bg-[#271318] rounded-2xl h-14 flex-row items-center px-4 shadow-slate-100 border border-slate-50 dark:border-rose-950/20">
-              <Ionicons name="search" size={20} color={isDark ? "#fff" : "#000"} />
-              <TextInput 
-                placeholder="Search for a dare..."
-                placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#9ca3af"}
-                className="flex-1 ml-3 text-slate-800 dark:text-white text-[15px] font-medium"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
+          {/* Header Title */}
+          <View className="px-6 pt-2 pb-4">
+            <Text className="text-4xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">Dares</Text>
+            <Text className="text-slate-500 dark:text-slate-400 text-[15px] font-medium">Step out, connect, and make memories 💖</Text>
           </View>
 
-          {/* Filter Pills */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6 mb-8" contentContainerStyle={{ paddingRight: 40, alignItems: 'center' }}>
-            {['ALL', ...Array.from(new Set(dares.map(d => d.category)))].map(cat => (
-              <TouchableOpacity 
-                key={cat}
-                className={`px-6 py-4 rounded-full mr-2 border ${
-                  selectedCategory === cat 
-                    ? 'bg-rose-500 border-rose-500' 
-                    : 'bg-white dark:bg-[#271318] border-slate-50 dark:border-rose-950/20'
-                }`}
-                onPress={() => setSelectedCategory(cat)}
-              >
-                <Text className={`font-bold text-sm tracking-wide ${selectedCategory === cat ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                  {cat === 'ALL' ? 'All Dares' : cat.split(' ').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {/* Carousel */}
+          <View className="mt-2 mb-6">
+            <DareCarousel data={dares} isDark={isDark} onSelectDare={setSelectedDare} />
+          </View>
 
-          {/* SoulStore Showcase Section */}
-          <View className="mb-10 px-6">
-            {/* Header with Title and Visit Store Pill */}
+          {/* Explore Categories */}
+          <View className="px-6 mt-4">
             <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center">
-                <View className="bg-rose-100 dark:bg-rose-900/30 w-8 h-8 rounded-full items-center justify-center mr-2.5">
-                  <Ionicons name="cart" size={16} color={isDark ? "#D36B93" : "#481639"} />
-                </View>
-                <Text className="text-xl font-black text-slate-900 dark:text-rose-100 tracking-tight">
-                  SoulStore
-                </Text>
-              </View>
-              <TouchableOpacity 
-                activeOpacity={0.8}
-                onPress={() => router.push('/store')}
-                className="flex-row items-center bg-[#481639] dark:bg-[#D36B93] px-3.5 py-1.5 rounded-full shadow-sm"
-              >
-                <Text className="text-[11px] font-extrabold text-white uppercase tracking-wider mr-1">
-                  Visit Store
-                </Text>
-                <Ionicons name="arrow-forward" size={12} color="white" />
+              <Text className="text-xl font-bold text-slate-900 dark:text-white">Explore Categories</Text>
+              <TouchableOpacity>
+                <Text className="text-[#ff1b6b] font-bold text-sm">See all</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Store Hero Banner */}
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => router.push('/store')}
-              style={{ backgroundColor: isDark ? '#34121a' : '#e11d48' }}
-              className="rounded-2xl p-5 mb-5 overflow-hidden relative shadow-lg border border-rose-400/30 dark:border-rose-900/40"
-            >
-              <View className="flex-row items-center justify-between z-10">
-                <View className="flex-1 pr-3">
-                  <View className="bg-white/20 dark:bg-rose-500/30 self-start px-2.5 py-1 rounded-full mb-2 flex-row items-center">
-                    <Ionicons name="sparkles" size={11} color="white" />
-                    <Text className="text-white font-extrabold text-[10px] uppercase tracking-widest ml-1">
-                      Exclusive Passes & Decks
-                    </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={{ paddingHorizontal: 24 }}>
+              {[
+                { id: 'romance', label: 'Romance', image: require('@/assets/images/bundle_romantic.jpg'), color: 'text-[#ff1b6b]' },
+                { id: 'fun', label: 'Fun', image: require('@/assets/images/bundle_cozy.jpg'), color: 'text-purple-500' },
+                { id: 'deep', label: 'Deep', image: require('@/assets/images/sunset_picnic.jpeg'), color: 'text-blue-600 dark:text-blue-400' },
+                { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: 'text-[#ff1b6b]' }
+              ].map((cat) => (
+                <TouchableOpacity key={cat.id} activeOpacity={0.9} className="w-[100px] h-[120px] bg-white dark:bg-[#1C1215] rounded-3xl overflow-hidden mr-3 items-center shadow-sm border border-slate-50 dark:border-rose-950/20">
+                  <View className="w-full h-[65%]">
+                    <Image source={cat.image} className="w-full h-full" resizeMode="cover" />
                   </View>
-                  <Text className="text-white font-black text-lg tracking-tight leading-6 mb-1">
-                    Unlock Premium Decks 🛍️
-                  </Text>
-                  <Text className="text-white/90 dark:text-rose-200/90 text-xs font-medium leading-4">
-                    Tap to explore spicy decks and intimate packs in our store.
-                  </Text>
-                </View>
-                
-                <View className="bg-white/20 dark:bg-rose-500/30 p-3.5 rounded-2xl items-center justify-center">
-                  <Ionicons name="bag-handle" size={26} color="white" />
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            {/* Store Highlights Horizontal Carousel */}
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              className="-mx-6 px-6" 
-              contentContainerStyle={{ paddingRight: 48, gap: 14 }}
-            >
-              {realStoreBundles.map((bundle) => {
-                const plans = bundle.bundle_plans || bundle.plans || [];
-                const minPrice = plans.length > 0 ? Math.min(...plans.map(p => p.price)) : null;
-                const priceText = minPrice ? `₹${minPrice}` : 'Store Deck';
-                
-                const cardCount = plans.length > 0 && plans[0].card_count ? `${plans[0].card_count} Dares` : 'Premium Deck';
-                const imageSource = getBundleImage(bundle.name, bundle.image_url);
-
-                return (
-                  <TouchableOpacity
-                    key={bundle.id}
-                    activeOpacity={0.88}
-                    className="w-[260px] h-52 bg-white dark:bg-[#271318] rounded-2xl overflow-hidden relative shadow-md border border-slate-100 dark:border-rose-950/30"
-                    onPress={() => handleOpenStoreItem(bundle.id)}
-                  >
-                    <Image 
-                      source={typeof imageSource === 'string' ? { uri: imageSource } : imageSource} 
-                      className="w-full h-full absolute inset-0" 
-                      resizeMode="cover" 
-                    />
-                    <View className="absolute inset-0 bg-black/45" />
-                    
-                    {/* Top Badge */}
-                    <View className="absolute top-3 left-3 flex-row items-center gap-1.5">
-                      <View className="bg-rose-500/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex-row items-center shadow-sm">
-                        <Ionicons name="albums" size={11} color="white" />
-                        <Text className="text-white font-black text-[9px] uppercase tracking-wider ml-1">
-                          {cardCount}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20">
-                      <Text className="text-white font-extrabold text-[10px]">{priceText}</Text>
-                    </View>
-
-                    {/* Card Bottom Info */}
-                    <View className="absolute bottom-0 left-0 right-0 p-4 justify-end bg-black/40">
-                      <Text className="text-white text-base font-black tracking-tight mb-0.5" numberOfLines={1}>
-                        {bundle.name}
-                      </Text>
-                      <Text className="text-white/80 text-[11px] font-medium leading-4 mb-2.5" numberOfLines={1}>
-                        {bundle.description || 'Unlock exclusive dares in store'}
-                      </Text>
-
-                      <View className="bg-rose-500 px-3 py-1.5 rounded-full flex-row items-center justify-between">
-                        <Text className="text-white font-bold text-[11px]">Unlock in Store</Text>
-                        <Ionicons name="bag-check" size={13} color="white" />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+                  <View className="flex-1 justify-center items-center w-full">
+                    <Text className={`text-[11px] font-bold ${cat.color}`}>{cat.label}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
-
-          {/* Single Dares Grid */}
-          <View className="px-6 flex-row flex-wrap justify-between gap-y-4">
-            <Text className="w-full text-lg font-extrabold text-slate-900 dark:text-white tracking-tight mb-1">Single Actions</Text>
-            
-            {dares.length === 0 ? (
-              <View className="w-full py-10 items-center justify-center">
-                <Ionicons name="albums-outline" size={48} color="#cbd5e1" />
-                <Text className="text-slate-400 font-semibold text-sm mt-3">No dares found in database</Text>
-              </View>
-            ) : (
+        </ScrollView>
+) : (
               dares.filter(dare => {
                 const matchesCategory = selectedCategory === 'ALL' || dare.category.toUpperCase() === selectedCategory.toUpperCase();
                 const matchesSearch = dare.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
