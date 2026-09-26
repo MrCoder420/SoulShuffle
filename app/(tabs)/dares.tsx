@@ -207,24 +207,29 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
 
   const isAnimating = React.useRef(false);
 
+  // Instantly unlock the gesture engine as soon as the next card renders (takes ~16ms)
+  React.useEffect(() => {
+    isAnimating.current = false;
+  }, [currentIndex]);
+
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (evt: any, gestureState: any) => {
         const d = latestData.current;
-        if (!d || d.length === 0) return false;
+        if (isAnimating.current || !d || d.length === 0) return false;
         return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
       onMoveShouldSetPanResponderCapture: (evt: any, gestureState: any) => {
         const d = latestData.current;
-        if (!d || d.length === 0) return false;
+        if (isAnimating.current || !d || d.length === 0) return false;
         return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
       onPanResponderGrant: () => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (d && d[idx]) {
+        if (!isAnimating.current && d && d[idx]) {
           const currentPosition = getPosition(d[idx].id);
           currentPosition.setOffset({
             x: (currentPosition.x as any)._value,
@@ -236,22 +241,24 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
       onPanResponderMove: (evt: any, gestureState: any) => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (!d || d.length === 0) return;
+        if (isAnimating.current || !d || d.length === 0) return;
         const currentPosition = getPosition(d[idx].id);
         currentPosition.setValue({ x: gestureState.dx, y: gestureState.dy });
       },
       onPanResponderRelease: (evt: any, gestureState: any) => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (!d || d.length === 0) return;
+        if (isAnimating.current || !d || d.length === 0) return;
         
         const currentPosition = getPosition(d[idx].id);
         currentPosition.flattenOffset();
 
-        const isSwipeRight = gestureState.dx > 100 || (gestureState.dx > 20 && gestureState.vx > 0.5);
-        const isSwipeLeft = gestureState.dx < -100 || (gestureState.dx < -20 && gestureState.vx < -0.5);
+        // Made thresholds extremely sensitive for a buttery smooth Tinder feel
+        const isSwipeRight = gestureState.dx > 60 || (gestureState.dx > 5 && gestureState.vx > 0.2);
+        const isSwipeLeft = gestureState.dx < -60 || (gestureState.dx < -5 && gestureState.vx < -0.2);
 
         if (isSwipeRight) {
+          isAnimating.current = true; // Lock for 1 frame until React renders the new card
           Animated.timing(currentPosition, {
             toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy + (gestureState.vy * 50) },
             duration: 250,
@@ -261,6 +268,7 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
           });
           setCurrentIndex(prev => (prev < d.length - 1 ? prev + 1 : 0));
         } else if (isSwipeLeft) {
+          isAnimating.current = true; // Lock for 1 frame
           Animated.timing(currentPosition, {
             toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy + (gestureState.vy * 50) },
             duration: 250,
