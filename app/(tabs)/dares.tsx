@@ -111,37 +111,13 @@ const mapCardToDare = (card: any): Dare => {
 };
 
 
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ITEM_WIDTH = SCREEN_WIDTH * 0.72;
-const SPACING = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
+const ITEM_WIDTH = SCREEN_WIDTH * 0.78;
+const ITEM_HEIGHT = ITEM_WIDTH * 1.45;
 
-const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }: any) => {
-  const inputRange = [
-    (index - 1) * ITEM_WIDTH,
-    index * ITEM_WIDTH,
-    (index + 1) * ITEM_WIDTH
-  ];
-
-  const style = useAnimatedStyle(() => {
-    const scale = interpolate(scrollX.value, inputRange, [0.85, 1, 0.85], Extrapolation.CLAMP);
-    const translateX = interpolate(scrollX.value, inputRange, [ITEM_WIDTH * 0.22, 0, -ITEM_WIDTH * 0.22], Extrapolation.CLAMP);
-    const zIndex = interpolate(scrollX.value, [
-      (index - 0.5) * ITEM_WIDTH,
-      index * ITEM_WIDTH,
-      (index + 0.5) * ITEM_WIDTH,
-    ], [0, 100, 0], Extrapolation.CLAMP);
-
-    return {
-      transform: [{ translateX }, { scale }],
-      zIndex: Math.round(zIndex)
-    };
-  });
-  
-  if (item.spacer) {
-    return <View style={{ width: SPACING }} />;
-  }
-
-  const getCatColor = (cat) => {
+const DareDeckItem = ({ item, index, isDark, onSelect, panHandlers, animatedStyle }: any) => {
+  const getCatColor = (cat: string) => {
     const c = (cat || '').toLowerCase();
     if(c.includes('romance')) return 'bg-[#ff1b6b]';
     if(c.includes('fun')) return 'bg-purple-500';
@@ -149,21 +125,39 @@ const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }: any) => {
     return 'bg-blue-500';
   };
 
+  const isFront = index === 0;
+
   return (
-    <Animated.View style={[{ width: ITEM_WIDTH, height: ITEM_WIDTH * 1.45, justifyContent: 'center', alignItems: 'center' }, style]}>
+    <Animated.View 
+      style={[
+        { 
+          position: 'absolute', 
+          width: ITEM_WIDTH, 
+          height: ITEM_HEIGHT,
+          justifyContent: 'center', 
+          alignItems: 'center',
+        },
+        animatedStyle
+      ]}
+      {...(isFront && panHandlers ? panHandlers : {})}
+    >
       <TouchableOpacity 
          activeOpacity={0.95} 
          onPress={() => onSelect(item)}
          className="w-full h-full rounded-[30px] overflow-hidden bg-slate-200 dark:bg-slate-800 shadow-xl"
-         style={{ elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 15 }}
+         style={{ elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, borderWidth: isDark ? 1 : 0, borderColor: 'rgba(255,255,255,0.05)' }}
       >
         <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
+        
+        {/* Semi-transparent dark gradient overlay */}
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
 
         <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
-          <View className={`px-3.5 py-1.5 rounded-full ${getCatColor(item.category)}`}>
-             <Text className="text-white text-[10px] font-black tracking-widest uppercase">{item.category}</Text>
-          </View>
+          {item.category ? (
+            <View className={`px-3.5 py-1.5 rounded-full ${getCatColor(item.category)}`}>
+               <Text className="text-white text-[10px] font-black tracking-widest uppercase">{item.category}</Text>
+            </View>
+          ) : <View />}
           <TouchableOpacity className="w-9 h-9 rounded-full bg-white/25 items-center justify-center">
              <Ionicons name="heart-outline" size={18} color="white" />
           </TouchableOpacity>
@@ -172,16 +166,6 @@ const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }: any) => {
         <View className="absolute bottom-6 left-5 right-5">
            <Text className="text-white text-[22px] font-black mb-1 tracking-tight leading-7">{item.title}</Text>
            <Text className="text-white/80 text-[13px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
-           
-           <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center">
-                 <Ionicons name="people" size={16} color="white" />
-                 <Text className="text-white text-xs font-semibold ml-1.5">2+ People</Text>
-              </View>
-              <View className="w-11 h-11 rounded-full bg-[#ff1b6b] items-center justify-center">
-                 <Ionicons name="arrow-forward" size={20} color="white" />
-              </View>
-           </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -189,34 +173,107 @@ const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }: any) => {
 };
 
 const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
-  const scrollX = useSharedValue(0);
-  const scrollHandler = useAnimatedScrollHandler((event) => {
-    scrollX.value = event.contentOffset.x;
-  });
+  const [currentIndex, setCurrentIndex] = React.useState(0);
   
-  const paddedData = data && data.length > 0 ? [{ id: 'left-pad', spacer: true }, ...data, { id: 'right-pad', spacer: true }] : [];
+  const { Animated, PanResponder } = require('react-native');
+  const position = React.useRef(new Animated.ValueXY()).current;
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (evt, gestureState) => {
+        position.setValue({ x: gestureState.dx, y: gestureState.dy });
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx > 120) {
+          Animated.spring(position, { toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy }, useNativeDriver: false }).start(() => {
+            setCurrentIndex(prev => prev + 1);
+            position.setValue({ x: 0, y: 0 });
+          });
+        } else if (gestureState.dx < -120) {
+          Animated.spring(position, { toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy }, useNativeDriver: false }).start(() => {
+            setCurrentIndex(prev => prev + 1);
+            position.setValue({ x: 0, y: 0 });
+          });
+        } else {
+          Animated.spring(position, { toValue: { x: 0, y: 0 }, friction: 5, useNativeDriver: false }).start();
+        }
+      }
+    })
+  ).current;
+
+  const visibleData = data ? data.slice(currentIndex, currentIndex + 3) : [];
+  if (visibleData.length === 0 && data && data.length > 0) {
+    setTimeout(() => setCurrentIndex(0), 100);
+  }
+
+  const renderCards = () => {
+    return visibleData.map((item: any, i: number) => {
+      let animatedStyle: any = {};
+      let panHandlers = null;
+
+      if (i === 0) {
+        panHandlers = panResponder.panHandlers;
+        const rotate = position.x.interpolate({
+          inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
+          outputRange: ['-10deg', '4deg', '10deg'],
+          extrapolate: 'clamp'
+        });
+        animatedStyle = {
+          zIndex: 3,
+          transform: [
+            ...position.getTranslateTransform(),
+            { rotate },
+          ]
+        };
+      } else if (i === 1) {
+        animatedStyle = {
+          zIndex: 2,
+          transform: [
+            { translateX: -20 },
+            { translateY: 15 },
+            { rotate: '-6deg' },
+            { scale: 0.95 }
+          ]
+        };
+      } else if (i === 2) {
+        animatedStyle = {
+          zIndex: 1,
+          transform: [
+            { translateX: 10 },
+            { translateY: 5 },
+            { rotate: '2deg' },
+            { scale: 0.9 }
+          ]
+        };
+      }
+
+      return (
+        <DareDeckItem 
+          key={item.id + '-' + i}
+          item={item} 
+          index={i} 
+          isDark={isDark} 
+          onSelect={onSelectDare} 
+          animatedStyle={animatedStyle}
+          panHandlers={panHandlers}
+        />
+      );
+    }).reverse();
+  };
 
   return (
-    <View>
-      <Animated.FlatList
-        data={paddedData}
-        keyExtractor={(item, index) => item.id || `spacer-${index}`}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={ITEM_WIDTH}
-        decelerationRate="fast"
-        bounces={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        renderItem={({ item, index }) => (
-          <DareCarouselItem item={item} index={index} scrollX={scrollX} isDark={isDark} onSelect={onSelectDare} />
-        )}
-      />
-      <View className="flex-row justify-center items-center mt-6 gap-2">
-        <View className="w-6 h-2 rounded-full bg-[#ff1b6b]" />
-        <View className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
-        <View className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
-        <View className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+    <View style={{ height: ITEM_HEIGHT + 40, alignItems: 'center', justifyContent: 'center' }}>
+      {visibleData.length > 0 ? renderCards() : (
+         <View className="items-center justify-center h-full">
+            <Text className="text-slate-500 font-bold">No more cards!</Text>
+         </View>
+      )}
+      <View className="absolute -bottom-6 flex-row justify-center items-center gap-2 w-full">
+        <View className="w-2.5 h-2.5 rounded-full bg-[#ff1b6b]" />
+        <View className="w-2.5 h-2.5 rounded-full bg-slate-800" />
+        <View className="w-2.5 h-2.5 rounded-full bg-slate-800" />
+        <View className="w-2.5 h-2.5 rounded-full bg-slate-800" />
       </View>
     </View>
   );
@@ -652,7 +709,7 @@ export default function Dares() {
           {/* Header Title */}
           <View className="px-6 pt-2 pb-4">
             <Text className="text-4xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">Dares</Text>
-            <Text className="text-slate-500 dark:text-slate-400 text-[15px] font-medium">Step out, connect, and make memories 💖</Text>
+            <Text className="text-slate-500 dark:text-slate-300 text-[15px] font-medium tracking-tight">Step out, connect, and make memories 💕</Text>
           </View>
 
           {/* Carousel */}
