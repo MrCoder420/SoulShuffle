@@ -1,4 +1,4 @@
-import Animated, { useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate, Extrapolation, interpolateColor } from 'react-native-reanimated';
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Dimensions, Image, TouchableOpacity, Platform, StatusBar, TextInput, Modal, ActivityIndicator, Alert, RefreshControl, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -112,174 +112,145 @@ const mapCardToDare = (card: any): Dare => {
 
 
 
+
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ITEM_WIDTH = SCREEN_WIDTH * 0.78;
-const ITEM_HEIGHT = ITEM_WIDTH * 1.45;
-
-const DareDeckItem = ({ item, index, isDark, onSelect, panHandlers, animatedStyle }: any) => {
-  const getCatColor = (cat: string) => {
-    const c = (cat || '').toLowerCase();
-    if(c.includes('romance')) return 'bg-[#ff1b6b]';
-    if(c.includes('fun')) return 'bg-purple-500';
-    if(c.includes('spicy')) return 'bg-[#af2c3b]';
-    return 'bg-blue-500';
-  };
-
-  const isFront = index === 0;
-
-  return (
-    <Animated.View 
-      style={[
-        { 
-          position: 'absolute', 
-          width: ITEM_WIDTH, 
-          height: ITEM_HEIGHT,
-          justifyContent: 'center', 
-          alignItems: 'center',
-        },
-        animatedStyle
-      ]}
-      {...(isFront && panHandlers ? panHandlers : {})}
-    >
-      <TouchableOpacity 
-         activeOpacity={0.95} 
-         onPress={() => onSelect(item)}
-         className="w-full h-full rounded-[30px] overflow-hidden bg-slate-200 dark:bg-[#1C1518] shadow-xl"
-         style={{ elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, borderWidth: isDark ? 1 : 0, borderColor: 'rgba(255,255,255,0.05)' }}
-      >
-        <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" draggable={false} style={{ width: '100%', height: '100%', position: 'absolute' }} />
-        
-        {/* Semi-transparent dark gradient overlay */}
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
-
-        <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
-          {item.category ? (
-            <View className={`px-3.5 py-1.5 rounded-full ${getCatColor(item.category)}`}>
-               <Text className="text-white text-[10px] font-black tracking-widest uppercase">{item.category}</Text>
-            </View>
-          ) : <View />}
-          <TouchableOpacity className="w-9 h-9 rounded-full bg-white/25 items-center justify-center">
-             <Ionicons name="heart-outline" size={18} color="white" />
-          </TouchableOpacity>
-        </View>
-
-        <View className="absolute bottom-6 left-5 right-5">
-           <Text className="text-white text-[22px] font-black mb-1 tracking-tight leading-7">{item.title}</Text>
-           <Text className="text-white/80 text-[13px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
+const ITEM_WIDTH = SCREEN_WIDTH * 0.72;
+const ITEM_HEIGHT = ITEM_WIDTH * 1.5;
 
 const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
-  const [currentIndex, setCurrentIndex] = React.useState(0);
-  
-  const { Animated, PanResponder } = require('react-native');
-  const position = React.useRef(new Animated.ValueXY()).current;
+  const scrollX = useSharedValue(0);
 
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (evt, gestureState) => Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5,
-      onPanResponderMove: (evt, gestureState) => {
-        position.setValue({ x: gestureState.dx, y: gestureState.dy });
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        if (gestureState.dx > 120) {
-          Animated.spring(position, { toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy }, useNativeDriver: false }).start(() => {
-            setCurrentIndex(prev => prev + 1);
-            position.setValue({ x: 0, y: 0 });
-          });
-        } else if (gestureState.dx < -120) {
-          Animated.spring(position, { toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy }, useNativeDriver: false }).start(() => {
-            setCurrentIndex(prev => prev + 1);
-            position.setValue({ x: 0, y: 0 });
-          });
-        } else {
-          Animated.spring(position, { toValue: { x: 0, y: 0 }, friction: 5, useNativeDriver: false }).start();
-        }
-      }
-    })
-  ).current;
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrollX.value = event.contentOffset.x;
+  });
 
-  const visibleData = data ? data.slice(currentIndex, currentIndex + 3) : [];
-  if (visibleData.length === 0 && data && data.length > 0) {
-    setTimeout(() => setCurrentIndex(0), 100);
-  }
-
-  const renderCards = () => {
-    return visibleData.map((item: any, i: number) => {
-      let animatedStyle: any = {};
-      let panHandlers = null;
-
-      if (i === 0) {
-        panHandlers = panResponder.panHandlers;
-        const rotate = position.x.interpolate({
-          inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
-          outputRange: ['-10deg', '4deg', '10deg'],
-          extrapolate: 'clamp'
-        });
-        animatedStyle = {
-          zIndex: 3,
-          transform: [
-            ...position.getTranslateTransform(),
-            { rotate },
-          ]
-        };
-      } else if (i === 1) {
-        animatedStyle = {
-          zIndex: 2,
-          transform: [
-            { translateX: -20 },
-            { translateY: 15 },
-            { rotate: '-6deg' },
-            { scale: 0.95 }
-          ]
-        };
-      } else if (i === 2) {
-        animatedStyle = {
-          zIndex: 1,
-          transform: [
-            { translateX: 10 },
-            { translateY: 5 },
-            { rotate: '2deg' },
-            { scale: 0.9 }
-          ]
-        };
-      }
-
-      return (
-        <DareDeckItem 
-          key={item.id + '-' + i}
-          item={item} 
-          index={i} 
-          isDark={isDark} 
-          onSelect={onSelectDare} 
-          animatedStyle={animatedStyle}
-          panHandlers={panHandlers}
-        />
-      );
-    }).reverse();
+  const getCatColor = (cat: string) => {
+    const c = (cat || '').toLowerCase();
+    if(c.includes('romance')) return '#FF296D';
+    if(c.includes('fun')) return '#9D4EDD';
+    if(c.includes('spicy')) return '#D90429';
+    return '#3A86FF';
   };
 
-  return (
-    <View style={{ height: ITEM_HEIGHT + 40, alignItems: 'center', justifyContent: 'center' }}>
-      {visibleData.length > 0 ? renderCards() : (
-         <View className="items-center justify-center h-full">
-            <Text className="text-slate-500 font-bold">No more cards!</Text>
-         </View>
-      )}
-      <View className="absolute -bottom-6 flex-row justify-center items-center gap-2 w-full">
-        <View className="w-2.5 h-2.5 rounded-full bg-[#FF1B6B]" />
-        <View className="w-2 h-2 rounded-full bg-[#221C1E]" />
-        <View className="w-2 h-2 rounded-full bg-[#221C1E]" />
-        <View className="w-2 h-2 rounded-full bg-[#221C1E]" />
+  const renderItem = ({ item, index }: any) => {
+    const animatedStyle = useAnimatedStyle(() => {
+      const inputRange = [
+        (index - 1) * ITEM_WIDTH,
+        index * ITEM_WIDTH,
+        (index + 1) * ITEM_WIDTH
+      ];
+
+      const scale = interpolate(scrollX.value, inputRange, [0.85, 1, 0.85], Extrapolation.CLAMP);
+      const rotateZ = interpolate(scrollX.value, inputRange, [-8, 0, 8], Extrapolation.CLAMP);
+      const translateY = interpolate(scrollX.value, inputRange, [30, 0, 30], Extrapolation.CLAMP);
+      const opacity = interpolate(scrollX.value, inputRange, [0.7, 1, 0.7], Extrapolation.CLAMP);
+      const zIndex = interpolate(scrollX.value, inputRange, [0, 100, 0], Extrapolation.CLAMP);
+
+      return {
+        transform: [
+          { scale },
+          { translateY },
+          { rotateZ: `${rotateZ}deg` }
+        ],
+        opacity,
+        zIndex: Math.round(zIndex)
+      };
+    });
+
+    const categoryColor = getCatColor(item.category);
+
+    return (
+      <Animated.View style={[{ width: ITEM_WIDTH, height: ITEM_HEIGHT }, animatedStyle]}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => onSelectDare(item)}
+          className="w-full h-full rounded-[32px] overflow-hidden shadow-xl border"
+          style={{ 
+            backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
+            borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+            elevation: 12, 
+            shadowColor: isDark ? '#000' : '#FF296D', 
+            shadowOffset: { width: 0, height: 15 }, 
+            shadowOpacity: isDark ? 0.4 : 0.15, 
+            shadowRadius: 25 
+          }}
+        >
+          <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+          
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%', backgroundColor: 'rgba(0,0,0,0.45)' }} />
+
+          <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
+            {item.category ? (
+              <View className="px-3.5 py-1.5 rounded-full" style={{ backgroundColor: categoryColor }}>
+                 <Text className="text-white text-[10px] font-bold tracking-wider uppercase">{item.category}</Text>
+              </View>
+            ) : <View />}
+            <TouchableOpacity className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
+               <Ionicons name="heart-outline" size={18} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          <View className="absolute bottom-6 left-5 right-5">
+             <Text className="text-white text-[24px] font-black mb-1.5 tracking-tight leading-7">{item.title}</Text>
+             <Text className="text-white/90 text-[13px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
+             
+             <View className="flex-row justify-between items-center mt-1">
+               <View className="flex-row items-center">
+                 <Ionicons name="people" size={15} color="white" />
+                 <Text className="text-white font-medium text-[12px] ml-1.5">2+ People</Text>
+               </View>
+               <TouchableOpacity onPress={() => onSelectDare(item)} className="w-11 h-11 rounded-full items-center justify-center bg-[#FF296D]">
+                 <Ionicons name="arrow-forward" size={20} color="white" />
+               </TouchableOpacity>
+             </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  const Pagination = () => {
+    return (
+      <View className="flex-row justify-center items-center mt-6 h-4">
+        {data.map((_: any, i: number) => {
+          const dotStyle = useAnimatedStyle(() => {
+            const width = interpolate(scrollX.value, [(i - 1) * ITEM_WIDTH, i * ITEM_WIDTH, (i + 1) * ITEM_WIDTH], [8, 20, 8], Extrapolation.CLAMP);
+            const opacity = interpolate(scrollX.value, [(i - 1) * ITEM_WIDTH, i * ITEM_WIDTH, (i + 1) * ITEM_WIDTH], [0.4, 1, 0.4], Extrapolation.CLAMP);
+            const backgroundColor = interpolateColor(
+              scrollX.value, 
+              [(i - 1) * ITEM_WIDTH, i * ITEM_WIDTH, (i + 1) * ITEM_WIDTH], 
+              ['#D9D9D9', '#FF296D', '#D9D9D9']
+            );
+            return { width, opacity, backgroundColor };
+          });
+          return <Animated.View key={i} style={[{ height: 8, borderRadius: 4, marginHorizontal: 3 }, dotStyle]} />;
+        })}
       </View>
+    );
+  };
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <View style={{ width: '100%', alignItems: 'center' }}>
+      <Animated.FlatList
+        data={data}
+        keyExtractor={(item) => item.id.toString()}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={ITEM_WIDTH}
+        decelerationRate="fast"
+        bounces={false}
+        contentContainerStyle={{ paddingHorizontal: (SCREEN_WIDTH - ITEM_WIDTH) / 2, paddingTop: 10, paddingBottom: 25 }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        renderItem={renderItem}
+      />
+      <Pagination />
     </View>
   );
 };
-
 
 export default function Dares() {
   const { openSidebar } = useSidebar();
@@ -308,75 +279,12 @@ export default function Dares() {
   const getFallbackCards = () => [
     {
       id: "fallback-1",
-      name: "Whisper Sweet Nothings",
-      power_description: "Lean in close and whisper three things you love about your partner into their ear.",
-      image_url: null,
-      card_type: "ACTION",
-      attributes: { difficulty: "easy", time: "5 mins", stars: 1 },
-      card_categories: { id: "c1", name: "Romance_123" }
-    },
-    {
-      id: "fallback-2",
-      name: "Moonlight Walk",
-      power_description: "Take a walk together under the moonlight and share a memory from when you first met.",
-      image_url: null,
-      card_type: "ACTION",
-      attributes: { difficulty: "medium", time: "24 hrs", stars: 2 },
-      card_categories: { id: "c1", name: "Romance_123" }
-    },
-    {
-      id: "fallback-3",
       name: "Candlelight Dinner",
-      power_description: "Set up a dining table with candlelight and share a home-cooked meal without any devices.",
+      power_description: "Set up a romantic candlelit dinner at home and talk about your future dreams.",
       image_url: null,
       card_type: "ACTION",
-      attributes: { difficulty: "hard", time: "1 hour", stars: 3 },
+      attributes: { difficulty: "medium", time: "2 hours", stars: 2 },
       card_categories: { id: "c1", name: "Romance_123" }
-    },
-    {
-      id: "fallback-4",
-      name: "Dance in the Rain",
-      power_description: "Play your favorite slow song and slow dance together, in the rain if possible, or right in the living room.",
-      image_url: null,
-      card_type: "ACTION",
-      attributes: { difficulty: "medium", time: "10 mins", stars: 2 },
-      card_categories: { id: "c2", name: "Adventure_456" }
-    },
-    {
-      id: "fallback-5",
-      name: "Cook a New Recipe",
-      power_description: "Choose a dish neither of you has ever cooked before and make it together as a team.",
-      image_url: null,
-      card_type: "ACTION",
-      attributes: { difficulty: "medium", time: "45 mins", stars: 2 },
-      card_categories: { id: "c2", name: "Adventure_456" }
-    },
-    {
-      id: "fallback-6",
-      name: "Road Trip Adventure",
-      power_description: "Pick a random spot on the map within an hour's drive, go there, and find a hidden coffee shop.",
-      image_url: null,
-      card_type: "ACTION",
-      attributes: { difficulty: "hard", time: "2 hours", stars: 3 },
-      card_categories: { id: "c2", name: "Adventure_456" }
-    },
-    {
-      id: "fallback-7",
-      name: "Secret Handshake",
-      power_description: "Spend 5 minutes creating a secret handshake that only the two of you know.",
-      image_url: null,
-      card_type: "ACTION",
-      attributes: { difficulty: "easy", time: "5 mins", stars: 1 },
-      card_categories: { id: "c3", name: "Fun_789" }
-    },
-    {
-      id: "fallback-8",
-      name: "Pillow Fort Night",
-      power_description: "Build a massive fort out of blankets, pillows, and chairs, and watch your favorite movie inside it.",
-      image_url: null,
-      card_type: "ACTION",
-      attributes: { difficulty: "medium", time: "1 hour", stars: 2 },
-      card_categories: { id: "c3", name: "Fun_789" }
     }
   ];
 
@@ -387,7 +295,6 @@ export default function Dares() {
       if (!silent) setLoading(true);
       const appLoadStartTime = performance.now();
 
-      // 1. FAST LOCAL LOAD (Instant UI)
       if (!skipCache) {
         try {
           const cachedData = await AsyncStorage.getItem(CACHE_KEY);
@@ -405,24 +312,19 @@ export default function Dares() {
         }
       }
 
-      // 2. BACKGROUND FETCH (Update data)
       const activeRoom = await getActiveRoom();
       setRoom(activeRoom);
       
       if (activeRoom && activeRoom.status === 'ACTIVE') {
-        const apiCallStartTime = performance.now();
         const [fetched, fetchedLimits] = await Promise.all([
           fetchAvailableDeck(activeRoom.id),
           fetchSendLimits(activeRoom.id)
         ]);
-        const apiCallEndTime = performance.now();
-        console.log(`[Performance] Dares API Call Time: ${(apiCallEndTime - apiCallStartTime).toFixed(2)} ms`);
         
         const mapped = fetched.map(mapCardToDare);
         setDares(mapped);
         setLimits(fetchedLimits);
 
-        // Save to cache
         AsyncStorage.setItem(CACHE_KEY, JSON.stringify({
           cachedDares: mapped,
           cachedLimits: fetchedLimits,
@@ -433,16 +335,11 @@ export default function Dares() {
         setLimits(null);
         AsyncStorage.removeItem(CACHE_KEY).catch(() => {});
       }
-      
-      const appLoadEndTime = performance.now();
-      console.log(`[Performance] Total Dares Load Time: ${(appLoadEndTime - appLoadStartTime).toFixed(2)} ms`);
     } catch (error: any) {
       console.log('Failed to fetch dares from backend:', error?.message);
-      // Fallback: If we already loaded cached data on screen, keep it. 
-      // Do not overwrite real cached data with fake hardcoded cards!
       setDares((prevDares) => {
         if (prevDares && prevDares.length > 0) return prevDares;
-        return []; // If completely empty, just show empty, not fake cards.
+        return [];
       });
     } finally {
       setLoading(false);
@@ -468,12 +365,10 @@ export default function Dares() {
 
   useEffect(() => {
     const handlePartnerJoined = (payload: any) => {
-      console.log('Partner joined event received in Dares, refreshing...', payload);
       loadDares(true);
     };
 
     const handleRoomLeft = () => {
-      console.log('Room left event received in Dares, clearing state...');
       setRoom(null);
       setDares([]);
       setLimits(null);
@@ -482,8 +377,9 @@ export default function Dares() {
 
     const handleGameEvent = (payload: any) => {
       if (payload.eventType === 'CARD_REJECTED') {
-        console.log('Partner rejected a card, refreshing deck in 1.5s to ensure DB sync...');
         setTimeout(() => loadDares(true, true), 1500);
+      } else {
+        loadDares(true);
       }
     };
 
@@ -511,21 +407,18 @@ export default function Dares() {
   const renderDisconnectedState = () => {
     return (
       <View className="flex-1 justify-center items-center px-8 py-16">
-        <View className="bg-white dark:bg-[#271318] rounded-2xl p-8 items-center shadow-rose-100/50 border border-rose-100/50 dark:border-rose-950/20 w-full max-w-sm">
-          <View className="w-20 h-20 bg-rose-50 dark:bg-rose-950/30 rounded-full items-center justify-center mb-6">
-            <Ionicons name="heart-dislike-outline" size={42} color={isDark ? "#D36B93" : "#481639"} />
+        <View className="bg-white dark:bg-[#1C1721] rounded-2xl p-8 items-center shadow-rose-100/50 border border-rose-100/50 dark:border-rose-950/20 w-full max-w-sm">
+          <View className="w-20 h-20 bg-rose-50 dark:bg-[#2B1B24] rounded-full items-center justify-center mb-6">
+            <Ionicons name="heart-dislike-outline" size={42} color={isDark ? "#FF296D" : "#FF296D"} />
           </View>
-          
           <Text className="text-2xl font-black text-slate-800 dark:text-white text-center mb-3 tracking-tight">
             Connection Required
           </Text>
-          
           <Text className="text-slate-500 dark:text-slate-400 font-medium text-[14px] text-center leading-6 mb-8">
             Please connect to your partner first to play and share dares. Join a room or invite your partner to get started!
           </Text>
-
           <TouchableOpacity
-            className="w-full bg-[#af2c3b] dark:bg-rose-600 rounded-full py-4 items-center justify-center shadow-rose-900/10"
+            className="w-full bg-[#FF296D] rounded-full py-4 items-center justify-center shadow-sm"
             activeOpacity={0.85}
             onPress={() => router.push('/')}
           >
@@ -537,35 +430,6 @@ export default function Dares() {
         </View>
       </View>
     );
-  };
-
-  const [realStoreBundles, setRealStoreBundles] = useState<CardBundle[]>([]);
-
-  useEffect(() => {
-    const loadRealStoreBundles = async () => {
-      try {
-        const fetched = await fetchStoreBundles();
-        if (fetched && fetched.length > 0) {
-          setRealStoreBundles(fetched);
-        } else {
-          setRealStoreBundles(FALLBACK_STORE_BUNDLES);
-        }
-      } catch (e) {
-        setRealStoreBundles(FALLBACK_STORE_BUNDLES);
-      }
-    };
-    loadRealStoreBundles();
-  }, []);
-
-  const handleOpenStoreItem = (bundleId?: string) => {
-    if (bundleId) {
-      router.push({
-        pathname: '/store',
-        params: { buyBundleId: bundleId }
-      });
-    } else {
-      router.push('/store');
-    }
   };
 
   const handleSendChallenge = async () => {
@@ -581,17 +445,14 @@ export default function Dares() {
       return;
     }
 
-    // 1. OPTIMISTIC UI UPDATE (Instantaneous Feedback)
     const targetDare = selectedDare;
     const currentNote = note;
     const backupDares = [...dares];
     
-    // Hide modal and show success instantly (0ms latency perceived)
     setSelectedDare(null);
     setIsSending(false);
     Alert.alert('Challenge Sent', `${targetDare.title} was sent to your partner!`);
 
-    // Remove card from UI state instantly
     setDares(prevDares => {
       const updatedDares = prevDares.filter(d => d.id !== targetDare.id);
       AsyncStorage.getItem(CACHE_KEY).then(cached => {
@@ -617,7 +478,6 @@ export default function Dares() {
       newOptimisticLimits.can_send = newOptimisticLimits.daily_remaining > 0 && newOptimisticLimits.active_remaining > 0;
       setLimits(newOptimisticLimits);
       
-      // Update cache immediately to prevent stale UI on navigation
       AsyncStorage.getItem(CACHE_KEY).then(cached => {
         if (cached) {
           const parsed = JSON.parse(cached);
@@ -627,10 +487,8 @@ export default function Dares() {
       }).catch(() => {});
     }
 
-    // 2. BACKGROUND API CALL (Non-blocking execution)
     sendChallenge(targetDare.id.toString(), currentNote, activeRoom)
       .then(async () => {
-        // Emit real-time event to partner
         GameSocket.sendGameEvent(activeRoom.code, 'CHALLENGE_SENT', { 
           challenge: { ...targetDare, message: currentNote }
         });
@@ -647,7 +505,6 @@ export default function Dares() {
         } catch (e) {}
       })
       .catch((error: any) => {
-        // Revert optimistic update on failure
         setDares(backupDares);
         if (backupLimits) {
           setLimits(backupLimits);
@@ -659,235 +516,197 @@ export default function Dares() {
             }
           }).catch(() => {});
         }
-        if (error.response?.status === 401) {
-          Alert.alert('Session Expired', 'Please sign in again before sending a challenge.', [
-            { text: 'OK', onPress: () => router.replace('/') },
-          ]);
-        } else {
-          Alert.alert(
-            'Could Not Send',
-            error.response?.data?.message || error.message || 'Something went wrong while sending the challenge.'
-          );
-        }
       });
   };
 
+  const bgColor = isDark ? '#120E15' : '#F7F4F6';
+  const textColor = isDark ? '#FFFFFF' : '#1A1A1A';
+  const subTextColor = isDark ? '#A09CA3' : '#7A7A7A';
+
   return (
-    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#0B0406]" edges={['top', 'left', 'right']}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff8f7"} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: bgColor }} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={bgColor} />
       
       {/* Header */}
-        <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0B0406] z-10">
-          <TouchableOpacity onPress={openSidebar}>
-            <Ionicons name="menu-outline" size={32} color={isDark ? "#fff" : "#000"} />
-          </TouchableOpacity>
-          <View className="flex-row items-center justify-center absolute left-0 right-0 z-[-1]" pointerEvents="none" style={{ paddingHorizontal: 100 }}>
-            <Ionicons name="infinite" size={28} color="#FF1B6B" style={{ transform: [{ rotate: '-15deg' }] }} />
-            <Text className="text-[#FF1B6B] font-black text-[22px] leading-6 tracking-tight ml-1" style={{ flexShrink: 1, textAlign: 'center' }}>{'SoulShuffl\ne'}</Text>
-          </View>
-          <View className="flex-row items-center gap-4">
-            <TouchableOpacity>
-               <Ionicons name="notifications-outline" size={26} color={isDark ? "#fff" : "#000"} />
-               <View className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#FF1B6B] border-[1.5px] border-[#0B0406]" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/profile')}>
-              <Image 
-                source={{ uri: userAvatar }} 
-                className="w-9 h-9 rounded-full border border-slate-200 dark:border-rose-950/30"
-              />
-            </TouchableOpacity>
-          </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12, backgroundColor: bgColor, zIndex: 10 }}>
+        <TouchableOpacity onPress={openSidebar}>
+          <Ionicons name="menu-outline" size={28} color={textColor} />
+        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'absolute', left: 0, right: 0, zIndex: -1 }} pointerEvents="none">
+          <Ionicons name="infinite" size={24} color="#FF296D" style={{ transform: [{ rotate: '-15deg' }] }} />
+          <Text style={{ color: '#FF296D', fontWeight: '900', fontSize: 20, letterSpacing: -0.5, marginLeft: 4 }}>SoulShuffle</Text>
         </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <TouchableOpacity>
+             <Ionicons name="notifications-outline" size={24} color={textColor} />
+             <View style={{ position: 'absolute', top: 0, right: 2, width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF296D', borderWidth: 1.5, borderColor: bgColor }} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/profile')}>
+            <Image 
+              source={{ uri: userAvatar }} 
+              style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-        {loading ? (
-        <View className="flex-1 items-center justify-center bg-[#fff8f7] dark:bg-[#0B0406]">
-          <ActivityIndicator size="large" color="#f43f5e" />
-          <Text className="text-[#a12338] dark:text-rose-400 font-semibold text-sm mt-3">Loading dares...</Text>
+      {loading && dares.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: bgColor }}>
+          <ActivityIndicator size="large" color="#FF296D" />
+          <Text style={{ color: subTextColor, fontWeight: '600', fontSize: 14, marginTop: 12 }}>Loading dares...</Text>
         </View>
       ) : room && room.status === 'ACTIVE' ? (
-
         <ScrollView 
           showsVerticalScrollIndicator={false} 
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e11d48']} tintColor={isDark ? '#fff' : '#e11d48'} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF296D']} tintColor={isDark ? '#fff' : '#FF296D'} />
           }
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={{ paddingBottom: 120 }}
         >
           {/* Header Title */}
-          <View className="px-6 pt-2 pb-4">
-            <Text className="text-4xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">Dares</Text>
-            <Text className="text-slate-500 dark:text-slate-300 text-[15px] font-medium tracking-tight">Step out, connect, and make memories 💕</Text>
+          <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}>
+            <Text style={{ fontSize: 32, fontWeight: '900', color: textColor, letterSpacing: -0.5, marginBottom: 6 }}>Dares</Text>
+            <Text style={{ color: subTextColor, fontSize: 15, fontWeight: '500', letterSpacing: -0.2 }}>Step out, connect, and make memories 💖</Text>
           </View>
 
           {/* Carousel */}
-          <View className="mt-2 mb-6">
-            {/* Filter dares based on selected category */}
-              <DareCarousel data={selectedCategory === 'ALL' ? dares : dares.filter((d: any) => d.category.includes(selectedCategory))} isDark={isDark} onSelectDare={setSelectedDare} />
+          <View style={{ marginTop: 8, marginBottom: 30 }}>
+              <DareCarousel 
+                data={selectedCategory === 'ALL' ? dares : dares.filter((d: any) => d.category.includes(selectedCategory))} 
+                isDark={isDark} 
+                onSelectDare={setSelectedDare} 
+              />
           </View>
 
           {/* Explore Categories */}
-          <View className="px-6 mt-4">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-xl font-bold text-slate-900 dark:text-white">Explore Categories</Text>
+          <View style={{ paddingHorizontal: 24, marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: textColor }}>Explore Categories</Text>
               <TouchableOpacity onPress={() => setSelectedCategory('ALL')}>
-                  <Text className="text-[#FF1B6B] font-bold text-sm">See all</Text>
+                  <Text style={{ color: '#FF296D', fontWeight: '700', fontSize: 14 }}>See all</Text>
                 </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={{ paddingHorizontal: 24 }}>
               {[
-                { id: 'romance', label: 'Romance', image: require('@/assets/images/bundle_romantic.jpg'), color: 'text-[#FF1B6B]' },
-                { id: 'fun', label: 'Fun', image: require('@/assets/images/bundle_cozy.jpg'), color: 'text-purple-500' },
-                { id: 'deep', label: 'Deep', image: require('@/assets/images/sunset_picnic.jpeg'), color: 'text-blue-600 dark:text-blue-400' },
-                { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: 'text-[#FF1B6B]' }
+                { id: 'romance', label: 'Romance', image: require('@/assets/images/bundle_romantic.jpg'), color: '#FF296D' },
+                { id: 'fun', label: 'Fun', image: require('@/assets/images/bundle_cozy.jpg'), color: '#9D4EDD' },
+                { id: 'deep', label: 'Deep', image: require('@/assets/images/sunset_picnic.jpeg'), color: '#3A86FF' },
+                { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: '#D90429' }
               ].map((cat: any) => (
-                <TouchableOpacity key={cat.id} activeOpacity={0.9} onPress={() => setSelectedCategory(cat.id.toUpperCase())} className="w-[100px] h-[120px] bg-white dark:bg-[#161114] rounded-3xl overflow-hidden mr-3 items-center shadow-sm border border-slate-50 dark:border-rose-950/20">
-                  <View className="w-full h-[65%]">
-                    <Image source={cat.image} className="w-full h-full" resizeMode="cover" />
+                <TouchableOpacity 
+                  key={cat.id} 
+                  activeOpacity={0.9} 
+                  onPress={() => setSelectedCategory(cat.id.toUpperCase())} 
+                  style={{
+                    width: 105,
+                    height: 125,
+                    backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
+                    borderRadius: 24,
+                    overflow: 'hidden',
+                    marginRight: 14,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                    shadowColor: isDark ? '#000' : '#000',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: isDark ? 0.3 : 0.05,
+                    shadowRadius: 10,
+                    elevation: 3
+                  }}
+                >
+                  <View style={{ width: '100%', height: '65%' }}>
+                    <Image source={cat.image} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                   </View>
-                  <View className="flex-1 justify-center items-center w-full">
-                    <Text className={`text-[11px] font-bold ${cat.color}`}>{cat.label}</Text>
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: cat.color }}>{cat.label}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         </ScrollView>
-
       ) : (
-        <ScrollView 
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#e11d48']} tintColor={isDark ? '#fff' : '#e11d48'} />
-          }
-        >
-          {renderDisconnectedState()}
-        </ScrollView>
+        renderDisconnectedState()
       )}
 
-      <Modal
-        visible={!!selectedDare}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedDare(null)}
-      >
-        <View className="flex-1 justify-end bg-black/40 dark:bg-black/60">
-          <TouchableOpacity className="flex-1" activeOpacity={1} onPress={() => setSelectedDare(null)} />
-          {selectedDare && (
-            <View className="bg-[#fff8f7] dark:bg-[#180D10] rounded-t-[34px] overflow-hidden">
-              <View className="w-full h-72 bg-slate-100 dark:bg-[#0f0608] pt-4">
-                <Image 
-                  source={typeof selectedDare.image === 'string' ? { uri: selectedDare.image } : selectedDare.image} 
-                  className="w-full h-full" 
-                  resizeMode="contain"
-                />
-              </View>
-              <View className="p-6">
-                <View className="flex-row items-center justify-end mb-3">
-                  <TouchableOpacity
-                    className="w-10 h-10 rounded-full bg-white dark:bg-[#271318] items-center justify-center"
-                    onPress={() => setSelectedDare(null)}
-                  >
-                    <Ionicons name="close" size={20} color={isDark ? "#fff" : "#334155"} />
-                  </TouchableOpacity>
-                </View>
-
-                <Text className="text-[11px] font-bold text-[#481639] dark:text-[#D36B93] tracking-widest uppercase mb-2">{selectedDare.category}</Text>
-                <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-3">{selectedDare.title}</Text>
-                <Text className="text-slate-600 dark:text-slate-300 font-medium text-[14px] leading-6 mb-5">{selectedDare.description}</Text>
-
-                <View className="flex-row items-center mb-6">
-                  <View className="bg-white dark:bg-[#271318] px-4 py-3 rounded-2xl flex-row items-center mr-3">
-                    <Ionicons name="time" size={15} color={isDark ? "#f43f5e" : "#64748b"} />
-                    <Text className="text-slate-600 dark:text-white font-bold text-[12px] ml-2">{selectedDare.time}</Text>
-                  </View>
-                  <View className="bg-white dark:bg-[#271318] px-4 py-3 rounded-2xl flex-row items-center">
-                    <Ionicons name={selectedDare.isPaid ? 'lock-closed' : 'heart'} size={15} color={selectedDare.isPaid ? (isDark ? '#f43f5e' : '#ab2f33') : (isDark ? '#2dd4bf' : '#0d6e67')} />
-                    <Text className="text-slate-600 dark:text-white font-bold text-[12px] ml-2">{selectedDare.isPaid ? 'Premium' : 'Free'}</Text>
-                  </View>
-                </View>
-
-                {limits && (
-                  <View className="flex-row items-center justify-between bg-white dark:bg-[#271318] px-6 py-4 rounded-[20px] border border-slate-100/50 dark:border-rose-950/20 mb-6">
-                    <View className="flex-row items-center">
-                      <Ionicons name="calendar-outline" size={18} color={isDark ? "#fda4af" : "#af2c3b"} />
-                      <Text className="text-slate-600 dark:text-slate-300 text-xs font-extrabold ml-2">
-                        Sends Today: {limits.daily_sent}/{limits.daily_limit}
-                      </Text>
-                    </View>
-                    <View className="h-6 w-[1px] bg-slate-100 dark:bg-rose-950/25" />
-                    <View className="flex-row items-center">
-                      <Ionicons name="flame-outline" size={18} color={isDark ? "#2dd4bf" : "#0d6e67"} />
-                      <Text className="text-slate-600 dark:text-slate-300 text-xs font-extrabold ml-2">
-                        Active Dares: {limits.active_count}/{limits.active_limit}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-
-                {/* Add note text input */}
-                <View className="mb-6">
-                  <Text className="text-[11px] font-bold text-slate-400 dark:text-rose-400/60 tracking-wider uppercase mb-2">Add a personal note (optional)</Text>
-                  <View className="bg-white dark:bg-[#271318] rounded-2xl border border-slate-100 dark:border-rose-950/20 px-4 py-2">
-                    <TextInput
-                      placeholder="Type something sweet or playful..."
-                      placeholderTextColor={isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8"}
-                      className="text-slate-800 dark:text-white text-[14px] font-medium min-h-[50px] max-h-[100px]"
-                      multiline
-                      numberOfLines={3}
-                      value={note}
-                      onChangeText={setNote}
-                      style={{ textAlignVertical: 'top' }}
-                    />
-                  </View>
-                </View>
-
-                {limits && !limits.can_send && (
-                  <View className="flex-row items-start bg-rose-50/50 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-950/30 p-4 rounded-2xl mb-6">
-                    <Ionicons name="warning" size={18} color={isDark ? "#f43f5e" : "#b91c1c"} style={{ marginTop: 1 }} />
-                    <Text className="text-rose-700 dark:text-rose-400 text-xs font-semibold ml-2.5 flex-1 leading-5">
-                      {limits.daily_remaining === 0 
-                        ? "Daily limit reached. You can only send 2 challenges per day (resets at midnight UTC)." 
-                        : "Active limit reached. You can only have 2 active challenges at the same time."}
-                    </Text>
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  className={`rounded-full py-[18px] items-center justify-center flex-row ${
-                    isSending || (limits !== null && !limits.can_send)
-                      ? 'bg-slate-100 dark:bg-rose-950/15 border border-slate-200/45 dark:border-rose-950/20'
-                      : 'bg-[#af2c3b] dark:bg-rose-600'
-                  }`}
-                  activeOpacity={0.85}
-                  onPress={handleSendChallenge}
-                  disabled={isSending || (limits !== null && !limits.can_send)}
-                >
-                  {isSending ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons 
-                        name="send" 
-                        size={18} 
-                        color={limits && !limits.can_send ? (isDark ? '#64748b' : '#94a3b8') : 'white'} 
-                      />
-                      <Text className={`font-bold text-[15px] ml-2 ${
-                        limits && !limits.can_send 
-                          ? 'text-slate-400 dark:text-slate-500' 
-                          : 'text-white'
-                      }`}>
-                        {limits && !limits.can_send ? 'Send Limit Reached' : 'Send to Partner'}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
+      {/* Send Modal */}
+      <Modal visible={!!selectedDare} transparent animationType="slide" onRequestClose={() => setSelectedDare(null)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <View style={{ backgroundColor: isDark ? '#1C1721' : '#FFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontSize: 20, fontWeight: '900', color: textColor }}>Send Dare</Text>
+              <TouchableOpacity onPress={() => setSelectedDare(null)} style={{ padding: 4, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', borderRadius: 20 }}>
+                <Ionicons name="close" size={22} color={textColor} />
+              </TouchableOpacity>
             </View>
-          )}
+
+            {selectedDare && (
+              <View style={{ backgroundColor: isDark ? '#261F2C' : '#F7F4F6', borderRadius: 20, padding: 20, marginBottom: 20 }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: textColor, marginBottom: 8 }}>{selectedDare.title}</Text>
+                <Text style={{ color: subTextColor, fontSize: 14, lineHeight: 22 }}>{selectedDare.description}</Text>
+              </View>
+            )}
+
+            <Text style={{ fontSize: 15, fontWeight: '700', color: textColor, marginBottom: 12 }}>Add a note (optional)</Text>
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder="E.g. We haven't done this in a while..."
+              placeholderTextColor={subTextColor}
+              style={{
+                backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                borderRadius: 16,
+                padding: 16,
+                color: textColor,
+                fontSize: 15,
+                marginBottom: 24,
+                textAlignVertical: 'top'
+              }}
+              multiline
+              numberOfLines={3}
+            />
+
+            <TouchableOpacity 
+              onPress={handleSendChallenge}
+              disabled={isSending || (limits?.can_send === false)}
+              style={{
+                backgroundColor: limits?.can_send === false ? (isDark ? '#4A3E48' : '#D1C9CD') : '#FF296D',
+                borderRadius: 100,
+                paddingVertical: 18,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                shadowColor: '#FF296D',
+                shadowOffset: { width: 0, height: 6 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                elevation: 5
+              }}
+            >
+              {isSending ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Text style={{ color: 'white', fontWeight: '800', fontSize: 16, marginRight: 8 }}>
+                    {limits?.can_send === false ? 'Send Limit Reached' : 'Send Challenge'}
+                  </Text>
+                  {limits?.can_send !== false && <Ionicons name="send" size={16} color="white" />}
+                </>
+              )}
+            </TouchableOpacity>
+
+            {limits && (
+              <View style={{ alignItems: 'center', marginTop: 12 }}>
+                <Text style={{ color: subTextColor, fontSize: 12, fontWeight: '600' }}>
+                  {limits.active_remaining} active limits • {limits.daily_remaining} daily remaining
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
   );
 }
-
