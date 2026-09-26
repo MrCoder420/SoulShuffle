@@ -3,12 +3,13 @@ import { useThemeToggle } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect, router } from 'expo-router';
-import { Image, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View, ActivityIndicator, DeviceEventEmitter, Modal } from 'react-native';
+import { Image, ScrollView, Alert, StatusBar, Text, TextInput, TouchableOpacity, View, ActivityIndicator, DeviceEventEmitter, Modal } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolateColor } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getMyProfileCached, updateMyProfile } from '@/services/authService';
-import { getActiveRoom, clearRoomCache } from '@/services/roomService';
+import { getActiveRoom, clearRoomCache, leaveRoom } from '@/services/roomService';
 import GameSocket from '@/services/socketService';
+import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ANIMATED_AVATARS, AVATAR_CATEGORIES, AnimatedAvatar } from '@/constants/avatars';
 
@@ -496,6 +497,54 @@ export default function Profile() {
     setTimeout(() => setSubmitted(false), 3500);
   };
 
+  const handleCopyRoomCode = async () => {
+    if (activeRoom?.code) {
+      await Clipboard.setStringAsync(activeRoom.code);
+      Alert.alert("Copied!", "Room code copied to clipboard.");
+    }
+  };
+
+  const handleLeaveRoom = () => {
+    Alert.alert(
+      "Leave Room",
+      "Are you sure you want to leave this room? You will lose access to all current challenges.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const currentRoomId = activeRoom?.id;
+              const currentRoomCode = activeRoom?.code;
+
+              if (currentRoomCode) {
+                GameSocket.leaveRoom(currentRoomCode);
+              }
+
+              setActiveRoom(null);
+              setRoomActiveTimeText('No Active Room');
+              
+              if (currentRoomId) {
+                await clearRoomCache(currentRoomId);
+                await leaveRoom(currentRoomId);
+              } else {
+                await clearRoomCache();
+              }
+
+              setTimeout(() => {
+                DeviceEventEmitter.emit("app:refreshDashboard");
+              }, 500);
+            } catch (error) {
+              console.error("API Error during leaveRoom:", error);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-[#fdfaf9] dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fdfaf9"} />
@@ -616,7 +665,54 @@ export default function Profile() {
           );
         })()}
 
+        
+        {/* Room Info Box */}
+        {activeRoom && (activeRoom.status === 'ACTIVE' || activeRoom.status === 'WAITING') && (
+          <View className="px-6 mt-8">
+            <View className="bg-white dark:bg-[#1a0c10] rounded-xl p-5 border border-rose-100 dark:border-rose-950/40 shadow-sm relative overflow-hidden">
+              <View className="absolute top-0 right-0 opacity-10">
+                <Ionicons name="link" size={80} color={isDark ? "#f43f5e" : "#af2c3b"} />
+              </View>
+              
+              <Text className="text-base font-bold text-slate-800 dark:text-white tracking-tight mb-4">
+                Room Details
+              </Text>
+
+              <View className="flex-row items-center justify-between mb-4 bg-slate-50 dark:bg-[#200e14] p-3 rounded-lg border border-slate-100 dark:border-rose-950/20">
+                <View>
+                  <Text className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Room Code</Text>
+                  <Text className="text-sm font-black text-[#af2c3b] dark:text-rose-400 tracking-widest">{activeRoom.code}</Text>
+                </View>
+                <TouchableOpacity onPress={handleCopyRoomCode} className="bg-rose-100 dark:bg-rose-900/40 px-3 py-1.5 rounded-full flex-row items-center">
+                  <Ionicons name="copy-outline" size={14} color={isDark ? "#fda4af" : "#be123c"} />
+                  <Text className="text-xs font-bold text-[#be123c] dark:text-rose-300 ml-1">Copy</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <View className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-950/50 items-center justify-center mr-3">
+                    <Ionicons name="people" size={14} color={isDark ? "#fda4af" : "#be123c"} />
+                  </View>
+                  <View>
+                    <Text className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Partner</Text>
+                    <Text className="text-sm font-bold text-slate-800 dark:text-white" numberOfLines={1}>
+                      {activeRoom.status === 'WAITING' ? 'Waiting for partner...' : partnerName}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity onPress={handleLeaveRoom} className="px-3 py-1.5 flex-row items-center border border-red-200 dark:border-red-900/30 rounded-full bg-red-50 dark:bg-red-950/20">
+                  <Ionicons name="log-out-outline" size={14} color="#ef4444" />
+                  <Text className="text-xs font-bold text-red-500 ml-1">Leave</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Top Cards Info */}
+
         <View className="px-6 mt-8">
           <View className="bg-[#e4dad6]/30 dark:bg-[#271318]/80 rounded-xl p-6 border border-slate-100 dark:border-rose-950/30 overflow-hidden relative">
             {isEditingMemory ? (

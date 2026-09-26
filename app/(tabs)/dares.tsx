@@ -207,29 +207,24 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
 
   const isAnimating = React.useRef(false);
 
-  // Instantly unlock the gesture engine as soon as the next card renders (takes ~16ms)
-  React.useEffect(() => {
-    isAnimating.current = false;
-  }, [currentIndex]);
-
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (evt: any, gestureState: any) => {
         const d = latestData.current;
-        if (isAnimating.current || !d || d.length === 0) return false;
+        if (!d || d.length === 0) return false;
         return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
       onMoveShouldSetPanResponderCapture: (evt: any, gestureState: any) => {
         const d = latestData.current;
-        if (isAnimating.current || !d || d.length === 0) return false;
+        if (!d || d.length === 0) return false;
         return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
       onPanResponderGrant: () => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (!isAnimating.current && d && d[idx]) {
+        if (d && d[idx]) {
           const currentPosition = getPosition(d[idx].id);
           currentPosition.setOffset({
             x: (currentPosition.x as any)._value,
@@ -241,24 +236,22 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
       onPanResponderMove: (evt: any, gestureState: any) => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (isAnimating.current || !d || d.length === 0) return;
+        if (!d || d.length === 0) return;
         const currentPosition = getPosition(d[idx].id);
         currentPosition.setValue({ x: gestureState.dx, y: gestureState.dy });
       },
       onPanResponderRelease: (evt: any, gestureState: any) => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (isAnimating.current || !d || d.length === 0) return;
+        if (!d || d.length === 0) return;
         
         const currentPosition = getPosition(d[idx].id);
         currentPosition.flattenOffset();
 
-        // Made thresholds extremely sensitive for a buttery smooth Tinder feel
-        const isSwipeRight = gestureState.dx > 60 || (gestureState.dx > 5 && gestureState.vx > 0.2);
-        const isSwipeLeft = gestureState.dx < -60 || (gestureState.dx < -5 && gestureState.vx < -0.2);
+        const isSwipeRight = gestureState.dx > 100 || (gestureState.dx > 20 && gestureState.vx > 0.5);
+        const isSwipeLeft = gestureState.dx < -100 || (gestureState.dx < -20 && gestureState.vx < -0.5);
 
         if (isSwipeRight) {
-          isAnimating.current = true; // Lock for 1 frame until React renders the new card
           Animated.timing(currentPosition, {
             toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy + (gestureState.vy * 50) },
             duration: 250,
@@ -268,7 +261,6 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
           });
           setCurrentIndex(prev => (prev < d.length - 1 ? prev + 1 : 0));
         } else if (isSwipeLeft) {
-          isAnimating.current = true; // Lock for 1 frame
           Animated.timing(currentPosition, {
             toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy + (gestureState.vy * 50) },
             duration: 250,
@@ -731,8 +723,10 @@ export default function Dares() {
       ) : room && room.status === 'ACTIVE' ? (
         <ScrollView 
           showsVerticalScrollIndicator={false} 
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF296D']} tintColor={isDark ? '#fff' : '#FF296D'} />
+          }
           contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}
-          bounces={false}
         >
           {/* Header Title */}
           <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}>
@@ -815,8 +809,8 @@ export default function Dares() {
                       activeOpacity={0.9} 
                       onPress={() => setSelectedCategory(cat.id)} 
                       style={{
-                        width: 110,
-                        height: 135,
+                        width: 124,
+                        height: 145,
                         backgroundColor: selectedCategory === cat.id ? cat.color : (isDark ? '#1C1721' : '#FFFFFF'),
                         borderRadius: 24,
                         overflow: 'hidden',
@@ -831,20 +825,21 @@ export default function Dares() {
                         elevation: 3
                       }}
                     >
-                      <View style={{ width: '100%', height: '55%' }}>
+                      <View style={{ width: '100%', height: '52%' }}>
                         <Image source={cat.image} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                       </View>
-                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%', paddingHorizontal: 6, paddingTop: 2 }}>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%', paddingHorizontal: 8, paddingBottom: 2 }}>
                         <Text 
                           numberOfLines={1} 
                           adjustsFontSizeToFit 
-                          style={{ fontSize: 13, fontWeight: '800', color: selectedCategory === cat.id ? '#FFF' : cat.color, textAlign: 'center', width: '100%' }}
+                          minimumFontScale={0.85}
+                          style={{ fontSize: 14, fontWeight: '800', color: selectedCategory === cat.id ? '#FFF' : cat.color, textAlign: 'center', width: '100%' }}
                         >
                           {cat.label}
                         </Text>
                         <Text 
                           numberOfLines={1}
-                          style={{ fontSize: 11, fontWeight: '700', color: selectedCategory === cat.id ? 'rgba(255,255,255,0.9)' : subTextColor, marginTop: 4, textAlign: 'center' }}
+                          style={{ fontSize: 12, fontWeight: '700', color: selectedCategory === cat.id ? 'rgba(255,255,255,0.9)' : subTextColor, marginTop: 3, textAlign: 'center' }}
                         >
                           {cat.count} {cat.count === 1 ? 'Card' : 'Cards'}
                         </Text>
