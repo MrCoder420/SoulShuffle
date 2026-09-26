@@ -264,10 +264,14 @@ export default function Dares() {
       
       const appLoadEndTime = performance.now();
       console.log(`[Performance] Total Dares Load Time: ${(appLoadEndTime - appLoadStartTime).toFixed(2)} ms`);
-    } catch (error) {
-      console.log('Failed to fetch dares from backend, loading fallback cards:', error);
-      const fallbacks = getFallbackCards().map(mapCardToDare);
-      setDares(fallbacks);
+    } catch (error: any) {
+      console.log('Failed to fetch dares from backend:', error?.message);
+      // Fallback: If we already loaded cached data on screen, keep it. 
+      // Do not overwrite real cached data with fake hardcoded cards!
+      setDares((prevDares) => {
+        if (prevDares && prevDares.length > 0) return prevDares;
+        return []; // If completely empty, just show empty, not fake cards.
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { fetchRoomHistory, getActiveRoom, SentChallenge } from '@/services/roomService';
 import { getMyProfileCached } from '@/services/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import GameSocket from '@/services/socketService';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSidebar } from '@/context/SidebarContext';
 import { useUserAvatar } from '@/hooks/use-user-avatar';
@@ -284,10 +285,12 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
 
       // 4. Fetch history specifically for active room ID
       let freshHistory: SentChallenge[] = [];
+      let fetchFailed = false;
       try {
         freshHistory = await fetchRoomHistory(activeRoomId);
       } catch (err) {
         console.log('Fetch room history API error:', err);
+        fetchFailed = true;
       }
 
       // 5. Fallback to activeRoom.game_state.challenge_history if empty
@@ -310,10 +313,16 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
         : [];
 
       const enriched = currentRoomOnly.map(enrichItem);
-      setChallengeHistory(enriched);
-      calculateStats(enriched, staticTotal);
+      
+      setChallengeHistory((prevHistory) => {
+        if (fetchFailed && prevHistory && prevHistory.length > 0) {
+          return prevHistory; // Preserve cache on network error
+        }
+        calculateStats(enriched, staticTotal);
+        return enriched;
+      });
 
-      if (enriched.length > 0) {
+      if (enriched.length > 0 && !fetchFailed) {
         await AsyncStorage.setItem(cacheKey, JSON.stringify(enriched));
       }
     } catch (error) {
@@ -326,8 +335,18 @@ const calculateStats = (currentRoomHistory: SentChallenge[], staticTotal: number
 
   useEffect(() => {
     loadHistory();
-    const interval = setInterval(() => loadHistory(false), 20000);
-    return () => clearInterval(interval);
+    
+    // Use real-time socket events instead of aggressive 20-second polling 
+    // to prevent hitting the backend API rate limits (100 req / 15 min).
+    const handleEvent = () => loadHistory(false);
+    
+    GameSocket.on('game_event', handleEvent);
+    GameSocket.on('partner_joined', handleEvent);
+    
+    return () => {
+      GameSocket.off('game_event', handleEvent);
+      GameSocket.off('partner_joined', handleEvent);
+    };
   }, [loadHistory]);
 
   // Filter history
