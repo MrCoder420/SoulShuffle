@@ -1,11 +1,38 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Alert, Platform, Linking, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import api from '@/services/api';
 import GameSocket from '@/services/socketService';
+
+// In Expo Go on Android (SDK 53+), remote push notifications from expo-notifications were removed
+// and importing/using the module throws an uncaught error. Guard against this.
+const isAndroidExpoGo = Platform.OS === 'android' && isRunningInExpoGo();
+
+let Notifications: any = null;
+if (!isAndroidExpoGo) {
+  try {
+    Notifications = require('expo-notifications');
+  } catch (e) {
+    console.warn('[Notifications] expo-notifications load skipped:', e);
+  }
+}
+
+if (!Notifications) {
+  Notifications = {
+    setNotificationHandler: () => {},
+    setNotificationChannelAsync: async () => {},
+    getPermissionsAsync: async () => ({ status: 'denied' }),
+    requestPermissionsAsync: async () => ({ status: 'denied' }),
+    getExpoPushTokenAsync: async () => ({ data: null }),
+    addNotificationResponseReceivedListener: () => ({ remove: () => {} }),
+    scheduleNotificationAsync: async () => {},
+    AndroidImportance: { MAX: 5 },
+    AndroidNotificationVisibility: { PUBLIC: 1 },
+  };
+}
 
 // ─── Configure how notifications appear when the app is in the foreground ─────
 try {
@@ -147,7 +174,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
   // Register push token with backend
   const registerPushTokenWithBackend = useCallback(async () => {
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === 'web' || isAndroidExpoGo) return;
 
     try {
       // 1. Ensure Android Channel is registered
@@ -232,7 +259,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     if (Platform.OS === 'web') return;
 
     // Handle interaction when app was opened by tapping a notification
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
       try {
         const data = response.notification.request.content.data;
         if (data?.room_id || data?.send_id || data?.card_id) {

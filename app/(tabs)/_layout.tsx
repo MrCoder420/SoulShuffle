@@ -1,5 +1,4 @@
-import { Tabs, useRouter, useSegments, usePathname, useNavigation } from 'expo-router';
-import { CommonActions } from '@react-navigation/native';
+import { Tabs, useRouter, useSegments, usePathname } from 'expo-router';
 import React, { useEffect, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GameSocket from '@/services/socketService';
@@ -26,7 +25,13 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+
+type BottomTabBarProps = {
+  state: any;
+  descriptors: any;
+  navigation: any;
+  insets?: any;
+};
 
 const TABS = [
   { name: 'index',     label: 'Home',      icon: 'heart-outline',     activeIcon: 'heart'     },
@@ -135,10 +140,10 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           },
         ]}
       >
-        {TABS.map((tab, index) => {
-          const route = state.routes.find((r) => r.name === tab.name);
+        {TABS.map((tab) => {
+          const route = state.routes.find((r: any) => r.name === tab.name);
           if (!route) return null;
-          const focused = state.index === state.routes.findIndex((r) => r.name === tab.name);
+          const focused = state.index === state.routes.findIndex((r: any) => r.name === tab.name);
 
           return (
             <TabItem
@@ -212,7 +217,6 @@ export default function TabLayout() {
   const segments = useSegments();
   const pathname = usePathname();
   const router = useRouter();
-  const navigation = useNavigation();
 
   const pathnameRef = useRef(pathname);
   const segmentsRef = useRef(segments);
@@ -342,15 +346,10 @@ export default function TabLayout() {
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('app:logout', () => {
       console.log('[TABS LAYOUT] app:logout → resetting root stack to index');
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'index' }],
-        })
-      );
+      router.replace('/');
     });
     return () => sub.remove();
-  }, [navigation]);
+  }, [router]);
 
   return (
     <View style={{ flex: 1 }}>

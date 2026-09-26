@@ -1,4 +1,3 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
@@ -11,16 +10,6 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useEffect } from 'react';
 import RevenueCatService from '@/services/revenueCatService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const CustomDarkTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: '#0F0608',
-    card: '#271318',
-    text: '#e2e8f0',
-  },
-};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -41,21 +30,24 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? CustomDarkTheme : DefaultTheme}>
-        <SidebarProvider>
-          <NotificationProvider>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="questionnaire" options={{ headerShown: false, gestureEnabled: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="notifications" options={{ headerShown: false }} />
-              <Stack.Screen name="coin-toss" options={{ headerShown: false, presentation: 'card' }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            </Stack>
-            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          </NotificationProvider>
-        </SidebarProvider>
-      </ThemeProvider>
+      <SidebarProvider>
+        <NotificationProvider>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colorScheme === 'dark' ? '#0F0608' : '#ffffff' },
+            }}
+          >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="questionnaire" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="notifications" options={{ headerShown: false }} />
+            <Stack.Screen name="coin-toss" options={{ headerShown: false, presentation: 'card' }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        </NotificationProvider>
+      </SidebarProvider>
     </SafeAreaProvider>
   );
 }
