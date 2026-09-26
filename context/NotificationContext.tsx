@@ -7,17 +7,23 @@ import { router } from 'expo-router';
 import api from '@/services/api';
 import GameSocket from '@/services/socketService';
 
+const isExpoGo =
+  Constants.appOwnership === 'expo' ||
+  (Constants as any).executionEnvironment === 'storeClient';
+
 // ─── Configure how notifications appear when the app is in the foreground ─────
 try {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  if (Platform.OS !== 'web' && !(Platform.OS === 'android' && isExpoGo)) {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }
 } catch (e) {
   console.warn('[Notifications] setNotificationHandler error:', e);
 }
@@ -54,7 +60,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 // ─── Setup Android Notification Channel ─────────────────────────────────────
 const setupAndroidChannel = async () => {
-  if (Platform.OS === 'android') {
+  if (Platform.OS === 'android' && !isExpoGo) {
     try {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'SoulShuffle Notifications',
@@ -148,24 +154,34 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   // Register push token with backend
   const registerPushTokenWithBackend = useCallback(async () => {
     if (Platform.OS === 'web') return;
+    if (Platform.OS === 'android' && isExpoGo) {
+      console.log('[Notifications] Android push notifications are disabled in Expo Go (SDK 53+). Use a development build.');
+      return;
+    }
 
     try {
       // 1. Ensure Android Channel is registered
       await setupAndroidChannel();
 
       // 2. Request / verify permissions
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
+      let finalStatus = 'undetermined';
+      try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        finalStatus = existingStatus;
 
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync({
-          ios: {
-            allowAlert: true,
-            allowBadge: true,
-            allowSound: true,
-          },
-        });
-        finalStatus = status;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+            },
+          });
+          finalStatus = status;
+        }
+      } catch (permErr) {
+        console.warn('[Notifications] Permission error:', permErr);
+        return;
       }
 
       if (finalStatus !== 'granted') {
@@ -179,27 +195,31 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         Constants?.easConfig?.projectId ??
         '75231063-db0f-42e1-9654-e92a69abe55d';
 
-      const tokenResult = await Notifications.getExpoPushTokenAsync({
-        projectId,
-      });
+      try {
+        const tokenResult = await Notifications.getExpoPushTokenAsync({
+          projectId,
+        });
 
-      const pushToken = tokenResult.data;
-      console.log('[Notifications] Push Token obtained:', pushToken);
-      setExpoPushToken(pushToken);
+        const pushToken = tokenResult?.data;
+        console.log('[Notifications] Push Token obtained:', pushToken);
+        setExpoPushToken(pushToken);
 
-      if (pushToken) {
-        await AsyncStorage.setItem('expoPushToken', pushToken);
+        if (pushToken) {
+          await AsyncStorage.setItem('expoPushToken', pushToken);
 
-        // 4. Send token to backend if user is logged in
-        const accessToken = await AsyncStorage.getItem('accessToken');
-        if (accessToken) {
-          try {
-            await api.post('/notifications/register-push-token', { pushToken });
-            console.log('[Notifications] Push token successfully registered on backend');
-          } catch (apiErr) {
-            console.warn('[Notifications] Failed to send push token to backend:', apiErr);
+          // 4. Send token to backend if user is logged in
+          const accessToken = await AsyncStorage.getItem('accessToken');
+          if (accessToken) {
+            try {
+              await api.post('/notifications/register-push-token', { pushToken });
+              console.log('[Notifications] Push token successfully registered on backend');
+            } catch (apiErr) {
+              console.warn('[Notifications] Failed to send push token to backend:', apiErr);
+            }
           }
         }
+      } catch (tokenErr) {
+        console.warn('[Notifications] Failed to obtain push token:', tokenErr);
       }
     } catch (err) {
       console.warn('[Notifications] registerPushTokenWithBackend error:', err);
@@ -230,25 +250,32 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   // ── Handle Tap on Push Notification (Foreground / Background / Killed) ──
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    if (Platform.OS === 'android' && isExpoGo) return;
 
-    // Handle interaction when app was opened by tapping a notification
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-      try {
-        const data = response.notification.request.content.data;
-        if (data?.room_id || data?.send_id || data?.card_id) {
-          router.push('/(tabs)');
-          const { DeviceEventEmitter } = require('react-native');
-          DeviceEventEmitter.emit('app:openCardSend', data);
-        } else {
-          router.push('/notifications');
+    let responseSubscription: any;
+    try {
+      responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+        try {
+          const data = response.notification.request.content.data;
+          if (data?.room_id || data?.send_id || data?.card_id) {
+            router.push('/(tabs)');
+            const { DeviceEventEmitter } = require('react-native');
+            DeviceEventEmitter.emit('app:openCardSend', data);
+          } else {
+            router.push('/notifications');
+          }
+        } catch (err) {
+          // silently fallback
         }
-      } catch (err) {
-        // silently fallback
-      }
-    });
+      });
+    } catch (subErr) {
+      console.warn('[Notifications] addNotificationResponseReceivedListener error:', subErr);
+    }
 
     return () => {
-      responseSubscription.remove();
+      if (responseSubscription?.remove) {
+        responseSubscription.remove();
+      }
     };
   }, []);
 
@@ -273,19 +300,21 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         setUnreadCount(prev => prev + 1);
 
         // Display in Android/iOS system notification bar!
-        try {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: notification.title || 'SoulShuffle',
-              body: notification.body || 'You received a new card update!',
-              data: notification.data || {},
-              sound: 'default',
-              badge: 1,
-            },
-            trigger: null, // Display immediately in system tray
-          });
-        } catch (localErr) {
-          console.warn('[NotificationContext] Failed to post local notification:', localErr);
+        if (Platform.OS !== 'web' && !(Platform.OS === 'android' && isExpoGo)) {
+          try {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: notification.title || 'SoulShuffle',
+                body: notification.body || 'You received a new card update!',
+                data: notification.data || {},
+                sound: 'default',
+                badge: 1,
+              },
+              trigger: null, // Display immediately in system tray
+            });
+          } catch (localErr) {
+            console.warn('[NotificationContext] Failed to post local notification:', localErr);
+          }
         }
 
         // Trigger beautiful in-app modal if it's a stolen penalty card
