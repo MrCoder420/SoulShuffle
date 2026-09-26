@@ -147,7 +147,7 @@ const DareDeckItem = ({ item, index, isDark, onSelect, panHandlers, animatedStyl
          className="w-full h-full rounded-[30px] overflow-hidden bg-slate-200 dark:bg-[#1C1518] shadow-xl"
          style={{ elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, borderWidth: isDark ? 1 : 0, borderColor: 'rgba(255,255,255,0.05)' }}
       >
-        <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+        <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" draggable={false} style={{ width: '100%', height: '100%', position: 'absolute' }} />
         
         {/* Semi-transparent dark gradient overlay */}
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
@@ -180,7 +180,8 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
 
   const panResponder = React.useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5,
       onPanResponderMove: (evt, gestureState) => {
         position.setValue({ x: gestureState.dx, y: gestureState.dy });
       },
@@ -720,16 +721,17 @@ export default function Dares() {
 
           {/* Carousel */}
           <View className="mt-2 mb-6">
-            <DareCarousel data={dares} isDark={isDark} onSelectDare={setSelectedDare} />
+            {/* Filter dares based on selected category */}
+              <DareCarousel data={selectedCategory === 'ALL' ? dares : dares.filter((d: any) => d.category.includes(selectedCategory))} isDark={isDark} onSelectDare={setSelectedDare} />
           </View>
 
           {/* Explore Categories */}
           <View className="px-6 mt-4">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-xl font-bold text-slate-900 dark:text-white">Explore Categories</Text>
-              <TouchableOpacity>
-                <Text className="text-[#FF1B6B] font-bold text-sm">See all</Text>
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setSelectedCategory('ALL')}>
+                  <Text className="text-[#FF1B6B] font-bold text-sm">See all</Text>
+                </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={{ paddingHorizontal: 24 }}>
               {[
@@ -738,7 +740,7 @@ export default function Dares() {
                 { id: 'deep', label: 'Deep', image: require('@/assets/images/sunset_picnic.jpeg'), color: 'text-blue-600 dark:text-blue-400' },
                 { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: 'text-[#FF1B6B]' }
               ].map((cat: any) => (
-                <TouchableOpacity key={cat.id} activeOpacity={0.9} className="w-[100px] h-[120px] bg-white dark:bg-[#161114] rounded-3xl overflow-hidden mr-3 items-center shadow-sm border border-slate-50 dark:border-rose-950/20">
+                <TouchableOpacity key={cat.id} activeOpacity={0.9} onPress={() => setSelectedCategory(cat.id.toUpperCase())} className="w-[100px] h-[120px] bg-white dark:bg-[#161114] rounded-3xl overflow-hidden mr-3 items-center shadow-sm border border-slate-50 dark:border-rose-950/20">
                   <View className="w-full h-[65%]">
                     <Image source={cat.image} className="w-full h-full" resizeMode="cover" />
                   </View>
