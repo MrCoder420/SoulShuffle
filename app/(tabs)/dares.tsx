@@ -118,117 +118,112 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH * 0.72;
 const ITEM_HEIGHT = ITEM_WIDTH * 1.5;
 
+
+const getCatColor = (cat: string) => {
+  const c = (cat || '').toLowerCase();
+  if(c.includes('romance')) return '#FF296D';
+  if(c.includes('fun')) return '#9D4EDD';
+  if(c.includes('spicy')) return '#D90429';
+  return '#3A86FF';
+};
+
+const CarouselItem = ({ item, index, scrollX, isDark, onSelectDare }: any) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    const inputRange = [
+      (index - 1) * ITEM_WIDTH,
+      index * ITEM_WIDTH,
+      (index + 1) * ITEM_WIDTH
+    ];
+
+    const scale = interpolate(scrollX.value, inputRange, [0.85, 1, 0.85], Extrapolation.CLAMP);
+    const rotateZ = interpolate(scrollX.value, inputRange, [-8, 0, 8], Extrapolation.CLAMP);
+    const translateY = interpolate(scrollX.value, inputRange, [30, 0, 30], Extrapolation.CLAMP);
+    const opacity = interpolate(scrollX.value, inputRange, [0.7, 1, 0.7], Extrapolation.CLAMP);
+    const zIndex = interpolate(scrollX.value, inputRange, [0, 100, 0], Extrapolation.CLAMP);
+
+    return {
+      transform: [
+        { scale },
+        { translateY },
+        { rotateZ: `${rotateZ}deg` }
+      ],
+      opacity,
+      zIndex: Math.round(zIndex)
+    };
+  });
+
+  const categoryColor = getCatColor(item.category);
+
+  return (
+    <Animated.View style={[{ width: ITEM_WIDTH, height: ITEM_HEIGHT }, animatedStyle]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => onSelectDare(item)}
+        className="w-full h-full rounded-[32px] overflow-hidden shadow-xl border"
+        style={{ 
+          backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
+          borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+          elevation: 12, 
+          shadowColor: isDark ? '#000' : '#FF296D', 
+          shadowOffset: { width: 0, height: 15 }, 
+          shadowOpacity: isDark ? 0.4 : 0.15, 
+          shadowRadius: 25 
+        }}
+      >
+        <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+        
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%', backgroundColor: 'rgba(0,0,0,0.45)' }} />
+
+        <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
+          {item.category ? (
+            <View className="px-3.5 py-1.5 rounded-full" style={{ backgroundColor: categoryColor }}>
+               <Text className="text-white text-[10px] font-bold tracking-wider uppercase">{item.category}</Text>
+            </View>
+          ) : <View />}
+          <TouchableOpacity className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
+             <Ionicons name="heart-outline" size={18} color="white" />
+          </TouchableOpacity>
+        </View>
+
+        <View className="absolute bottom-6 left-5 right-5">
+           <Text className="text-white text-[24px] font-black mb-1.5 tracking-tight leading-7">{item.title}</Text>
+           <Text className="text-white/90 text-[13px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
+           
+           <View className="flex-row justify-between items-center mt-1">
+             <View className="flex-row items-center">
+               <Ionicons name="people" size={15} color="white" />
+               <Text className="text-white font-medium text-[12px] ml-1.5">2+ People</Text>
+             </View>
+             <TouchableOpacity onPress={() => onSelectDare(item)} className="w-11 h-11 rounded-full items-center justify-center bg-[#FF296D]">
+               <Ionicons name="arrow-forward" size={20} color="white" />
+             </TouchableOpacity>
+           </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const PaginationDot = ({ index, scrollX }: any) => {
+  const dotStyle = useAnimatedStyle(() => {
+    const width = interpolate(scrollX.value, [(index - 1) * ITEM_WIDTH, index * ITEM_WIDTH, (index + 1) * ITEM_WIDTH], [8, 20, 8], Extrapolation.CLAMP);
+    const opacity = interpolate(scrollX.value, [(index - 1) * ITEM_WIDTH, index * ITEM_WIDTH, (index + 1) * ITEM_WIDTH], [0.4, 1, 0.4], Extrapolation.CLAMP);
+    const backgroundColor = interpolateColor(
+      scrollX.value, 
+      [(index - 1) * ITEM_WIDTH, index * ITEM_WIDTH, (index + 1) * ITEM_WIDTH], 
+      ['#D9D9D9', '#FF296D', '#D9D9D9']
+    );
+    return { width, opacity, backgroundColor };
+  });
+  return <Animated.View style={[{ height: 8, borderRadius: 4, marginHorizontal: 3 }, dotStyle]} />;
+};
+
 const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
   const scrollX = useSharedValue(0);
 
   const onScroll = useAnimatedScrollHandler((event) => {
     scrollX.value = event.contentOffset.x;
   });
-
-  const getCatColor = (cat: string) => {
-    const c = (cat || '').toLowerCase();
-    if(c.includes('romance')) return '#FF296D';
-    if(c.includes('fun')) return '#9D4EDD';
-    if(c.includes('spicy')) return '#D90429';
-    return '#3A86FF';
-  };
-
-  const renderItem = ({ item, index }: any) => {
-    const animatedStyle = useAnimatedStyle(() => {
-      const inputRange = [
-        (index - 1) * ITEM_WIDTH,
-        index * ITEM_WIDTH,
-        (index + 1) * ITEM_WIDTH
-      ];
-
-      const scale = interpolate(scrollX.value, inputRange, [0.85, 1, 0.85], Extrapolation.CLAMP);
-      const rotateZ = interpolate(scrollX.value, inputRange, [-8, 0, 8], Extrapolation.CLAMP);
-      const translateY = interpolate(scrollX.value, inputRange, [30, 0, 30], Extrapolation.CLAMP);
-      const opacity = interpolate(scrollX.value, inputRange, [0.7, 1, 0.7], Extrapolation.CLAMP);
-      const zIndex = interpolate(scrollX.value, inputRange, [0, 100, 0], Extrapolation.CLAMP);
-
-      return {
-        transform: [
-          { scale },
-          { translateY },
-          { rotateZ: `${rotateZ}deg` }
-        ],
-        opacity,
-        zIndex: Math.round(zIndex)
-      };
-    });
-
-    const categoryColor = getCatColor(item.category);
-
-    return (
-      <Animated.View style={[{ width: ITEM_WIDTH, height: ITEM_HEIGHT }, animatedStyle]}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => onSelectDare(item)}
-          className="w-full h-full rounded-[32px] overflow-hidden shadow-xl border"
-          style={{ 
-            backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
-            borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-            elevation: 12, 
-            shadowColor: isDark ? '#000' : '#FF296D', 
-            shadowOffset: { width: 0, height: 15 }, 
-            shadowOpacity: isDark ? 0.4 : 0.15, 
-            shadowRadius: 25 
-          }}
-        >
-          <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
-          
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%', backgroundColor: 'rgba(0,0,0,0.45)' }} />
-
-          <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
-            {item.category ? (
-              <View className="px-3.5 py-1.5 rounded-full" style={{ backgroundColor: categoryColor }}>
-                 <Text className="text-white text-[10px] font-bold tracking-wider uppercase">{item.category}</Text>
-              </View>
-            ) : <View />}
-            <TouchableOpacity className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
-               <Ionicons name="heart-outline" size={18} color="white" />
-            </TouchableOpacity>
-          </View>
-
-          <View className="absolute bottom-6 left-5 right-5">
-             <Text className="text-white text-[24px] font-black mb-1.5 tracking-tight leading-7">{item.title}</Text>
-             <Text className="text-white/90 text-[13px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
-             
-             <View className="flex-row justify-between items-center mt-1">
-               <View className="flex-row items-center">
-                 <Ionicons name="people" size={15} color="white" />
-                 <Text className="text-white font-medium text-[12px] ml-1.5">2+ People</Text>
-               </View>
-               <TouchableOpacity onPress={() => onSelectDare(item)} className="w-11 h-11 rounded-full items-center justify-center bg-[#FF296D]">
-                 <Ionicons name="arrow-forward" size={20} color="white" />
-               </TouchableOpacity>
-             </View>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
-
-  const Pagination = () => {
-    return (
-      <View className="flex-row justify-center items-center mt-6 h-4">
-        {data.map((_: any, i: number) => {
-          const dotStyle = useAnimatedStyle(() => {
-            const width = interpolate(scrollX.value, [(i - 1) * ITEM_WIDTH, i * ITEM_WIDTH, (i + 1) * ITEM_WIDTH], [8, 20, 8], Extrapolation.CLAMP);
-            const opacity = interpolate(scrollX.value, [(i - 1) * ITEM_WIDTH, i * ITEM_WIDTH, (i + 1) * ITEM_WIDTH], [0.4, 1, 0.4], Extrapolation.CLAMP);
-            const backgroundColor = interpolateColor(
-              scrollX.value, 
-              [(i - 1) * ITEM_WIDTH, i * ITEM_WIDTH, (i + 1) * ITEM_WIDTH], 
-              ['#D9D9D9', '#FF296D', '#D9D9D9']
-            );
-            return { width, opacity, backgroundColor };
-          });
-          return <Animated.View key={i} style={[{ height: 8, borderRadius: 4, marginHorizontal: 3 }, dotStyle]} />;
-        })}
-      </View>
-    );
-  };
 
   if (!data || data.length === 0) return null;
 
@@ -245,9 +240,21 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
         contentContainerStyle={{ paddingHorizontal: (SCREEN_WIDTH - ITEM_WIDTH) / 2, paddingTop: 10, paddingBottom: 25 }}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        renderItem={renderItem}
+        renderItem={({ item, index }) => (
+          <CarouselItem 
+            item={item} 
+            index={index} 
+            scrollX={scrollX} 
+            isDark={isDark} 
+            onSelectDare={onSelectDare} 
+          />
+        )}
       />
-      <Pagination />
+      <View className="flex-row justify-center items-center mt-6 h-4">
+        {data.map((_: any, i: number) => (
+          <PaginationDot key={i} index={i} scrollX={scrollX} />
+        ))}
+      </View>
     </View>
   );
 };
