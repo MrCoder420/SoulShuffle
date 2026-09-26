@@ -619,27 +619,21 @@ export default function Dares() {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff8f7"} />
       
       {/* Header */}
-        <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
-          <TouchableOpacity onPress={openSidebar}>
-            <Ionicons name="menu-outline" size={32} color={isDark ? "#fff" : "#000"} />
-          </TouchableOpacity>
-          <View className="flex-row items-center justify-center absolute left-0 right-0 z-[-1]" pointerEvents="none">
-            <Ionicons name="infinite" size={28} color="#ff1b6b" style={{ transform: [{ rotate: '-15deg' }] }} />
-            <Text className="text-[#ff1b6b] font-black text-2xl tracking-tight ml-1">SoulShuffle</Text>
-          </View>
-          <View className="flex-row items-center gap-4">
-            <TouchableOpacity>
-               <Ionicons name="notifications-outline" size={26} color={isDark ? "#fff" : "#000"} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/profile')}>
-              <Image 
-                source={{ uri: userAvatar }} 
-                className="w-9 h-9 rounded-full border border-slate-200 dark:border-rose-950/30"
-              />
-            </TouchableOpacity>
-          </View>
+      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
+        <TouchableOpacity onPress={openSidebar}>
+          <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
+        </TouchableOpacity>
+        <View className="flex-row items-center gap-1.5">
+          <Ionicons name="infinite" size={28} color="#ff1b6b" style={{ transform: [{ rotate: '-15deg' }] }} />
+          <Text className="text-[#ff1b6b] font-black text-xl tracking-tight">SoulShuffle</Text>
         </View>
-      
+        <TouchableOpacity onPress={() => router.push('/profile')}>
+          <Image 
+            source={{ uri: userAvatar }} 
+            className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
+          />
+        </TouchableOpacity>
+      </View>
 
       {loading ? (
         <View className="flex-1 items-center justify-center bg-[#fff8f7] dark:bg-[#0F0608]">
@@ -647,6 +641,7 @@ export default function Dares() {
           <Text className="text-[#a12338] dark:text-rose-400 font-semibold text-sm mt-3">Loading dares...</Text>
         </View>
       ) : room && room.status === 'ACTIVE' ? (
+
         <ScrollView 
           showsVerticalScrollIndicator={false} 
           refreshControl={
@@ -692,7 +687,7 @@ export default function Dares() {
             </ScrollView>
           </View>
         </ScrollView>
-) : (
+            ) : (
               dares.filter(dare => {
                 const matchesCategory = selectedCategory === 'ALL' || dare.category.toUpperCase() === selectedCategory.toUpperCase();
                 const matchesSearch = dare.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
