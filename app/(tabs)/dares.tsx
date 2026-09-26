@@ -114,10 +114,11 @@ const mapCardToDare = (card: any): Dare => {
 
 
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ITEM_WIDTH = SCREEN_WIDTH * 0.72;
-const ITEM_HEIGHT = ITEM_WIDTH * 1.5;
 
+const { width: WINDOW_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(WINDOW_WIDTH, 450); // Cap width for web
+const ITEM_WIDTH = SCREEN_WIDTH * 0.78;
+const ITEM_HEIGHT = ITEM_WIDTH * 1.45;
 
 const getCatColor = (cat: string) => {
   const c = (cat || '').toLowerCase();
@@ -127,171 +128,199 @@ const getCatColor = (cat: string) => {
   return '#3A86FF';
 };
 
-
-const CarouselItem = ({ item, index, scrollX, isDark, onSelectDare }: any) => {
-  const animatedStyle = useAnimatedStyle(() => {
-    // Relative position: 0 is active, -1 is next, 1 is previous
-    const pos = (scrollX.value / SCREEN_WIDTH) - index;
-
-    // Shift to perfectly center the card in the viewport
-    const centerOffset = -pos * SCREEN_WIDTH;
-
-    // Fan offsets
-    const fanTranslateX = interpolate(
-      pos, 
-      [-3, -2, -1, 0, 1], 
-      [0, 30, -30, 0, -SCREEN_WIDTH * 0.8], 
-      Extrapolation.CLAMP
-    );
-    
-    const translateY = interpolate(
-      pos, 
-      [-3, -2, -1, 0, 1], 
-      [0, -10, -20, 0, 0], 
-      Extrapolation.CLAMP
-    );
-    const scale = interpolate(
-      pos, 
-      [-3, -2, -1, 0, 1], 
-      [0.8, 0.85, 0.92, 1, 1], 
-      Extrapolation.CLAMP
-    );
-    const rotateZ = interpolate(
-      pos, 
-      [-3, -2, -1, 0, 1], 
-      [0, 6, -6, 0, -15], 
-      Extrapolation.CLAMP
-    );
-    const opacity = interpolate(
-      pos, 
-      [-3, -2, -1, 0, 1], 
-      [0, 1, 1, 1, 0], 
-      Extrapolation.CLAMP
-    );
-    const zIndex = interpolate(
-      pos, 
-      [-3, -2, -1, 0, 1], 
-      [0, 1, 2, 3, 3], 
-      Extrapolation.CLAMP
-    );
-
-    return {
-      transform: [
-        { translateX: centerOffset + fanTranslateX },
-        { translateY },
-        { scale },
-        { rotateZ: `${rotateZ}deg` }
-      ],
-      opacity,
-      zIndex: Math.round(zIndex),
-      elevation: Math.round(zIndex) * 5
-    };
-  });
-
+const CarouselItemUI = ({ item, isDark, onSelectDare }: any) => {
   const categoryColor = getCatColor(item.category);
-
   return (
-    <View style={{ width: SCREEN_WIDTH, height: ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={[{ width: ITEM_WIDTH, height: ITEM_HEIGHT, position: 'absolute' }, animatedStyle]}>
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => onSelectDare(item)}
-          className="w-full h-full rounded-[28px] overflow-hidden shadow-2xl"
-          style={{ 
-            backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
-            borderWidth: 1,
-            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-            shadowColor: isDark ? '#000' : '#FF296D', 
-            shadowOffset: { width: 0, height: 10 }, 
-            shadowOpacity: isDark ? 0.6 : 0.1, 
-            shadowRadius: 20 
-          }}
-        >
-          <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
-          
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
+    <TouchableOpacity
+      activeOpacity={0.95}
+      onPress={() => onSelectDare(item)}
+      className="w-full h-full rounded-[28px] overflow-hidden shadow-2xl"
+      style={{ 
+        backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
+        borderWidth: 1,
+        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+        shadowColor: isDark ? '#000' : '#FF296D', 
+        shadowOffset: { width: 0, height: 10 }, 
+        shadowOpacity: isDark ? 0.6 : 0.1, 
+        shadowRadius: 20 
+      }}
+    >
+      <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+      
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
 
-          <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
-            {item.category ? (
-              <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: categoryColor }}>
-                 <Text className="text-white text-[11px] font-black tracking-widest uppercase">{item.category}</Text>
-              </View>
-            ) : <View />}
-            <TouchableOpacity className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
-               <Ionicons name="heart-outline" size={20} color="white" />
-            </TouchableOpacity>
+      <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
+        {item.category ? (
+          <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: categoryColor }}>
+             <Text className="text-white text-[11px] font-black tracking-widest uppercase">{item.category}</Text>
           </View>
-
-          <View className="absolute bottom-6 left-5 right-5">
-             <Text className="text-white text-[26px] font-black mb-1 tracking-tight leading-8">{item.title}</Text>
-             <Text className="text-white/90 text-[14px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
-             
-             <View className="flex-row justify-between items-center mt-1">
-               <View className="flex-row items-center">
-                 <Ionicons name="people" size={16} color="white" />
-                 <Text className="text-white font-semibold text-[13px] ml-1.5">2+ People</Text>
-               </View>
-               <TouchableOpacity onPress={() => onSelectDare(item)} className="w-12 h-12 rounded-full items-center justify-center bg-[#FF296D] shadow-lg">
-                 <Ionicons name="arrow-forward" size={22} color="white" />
-               </TouchableOpacity>
-             </View>
-          </View>
+        ) : <View />}
+        <TouchableOpacity className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
+           <Ionicons name="heart-outline" size={20} color="white" />
         </TouchableOpacity>
-      </Animated.View>
-    </View>
+      </View>
+
+      <View className="absolute bottom-6 left-5 right-5">
+         <Text className="text-white text-[26px] font-black mb-1 tracking-tight leading-8">{item.title}</Text>
+         <Text className="text-white/90 text-[14px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
+         
+         <View className="flex-row justify-between items-center mt-1">
+           <View className="flex-row items-center">
+             <Ionicons name="people" size={16} color="white" />
+             <Text className="text-white font-semibold text-[13px] ml-1.5">2+ People</Text>
+           </View>
+           <TouchableOpacity onPress={() => onSelectDare(item)} className="w-12 h-12 rounded-full items-center justify-center bg-[#FF296D] shadow-lg">
+             <Ionicons name="arrow-forward" size={22} color="white" />
+           </TouchableOpacity>
+         </View>
+      </View>
+    </TouchableOpacity>
   );
 };
 
-const PaginationDot = ({ index, scrollX }: any) => {
-  const dotStyle = useAnimatedStyle(() => {
-    const width = interpolate(scrollX.value, [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH], [8, 24, 8], Extrapolation.CLAMP);
-    const opacity = interpolate(scrollX.value, [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH], [0.3, 1, 0.3], Extrapolation.CLAMP);
-    const backgroundColor = interpolateColor(
-      scrollX.value, 
-      [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH], 
-      ['#A09CA3', '#FF296D', '#A09CA3']
-    );
-    return { width, opacity, backgroundColor };
-  });
-  return <Animated.View style={[{ height: 8, borderRadius: 4, marginHorizontal: 4 }, dotStyle]} />;
-};
-
 const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
-  const scrollX = useSharedValue(0);
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+  
+  const { Animated, PanResponder } = require('react-native');
+  const position = React.useRef(new Animated.ValueXY()).current;
 
-  const onScroll = useAnimatedScrollHandler((event) => {
-    scrollX.value = event.contentOffset.x;
-  });
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (evt: any, gestureState: any) => {
+        position.setValue({ x: gestureState.dx, y: gestureState.dy });
+      },
+      onPanResponderRelease: (evt: any, gestureState: any) => {
+        if (gestureState.dx > 120) {
+          Animated.spring(position, { toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy }, useNativeDriver: false }).start(() => {
+            setCurrentIndex(prev => prev + 1);
+            position.setValue({ x: 0, y: 0 });
+          });
+        } else if (gestureState.dx < -120) {
+          Animated.spring(position, { toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy }, useNativeDriver: false }).start(() => {
+            setCurrentIndex(prev => prev + 1);
+            position.setValue({ x: 0, y: 0 });
+          });
+        } else {
+          Animated.spring(position, { toValue: { x: 0, y: 0 }, friction: 5, useNativeDriver: false }).start();
+        }
+      }
+    })
+  ).current;
 
   if (!data || data.length === 0) return null;
 
-  return (
-    <View style={{ width: '100%', alignItems: 'center', height: ITEM_HEIGHT + 40 }}>
-      <Animated.FlatList
-        data={data}
-        keyExtractor={(item) => item.id.toString()}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        style={{ width: SCREEN_WIDTH, height: ITEM_HEIGHT, flexGrow: 0 }}
-        renderItem={({ item, index }) => (
-          <CarouselItem 
-            item={item} 
-            index={index} 
-            scrollX={scrollX} 
-            isDark={isDark} 
-            onSelectDare={onSelectDare} 
-          />
-        )}
-      />
-      <View className="flex-row justify-center items-center mt-6 h-4 absolute bottom-0">
-        {data.map((_: any, i: number) => (
-          <PaginationDot key={i} index={i} scrollX={scrollX} />
-        ))}
+  const renderCards = () => {
+    return data.map((item: any, i: number) => {
+      if (i < currentIndex) return null;
+      if (i > currentIndex + 2) return null;
+
+      const isFront = i === currentIndex;
+      const isSecond = i === currentIndex + 1;
+      const isThird = i === currentIndex + 2;
+
+      let animatedStyle: any = {};
+      let panHandlers = {};
+
+      if (isFront) {
+        const rotate = position.x.interpolate({
+          inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
+          outputRange: ['-8deg', '0deg', '8deg'],
+          extrapolate: 'clamp'
+        });
+        animatedStyle = {
+          transform: [
+            ...position.getTranslateTransform(),
+            { rotate }
+          ],
+          zIndex: 3,
+          elevation: 3
+        };
+        panHandlers = panResponder.panHandlers;
+      } else if (isSecond) {
+        const scale = position.x.interpolate({
+          inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
+          outputRange: [1, 0.94, 1],
+          extrapolate: 'clamp'
+        });
+        const rotate = position.x.interpolate({
+          inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
+          outputRange: ['0deg', '-6deg', '0deg'],
+          extrapolate: 'clamp'
+        });
+        const translateX = position.x.interpolate({
+          inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
+          outputRange: [0, -25, 0],
+          extrapolate: 'clamp'
+        });
+        const translateY = position.x.interpolate({
+          inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
+          outputRange: [0, -10, 0],
+          extrapolate: 'clamp'
+        });
+        animatedStyle = {
+          transform: [{ translateX }, { translateY }, { scale }, { rotate }],
+          zIndex: 2,
+          elevation: 2
+        };
+      } else if (isThird) {
+        animatedStyle = {
+          transform: [{ translateX: 25 }, { translateY: -5 }, { scale: 0.88 }, { rotate: '6deg' }],
+          zIndex: 1,
+          elevation: 1
+        };
+      }
+
+      return (
+        <Animated.View
+          key={item.id}
+          style={[
+            { position: 'absolute', width: ITEM_WIDTH, height: ITEM_HEIGHT },
+            animatedStyle
+          ]}
+          {...panHandlers}
+        >
+          <CarouselItemUI item={item} isDark={isDark} onSelectDare={onSelectDare} />
+        </Animated.View>
+      );
+    }).reverse();
+  };
+
+  const renderPagination = () => {
+    // Determine number of dots based on remaining items (max 4 visually)
+    const totalDots = Math.min(data.length - currentIndex, 4);
+    if (totalDots <= 1) return null;
+    
+    const dots = [];
+    for(let i=0; i<totalDots; i++) {
+      const isActive = i === 0;
+      dots.push(
+        <View 
+          key={i} 
+          style={{ 
+            height: 8, 
+            width: isActive ? 24 : 8, 
+            borderRadius: 4, 
+            backgroundColor: isActive ? '#FF296D' : '#D9D9D9',
+            marginHorizontal: 4,
+            opacity: isActive ? 1 : 0.5
+          }} 
+        />
+      );
+    }
+    return (
+      <View className="flex-row justify-center items-center mt-6 h-4">
+        {dots}
       </View>
+    );
+  };
+
+  return (
+    <View style={{ width: '100%', alignItems: 'center' }}>
+      <View style={{ width: ITEM_WIDTH, height: ITEM_HEIGHT, justifyContent: 'center', alignItems: 'center' }}>
+        {renderCards()}
+      </View>
+      {renderPagination()}
     </View>
   );
 };
@@ -754,4 +783,5 @@ export default function Dares() {
     </SafeAreaView>
   );
 }
+
 
