@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Alert, Platform, Linking, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import api from '@/services/api';
@@ -11,9 +10,22 @@ const isExpoGo =
   Constants.appOwnership === 'expo' ||
   (Constants as any).executionEnvironment === 'storeClient';
 
+// ─── Safely Load expo-notifications ──────────────────────────────────────────
+// In Expo SDK 53+, importing expo-notifications statically on Android in Expo Go
+// throws an immediate fatal error during module evaluation. We load it lazily.
+let Notifications: any = null;
+if (Platform.OS !== 'web' && !(Platform.OS === 'android' && isExpoGo)) {
+  try {
+    Notifications = require('expo-notifications');
+  } catch (err) {
+    console.warn('[Notifications] Failed to load expo-notifications:', err);
+    Notifications = null;
+  }
+}
+
 // ─── Configure how notifications appear when the app is in the foreground ─────
 try {
-  if (Platform.OS !== 'web' && !(Platform.OS === 'android' && isExpoGo)) {
+  if (Notifications?.setNotificationHandler) {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
@@ -60,18 +72,18 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 // ─── Setup Android Notification Channel ─────────────────────────────────────
 const setupAndroidChannel = async () => {
-  if (Platform.OS === 'android' && !isExpoGo) {
+  if (Platform.OS === 'android' && Notifications?.setNotificationChannelAsync) {
     try {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'SoulShuffle Notifications',
         description: 'Game alerts, partner dares, penalties, and reminders',
-        importance: Notifications.AndroidImportance.MAX,
+        importance: Notifications?.AndroidImportance?.MAX ?? 5,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#e11d48',
         sound: 'default',
         enableVibrate: true,
         showBadge: true,
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        lockscreenVisibility: Notifications?.AndroidNotificationVisibility?.PUBLIC ?? 1,
         bypassDnd: false,
       });
       console.log('[Notifications] Android default notification channel registered');
@@ -154,8 +166,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   // Register push token with backend
   const registerPushTokenWithBackend = useCallback(async () => {
     if (Platform.OS === 'web') return;
-    if (Platform.OS === 'android' && isExpoGo) {
-      console.log('[Notifications] Android push notifications are disabled in Expo Go (SDK 53+). Use a development build.');
+    if (!Notifications || (Platform.OS === 'android' && isExpoGo)) {
+      console.log('[Notifications] Push notifications skipped (Expo Go / unsupported environment).');
       return;
     }
 
@@ -166,18 +178,19 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       // 2. Request / verify permissions
       let finalStatus = 'undetermined';
       try {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        const permResult = await Notifications?.getPermissionsAsync?.();
+        const existingStatus = permResult?.status;
         finalStatus = existingStatus;
 
         if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync({
+          const reqResult = await Notifications?.requestPermissionsAsync?.({
             ios: {
               allowAlert: true,
               allowBadge: true,
               allowSound: true,
             },
           });
-          finalStatus = status;
+          finalStatus = reqResult?.status;
         }
       } catch (permErr) {
         console.warn('[Notifications] Permission error:', permErr);
@@ -196,7 +209,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         '75231063-db0f-42e1-9654-e92a69abe55d';
 
       try {
-        const tokenResult = await Notifications.getExpoPushTokenAsync({
+        const tokenResult = await Notifications?.getExpoPushTokenAsync?.({
           projectId,
         });
 
@@ -249,14 +262,13 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
   // ── Handle Tap on Push Notification (Foreground / Background / Killed) ──
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    if (Platform.OS === 'android' && isExpoGo) return;
+    if (Platform.OS === 'web' || !Notifications?.addNotificationResponseReceivedListener) return;
 
     let responseSubscription: any;
     try {
-      responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      responseSubscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
         try {
-          const data = response.notification.request.content.data;
+          const data = response?.notification?.request?.content?.data;
           if (data?.room_id || data?.send_id || data?.card_id) {
             router.push('/(tabs)');
             const { DeviceEventEmitter } = require('react-native');
@@ -300,7 +312,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         setUnreadCount(prev => prev + 1);
 
         // Display in Android/iOS system notification bar!
-        if (Platform.OS !== 'web' && !(Platform.OS === 'android' && isExpoGo)) {
+        if (Notifications?.scheduleNotificationAsync) {
           try {
             await Notifications.scheduleNotificationAsync({
               content: {
