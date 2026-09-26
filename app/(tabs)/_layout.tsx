@@ -26,7 +26,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+
 
 const TABS = [
   { name: 'index',     label: 'Home',      icon: 'heart-outline',     activeIcon: 'heart'     },
@@ -342,12 +342,7 @@ export default function TabLayout() {
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('app:logout', () => {
       console.log('[TABS LAYOUT] app:logout → resetting root stack to index');
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'index' }],
-        })
-      );
+      router.replace('/');
     });
     return () => sub.remove();
   }, [navigation]);
