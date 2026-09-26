@@ -4,6 +4,7 @@ const path = require('path');
 const filePath = path.join(__dirname, 'app/(tabs)/dares.tsx');
 let content = fs.readFileSync(filePath, 'utf-8');
 
+// Add Reanimated & Dimensions imports
 if (!content.includes('react-native-reanimated')) {
   content = content.replace(
     "import { View, Text, ScrollView",
@@ -15,7 +16,8 @@ if (!content.includes('react-native-reanimated')) {
   );
 }
 
-const activeRoomView = `
+// Extract the ACTIVE room view replacement
+const activeRoomView = 
         <ScrollView 
           showsVerticalScrollIndicator={false} 
           refreshControl={
@@ -26,7 +28,7 @@ const activeRoomView = `
           {/* Header Title */}
           <View className="px-6 pt-2 pb-4">
             <Text className="text-4xl font-black text-slate-900 dark:text-white mb-1 tracking-tight">Dares</Text>
-            <Text className="text-slate-500 dark:text-slate-400 text-[15px] font-medium">Step out, connect, and make memories 💖</Text>
+            <Text className="text-slate-500 dark:text-slate-400 text-sm font-medium">Step out, connect, and make memories 💖</Text>
           </View>
 
           {/* Carousel */}
@@ -48,22 +50,23 @@ const activeRoomView = `
                 { id: 'fun', label: 'Fun', image: require('@/assets/images/bundle_cozy.jpg'), color: 'text-purple-500' },
                 { id: 'deep', label: 'Deep', image: require('@/assets/images/sunset_picnic.jpeg'), color: 'text-blue-600 dark:text-blue-400' },
                 { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: 'text-[#ff1b6b]' }
-              ].map((cat) => (
+              ].map((cat, i) => (
                 <TouchableOpacity key={cat.id} activeOpacity={0.9} className="w-[100px] h-[120px] bg-white dark:bg-[#1C1215] rounded-3xl overflow-hidden mr-3 items-center shadow-sm border border-slate-50 dark:border-rose-950/20">
                   <View className="w-full h-[65%]">
                     <Image source={cat.image} className="w-full h-full" resizeMode="cover" />
                   </View>
                   <View className="flex-1 justify-center items-center w-full">
-                    <Text className={\`text-[11px] font-bold \${cat.color}\`}>{cat.label}</Text>
+                    <Text className={\	ext-[11px] font-bold \\}>{cat.label}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         </ScrollView>
-`;
+;
 
-const dareCarouselComponent = `
+// Build DareCarousel component to inject at the top
+const dareCarouselComponent = 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH * 0.72;
 const SPACING = (SCREEN_WIDTH - ITEM_WIDTH) / 2;
@@ -111,10 +114,13 @@ const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }) => {
          style={{ elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 15 }}
       >
         <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+        
+        {/* Gradient replacement */}
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
 
+        {/* Top Info */}
         <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
-          <View className={\`px-3.5 py-1.5 rounded-full \${getCatColor(item.category)}\`}>
+          <View className={\px-3.5 py-1.5 rounded-full \\}>
              <Text className="text-white text-[10px] font-black tracking-widest uppercase">{item.category}</Text>
           </View>
           <TouchableOpacity className="w-9 h-9 rounded-full bg-white/25 items-center justify-center">
@@ -122,6 +128,7 @@ const DareCarouselItem = ({ item, index, scrollX, isDark, onSelect }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Bottom Info */}
         <View className="absolute bottom-6 left-5 right-5">
            <Text className="text-white text-[22px] font-black mb-1 tracking-tight leading-7">{item.title}</Text>
            <Text className="text-white/80 text-[13px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
@@ -153,7 +160,7 @@ const DareCarousel = ({ data, isDark, onSelectDare }) => {
     <View>
       <Animated.FlatList
         data={paddedData}
-        keyExtractor={(item, index) => item.id || \`spacer-\${index}\`}
+        keyExtractor={(item, index) => item.id || \spacer-\\}
         horizontal
         showsHorizontalScrollIndicator={false}
         snapToInterval={ITEM_WIDTH}
@@ -165,6 +172,7 @@ const DareCarousel = ({ data, isDark, onSelectDare }) => {
           <DareCarouselItem item={item} index={index} scrollX={scrollX} isDark={isDark} onSelect={onSelectDare} />
         )}
       />
+      {/* Pagination Dots */}
       <View className="flex-row justify-center items-center mt-6 gap-2">
         <View className="w-6 h-2 rounded-full bg-[#ff1b6b]" />
         <View className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
@@ -174,8 +182,9 @@ const DareCarousel = ({ data, isDark, onSelectDare }) => {
     </View>
   );
 };
-`;
+;
 
+// Insert the component before the main Dares component
 if (!content.includes('DareCarouselItem')) {
   content = content.replace(
     "export default function Dares() {",
@@ -183,51 +192,10 @@ if (!content.includes('DareCarouselItem')) {
   );
 }
 
+// Replace the Active state ScrollView block
+// The existing ScrollView starts at oom && room.status === 'ACTIVE' ? ( and ends at the first ) : (
 const activeStateRegex = /(room\s*&&\s*room\.status\s*===\s*'ACTIVE'\s*\?\s*\()([\s\S]*?)(?=\)\s*:\s*\()/;
-content = content.replace(activeStateRegex, `$1${activeRoomView}`);
-
-// Also fix the header slightly to perfectly match the user's image
-// The user image has no rounded background on the hamburger
-content = content.replace(
-  `<TouchableOpacity onPress={openSidebar} className="w-10 h-10 items-center justify-center rounded-full bg-slate-100 dark:bg-[#271318]">`,
-  `<TouchableOpacity onPress={openSidebar} className="w-10 h-10 items-center justify-center">`
-);
-
-content = content.replace(
-  `<View className="flex-row items-center gap-1.5">
-          <Ionicons name="infinite" size={28} color={isDark ? "#fda4af" : "#be123c"} style={{ transform: [{ rotate: '-15deg' }] }} />
-          <Text className="text-[#a12338] dark:text-rose-400 font-black text-xl tracking-tight">SoulShuffle</Text>
-        </View>`,
-  `<View className="flex-row items-center gap-1.5">
-          <Ionicons name="infinite" size={28} color="#ff1b6b" style={{ transform: [{ rotate: '-15deg' }] }} />
-          <Text className="text-[#ff1b6b] font-black text-xl tracking-tight">SoulShuffle</Text>
-        </View>`
-);
-
-content = content.replace(
-  `{/* Header */}`,
-  `{/* Header */}
-        <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
-          <TouchableOpacity onPress={openSidebar}>
-            <Ionicons name="menu-outline" size={32} color={isDark ? "#fff" : "#000"} />
-          </TouchableOpacity>
-          <View className="flex-row items-center justify-center absolute left-0 right-0 z-[-1]" pointerEvents="none">
-            <Ionicons name="infinite" size={28} color="#ff1b6b" style={{ transform: [{ rotate: '-15deg' }] }} />
-            <Text className="text-[#ff1b6b] font-black text-2xl tracking-tight ml-1">SoulShuffle</Text>
-          </View>
-          <View className="flex-row items-center gap-4">
-            <TouchableOpacity>
-               <Ionicons name="notifications-outline" size={26} color={isDark ? "#fff" : "#000"} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/profile')}>
-              <Image 
-                source={{ uri: userAvatar }} 
-                className="w-9 h-9 rounded-full border border-slate-200 dark:border-rose-950/30"
-              />
-            </TouchableOpacity>
-          </View>
-        </View>`
-);
+content = content.replace(activeStateRegex, \$1\\);
 
 fs.writeFileSync(filePath, content, 'utf-8');
 console.log('Successfully injected new UI');

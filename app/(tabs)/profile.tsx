@@ -323,7 +323,7 @@ export default function Profile() {
         setActiveRoom(room);
         setPartnerName('');
         // Keep existing partner avatar or fallback to default instead of clearing
-        const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${activeRoom?.id || ''}`);
+        const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${room.id}`);
         setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
         setRoomActiveTimeText('Waiting for Partner...');
       } else {
@@ -355,7 +355,7 @@ export default function Profile() {
       setActiveRoom(null);
       setPartnerName('');
       // Keep existing partner avatar or fallback to default
-      const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${activeRoom?.id || ''}`);
+      const cachedAvatar = activeRoom?.id ? await AsyncStorage.getItem(`partnerAvatar_${activeRoom.id}`) : null;
       setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
       setRoomActiveTimeText('No Active Room');
     });
@@ -374,7 +374,7 @@ export default function Profile() {
       setActiveRoom(null);
       setPartnerName('');
       // Keep existing partner avatar or fallback to default
-      const cachedAvatar = await AsyncStorage.getItem(`partnerAvatar_${activeRoom?.id || ''}`);
+      const cachedAvatar = activeRoom?.id ? await AsyncStorage.getItem(`partnerAvatar_${activeRoom.id}`) : null;
       setPartnerAvatar(cachedAvatar || ANIMATED_AVATARS[1].url);
       setRoomActiveTimeText('No Active Room');
     };

@@ -261,6 +261,23 @@ export default function Dashboard() {
     getDailyCouplePhotoIndex(),
   );
   const [roomHistoryData, setRoomHistoryData] = useState<any[]>([]);
+  const [heroHeartFilled, setHeroHeartFilled] = useState(false);
+  const [likedMoments, setLikedMoments] = useState<Record<string, boolean>>({});
+
+  const toggleHeroHeart = () => {
+    setHeroHeartFilled((prev) => !prev);
+  };
+
+  const toggleMomentHeart = (id: string) => {
+    setLikedMoments((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const getGreetingTime = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning,';
+    if (hour < 18) return 'Good afternoon,';
+    return 'Good evening,';
+  };
 
   const handleNextCouplePhoto = useCallback(() => {
     setCurrentPhotoIndex((prev) => (prev + 1) % COUPLE_PHOTOS.length);
@@ -1060,13 +1077,13 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <SafeAreaView
-        className="flex-1 bg-rose-50 dark:bg-[#0F0608]"
+        className="flex-1 bg-[#0e0609]"
         edges={["top", "left", "right"]}
       >
-        {/* Status bar configuration if needed */}
+        {/* Status bar configuration */}
         <StatusBar
-          barStyle={isDark ? "light-content" : "dark-content"}
-          backgroundColor={isDark ? "#0F0608" : "#fff1f2"}
+          barStyle="light-content"
+          backgroundColor="#0e0609"
         />
 
         {/* ═══════════════════════════════════════════════════════
@@ -1297,1229 +1314,922 @@ export default function Dashboard() {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 160 }}
+          contentContainerStyle={{ paddingBottom: 110 }}
+          style={{ flex: 1, backgroundColor: "#0e0609" }}
         >
-          {/* Header */}
-          <View className="flex-row items-center justify-between px-6 pt-5 pb-3">
-            <TouchableOpacity onPress={openSidebar}>
-              <Ionicons
-                name="menu-outline"
-                size={30}
-                color={isDark ? "#fff" : "#9f1239"}
-              />
+          {/* ── 1. Top Header ── */}
+          <View className="flex-row items-center justify-between px-5 pt-3 pb-2">
+            {/* Hamburger Menu */}
+            <TouchableOpacity
+              onPress={openSidebar}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="menu-outline" size={28} color="#ffffff" />
             </TouchableOpacity>
+
+            {/* SoulShuffle Pink Logo */}
             <View className="flex-row items-center gap-1.5">
               <Ionicons
                 name="infinite"
-                size={28}
-                color={isDark ? "#fda4af" : "#be123c"}
+                size={26}
+                color="#ff2d55"
                 style={{ transform: [{ rotate: "-15deg" }] }}
               />
-              <Text className="text-red-700 dark:text-rose-400 font-black text-xl tracking-tight">
+              <Text style={{ color: "#ff2d55", fontWeight: "900", fontSize: 21, letterSpacing: -0.5 }}>
                 SoulShuffle
               </Text>
             </View>
+
+            {/* Notifications & Avatar */}
             <View className="flex-row items-center gap-3">
               <TouchableOpacity
                 onPress={() => navigateTo("/notifications")}
-                style={{ position: "relative" }}
+                style={{ position: "relative", padding: 2 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons
-                  name="notifications-outline"
-                  size={26}
-                  color={isDark ? "#fff" : "#9f1239"}
-                />
+                <Ionicons name="notifications-outline" size={24} color="#ffffff" />
                 {unreadCount > 0 && (
                   <View
                     style={{
                       position: "absolute",
-                      top: -4,
-                      right: -4,
-                      backgroundColor: "#e11d48",
-                      borderRadius: 10,
-                      minWidth: 18,
-                      height: 18,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderWidth: 2,
-                      borderColor: isDark ? "#0F0608" : "#fff1f2",
+                      top: 1,
+                      right: 1,
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: "#ff2d55",
                     }}
-                  >
-                    <Text
-                      style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}
-                    >
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </Text>
-                  </View>
+                  />
                 )}
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigateTo("/profile")}>
+
+              <TouchableOpacity
+                onPress={() => {
+                  if (activeRoom && activeRoom.status === "ACTIVE") {
+                    navigateTo("/profile");
+                  } else {
+                    openRoomModal("create");
+                  }
+                }}
+              >
                 <Image
-                  source={{ uri: userAvatar }}
-                  className="w-8 h-8 rounded-full border border-rose-200 dark:border-slate-800"
+                  source={{
+                    uri:
+                      (activeRoom?.status === "ACTIVE" && partnerAvatar) ||
+                      userAvatar ||
+                      ANIMATED_AVATARS[0].url,
+                  }}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    borderWidth: 1.5,
+                    borderColor: "#ff2d55",
+                  }}
                 />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Welcome Section */}
-          <View className="px-6 mt-4 items-center justify-center">
-            <Text
-              style={{
-                fontFamily: Platform.select({
-                  ios: "Georgia",
-                  android: "serif",
-                  default: "serif",
-                }),
+          {/* ── 2. Greeting Row ── */}
+          <View className="px-5 mt-3 flex-row items-start justify-between">
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                if (!activeRoom || activeRoom.status !== "ACTIVE") {
+                  openRoomModal("create");
+                }
               }}
-              className="text-[34px] leading-[42px] font-semibold italic text-center text-[#9f1239] dark:text-rose-300 tracking-wide"
+              style={{ flex: 1, paddingRight: 8 }}
             >
-              Welcome back{userName ? `, ${userName}` : ""}
-              {activeRoom?.status === "ACTIVE" ? `\n& ${partnerName}` : ""} 💕
-            </Text>
+              <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "500", letterSpacing: 0.2 }}>
+                {getGreetingTime()}
+              </Text>
+              <Text
+                style={{
+                  color: "#ffffff",
+                  fontSize: 22,
+                  fontWeight: "800",
+                  letterSpacing: -0.3,
+                  marginTop: 2,
+                }}
+                numberOfLines={1}
+              >
+                {activeRoom?.status === "ACTIVE"
+                  ? `${userName || "Anurag"} & ${partnerName || "Partner"} 💕`
+                  : `${userName || "Anurag"} & ${partnerName || "Nikhil"} 💕`}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Script cursive quote: Same team Always ♡ */}
+            <View style={{ alignItems: "flex-end", paddingTop: 2 }}>
+              <Text
+                style={{
+                  color: "#fb7185",
+                  fontSize: 13,
+                  fontStyle: "italic",
+                  fontFamily: Platform.select({ ios: "Snell Roundhand", android: "serif", default: "serif" }),
+                  lineHeight: 16,
+                }}
+              >
+                Same team
+              </Text>
+              <Text
+                style={{
+                  color: "#fb7185",
+                  fontSize: 12,
+                  fontStyle: "italic",
+                  fontFamily: Platform.select({ ios: "Snell Roundhand", android: "serif", default: "serif" }),
+                  lineHeight: 16,
+                }}
+              >
+                Always ♡
+              </Text>
+            </View>
           </View>
 
-          {/* Couple Image with Daily Rotation */}
-          <View className="px-6 mt-6">
+          {/* ── Partner Connection Status Bar (if waiting/not connected) ── */}
+          {(!activeRoom || activeRoom.status !== "ACTIVE") && (
             <TouchableOpacity
-              activeOpacity={0.92}
-              onPress={handleNextCouplePhoto}
-              className="relative overflow-hidden rounded-[36px] shadow-sm bg-rose-100 dark:bg-rose-950/20"
+              activeOpacity={0.88}
+              onPress={() => openRoomModal("create")}
+              style={{
+                marginHorizontal: 20,
+                marginTop: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 14,
+                backgroundColor: "rgba(255,45,85,0.08)",
+                borderWidth: 1,
+                borderColor: "rgba(255,45,85,0.25)",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <View className="flex-row items-center flex-1 mr-2">
+                <Ionicons name="link" size={14} color="#ff2d55" style={{ marginRight: 6 }} />
+                <Text style={{ color: "#fce7f3", fontSize: 11, fontWeight: "600" }}>
+                  {activeRoom?.status === "WAITING"
+                    ? `Room Code: ${formatRoomCodeForDisplay(activeRoom.code)} • Tap to share`
+                    : "Connect with your partner to play together"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color="#ff2d55" />
+            </TouchableOpacity>
+          )}
+
+          {/* ── Active Confirmation Banner (if partner marked dare completed) ── */}
+          {activeChallenges.some(
+            (c) => c.sender_id === currentUserId && c.status === "COMPLETED_BY_RECEIVER"
+          ) && (
+            <View
+              style={{
+                marginHorizontal: 20,
+                marginTop: 12,
+                padding: 12,
+                borderRadius: 16,
+                backgroundColor: "rgba(245,158,11,0.12)",
+                borderWidth: 1,
+                borderColor: "rgba(245,158,11,0.3)",
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={{ color: "#fbbf24", fontWeight: "800", fontSize: 11 }}>
+                  DARE COMPLETED BY PARTNER
+                </Text>
+                <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "600", marginTop: 2 }}>
+                  Please confirm to reward your streak!
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  const toConfirm = activeChallenges.find(
+                    (c) => c.sender_id === currentUserId && c.status === "COMPLETED_BY_RECEIVER"
+                  );
+                  if (toConfirm) handleConfirmCompleteCard(toConfirm.id);
+                }}
+                style={{
+                  backgroundColor: "#f59e0b",
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                }}
+              >
+                <Text style={{ color: "#000000", fontWeight: "800", fontSize: 11 }}>
+                  Confirm
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── 3. Hero Card: TODAY'S DARE ── */}
+          <View className="mx-5 mt-4">
+            <View
+              style={{
+                height: 240,
+                borderRadius: 28,
+                overflow: "hidden",
+                position: "relative",
+                backgroundColor: "#1c0d14",
+              }}
             >
               <Image
-                source={COUPLE_PHOTOS[currentPhotoIndex].source}
-                className="w-full h-56 rounded-[36px]"
+                source={require("@/assets/images/couple_cover.jpeg")}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                }}
                 resizeMode="cover"
               />
-              {/* Bottom dots indicator */}
-              <View className="absolute bottom-3.5 right-4 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full flex-row items-center space-x-1">
-                {COUPLE_PHOTOS.map((_, idx) => (
-                  <View
-                    key={idx}
-                    className={`h-1.5 rounded-full ${idx === currentPhotoIndex ? "w-3.5 bg-rose-400" : "w-1.5 bg-white/40"}`}
-                  />
-                ))}
-              </View>
-            </TouchableOpacity>
-          </View>
 
-          {/* Stats Section */}
-          <View className="flex-row justify-between px-6 mt-5">
-            <View
-              className="rounded-[24px] px-5 py-4 w-[47%] shadow-sm border"
-              style={{
-                backgroundColor: isDark ? "#271318" : "#ffffff",
-                borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.15)",
-              }}
-            >
+              {/* Dark Gradient Overlay */}
               <View
-                style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
-                className="w-8 h-8 rounded-full items-center justify-center mb-3"
-              >
-                <Ionicons
-                  name="medal"
-                  size={17}
-                  color={isDark ? "#f43f5e" : "#e11d48"}
-                />
-              </View>
-              <Text
-                style={{ color: isDark ? "#fb7185" : "#0f172a" }}
-                className="text-[26px] leading-8 font-black"
-              >
-                {finishedDaresCount}
-              </Text>
-              <Text
-                style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                className="text-[9px] font-bold mt-1 tracking-widest uppercase"
-              >
-                Dares Finished
-              </Text>
-            </View>
-            <View
-              className="rounded-[24px] px-5 py-4 w-[47%] shadow-sm border"
-              style={{
-                backgroundColor: isDark ? "#122220" : "#ffffff",
-                borderColor: isDark ? "rgba(13,148,136,0.3)" : "rgba(13,148,136,0.15)",
-              }}
-            >
-              <View
-                style={{ backgroundColor: isDark ? "rgba(45,212,191,0.15)" : "#ccfbf1" }}
-                className="w-8 h-8 rounded-full items-center justify-center mb-3"
-              >
-                <Ionicons
-                  name="flame"
-                  size={17}
-                  color={isDark ? "#2dd4bf" : "#0d9488"}
-                />
-              </View>
-              <Text
-                style={{ color: isDark ? "#2dd4bf" : "#0f172a" }}
-                className="text-[26px] leading-8 font-black"
-              >
-                {currentStreak}
-              </Text>
-              <Text
-                style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                className="text-[9px] font-bold mt-1 tracking-widest uppercase"
-              >
-                Day Streak
-              </Text>
-            </View>
-          </View>
-
-          {/* ═══════════════════════════════════════════════════
-            COUPLE ROOM SECTION
-            ═══════════════════════════════════════════════════ */}
-          <View className="mx-6 mt-6">
-            {roomLoading ? (
-              /* Loading State */
-              <View
-                className="rounded-[28px] p-8 items-center shadow-sm border"
                 style={{
-                  backgroundColor: isDark ? "#271318" : "#ffffff",
-                  borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: "rgba(10, 3, 6, 0.45)",
+                }}
+              />
+
+              {/* Top Row inside Hero Card: Tag & Heart */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: 16,
+                  zIndex: 2,
                 }}
               >
-                <ActivityIndicator
-                  size="large"
-                  color={isDark ? "#f43f5e" : "#e11d48"}
-                />
-                <Text
-                  style={{ color: isDark ? "#fda4af" : "#64748b" }}
-                  className="font-semibold text-sm mt-3"
-                >
-                  Checking room status...
-                </Text>
-              </View>
-            ) : activeRoom &&
-              (activeRoom.status === "ACTIVE" ||
-                activeRoom.status === "WAITING") ? (
-              <View
-                key="active-room-card"
-                className="rounded-[28px] overflow-hidden shadow-lg border"
-                style={{
-                  backgroundColor: isDark ? "#271318" : "#ffffff",
-                  borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
-                  borderLeftWidth: activeRoom.status === "ACTIVE" ? 5 : 1,
-                  borderLeftColor: activeRoom.status === "ACTIVE" ? "#0d9488" : (isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)"),
-                }}
-              >
-                {/* Room Header Strip Redesigned */}
                 <View
                   style={{
-                    backgroundColor: isDark ? "rgba(244,63,94,0.08)" : "#fff1f2",
-                    borderBottomColor: isDark ? "rgba(225,29,72,0.15)" : "#fce7f3",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: "rgba(0,0,0,0.5)",
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.12)",
                   }}
-                  className="px-5 py-3 flex-row items-center justify-between border-b"
                 >
-                  <View className="flex-row items-center">
-                    <View
-                      className={`w-2 h-2 rounded-full mr-2 ${activeRoom.status === "ACTIVE" ? "bg-teal-500 shadow-sm" : "bg-amber-500"}`}
-                    />
-                    <Text
-                      style={{
-                        color: activeRoom.status === "ACTIVE"
-                          ? (isDark ? "#2dd4bf" : "#0d9488")
-                          : (isDark ? "#fbbf24" : "#d97706"),
-                      }}
-                      className="font-bold text-[10px] tracking-widest uppercase"
-                    >
-                      {activeRoom.status === "ACTIVE"
-                        ? "Room Active"
-                        : "Waiting for Partner"}
-                    </Text>
-                  </View>
-                  <View
-                    style={{ backgroundColor: isDark ? "rgba(225,29,72,0.2)" : "#ffe4e6" }}
-                    className="px-2.5 py-0.5 rounded-full"
-                  >
-                    <Text
-                      style={{ color: isDark ? "#fda4af" : "#be123c" }}
-                      className="font-bold text-[9px] tracking-wider uppercase"
-                    >
-                      {expiryLabel(activeRoom.expiry_type)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View className="p-5">
-                  {/* Room Code Display */}
+                  <Ionicons name="flash" size={13} color="#f59e0b" style={{ marginRight: 5 }} />
                   <Text
-                    style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                    className="text-[9px] font-bold tracking-widest uppercase mb-1.5"
-                  >
-                    Room Code
-                  </Text>
-                  <View
                     style={{
-                      backgroundColor: isDark ? "#180D10" : "#f8fafc",
-                      borderColor: isDark ? "rgba(225,29,72,0.2)" : "#e2e8f0",
+                      color: "#fbcfe8",
+                      fontSize: 10,
+                      fontWeight: "800",
+                      letterSpacing: 0.8,
+                      textTransform: "uppercase",
                     }}
-                    className="flex-row items-center justify-between border rounded-2xl px-4 py-3 mb-4"
                   >
-                    <Text
-                      style={{ color: isDark ? "#fda4af" : "#be123c" }}
-                      className="text-lg font-black tracking-widest flex-1 mr-2"
-                    >
-                      {formatRoomCodeForDisplay(activeRoom.code)}
-                    </Text>
-                    <TouchableOpacity
-                      style={{ backgroundColor: copiedCode ? "#0d5f5a" : (isDark ? "#e11d48" : "#af2c3b") }}
-                      className="px-3 py-2 rounded-xl flex-row items-center"
-                      onPress={() =>
-                        handleCopyCode(
-                          formatRoomCodeForDisplay(activeRoom.code),
-                        )
-                      }
-                    >
-                      <Ionicons
-                        name={copiedCode ? "checkmark" : "copy"}
-                        size={13}
-                        color="white"
-                      />
-                      <Text className="text-white font-bold text-[10px] ml-1">
-                        {copiedCode ? "Copied!" : "Copy"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Status Info Redesigned */}
-                  <View
-                    style={{
-                      backgroundColor: isDark ? "#180D10" : "#fdf2f4",
-                      borderColor: isDark ? "rgba(225,29,72,0.2)" : "#fce7f3",
-                    }}
-                    className="border rounded-[20px] p-3.5 mb-4 items-center justify-center"
-                  >
-                    <View className="flex-row items-center justify-center mb-3">
-                      {/* User Avatar */}
-                      <View
-                        className={`w-10 h-10 rounded-full border-2 overflow-hidden shadow-sm items-center justify-center p-0.5 bg-rose-500/10 dark:bg-rose-950/40 ${
-                          activeRoom.status === "ACTIVE"
-                            ? "border-teal-500"
-                            : "border-rose-500"
-                        }`}
-                      >
-                        <Image
-                          source={{ uri: userAvatar }}
-                          className="w-7 h-7"
-                          resizeMode="contain"
-                        />
-                      </View>
-
-                      {/* Connection Line & Heart Indicator */}
-                      <View className="flex-row items-center mx-3">
-                        <View
-                          className={`w-4 h-[2px] ${activeRoom.status === "ACTIVE" ? "bg-teal-500/50" : "bg-rose-300 dark:bg-rose-950/40"}`}
-                        />
-                        <View
-                          className={`w-8 h-8 rounded-full items-center justify-center shadow-sm ${
-                            activeRoom.status === "ACTIVE"
-                              ? "bg-teal-500"
-                              : "bg-amber-500"
-                          }`}
-                        >
-                          <Ionicons
-                            name={
-                              activeRoom.status === "ACTIVE"
-                                ? "heart"
-                                : "hourglass-outline"
-                            }
-                            size={14}
-                            color="white"
-                          />
-                        </View>
-                        <View
-                          className={`w-4 h-[2px] ${activeRoom.status === "ACTIVE" ? "bg-teal-500/50" : "bg-rose-300 dark:bg-rose-950/40"}`}
-                        />
-                      </View>
-
-                      {/* Partner Avatar / Placeholder */}
-                      {activeRoom.status === "ACTIVE" ? (
-                        <View className="w-10 h-10 rounded-full border-2 border-teal-500 overflow-hidden shadow-sm items-center justify-center p-0.5 bg-teal-500/10 dark:bg-teal-950/40">
-                          <Image
-                            source={{
-                              uri: partnerAvatar || ANIMATED_AVATARS[1].url,
-                            }}
-                            className="w-7 h-7"
-                            resizeMode="contain"
-                          />
-                        </View>
-                      ) : (
-                        <View
-                          style={{
-                            borderColor: isDark ? "rgba(225,29,72,0.3)" : "#cbd5e1",
-                            backgroundColor: isDark ? "#0F0608" : "#f1f5f9",
-                          }}
-                          className="w-10 h-10 rounded-full border-2 border-dashed items-center justify-center shadow-sm"
-                        >
-                          <Ionicons
-                            name="person-add"
-                            size={14}
-                            color={isDark ? "#fda4af" : "#94a3b8"}
-                          />
-                        </View>
-                      )}
-                    </View>
-
-                    <View className="items-center">
-                      {activeRoom.status === "ACTIVE" ? (
-                        <>
-                          <Text
-                            style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-                            className="font-extrabold text-[13px] text-center mb-0.5"
-                          >
-                            Connected with{" "}
-                            <Text className="text-teal-600 dark:text-teal-400 font-black">
-                              {partnerName}
-                            </Text>{" "}
-                            💕
-                          </Text>
-                          <Text
-                            style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                            className="font-semibold text-[10px] text-center px-2 leading-3.5"
-                          >
-                            {partnerName} is online and connected! Ready to swap
-                            spicy and sweet dares together.
-                          </Text>
-                        </>
-                      ) : (
-                        <>
-                          <Text
-                            style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-                            className="font-extrabold text-[13px] text-center mb-0.5"
-                          >
-                            Waiting for Partner...
-                          </Text>
-                          <Text
-                            style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                            className="font-semibold text-[10px] text-center px-2 leading-3.5"
-                          >
-                            Share the room code above with your partner so they
-                            can join your Love Room.
-                          </Text>
-                        </>
-                      )}
-                    </View>
-                  </View>
-
-                  {activeRoom.status === "ACTIVE" && (
-                    <TouchableOpacity
-                      style={{ backgroundColor: isDark ? "#e11d48" : "#af2c3b" }}
-                      className="rounded-full py-[12px] items-center shadow flex-row justify-center mb-2"
-                      activeOpacity={0.8}
-                      onPress={() => navigateTo("/dares")}
-                    >
-                      <Ionicons name="flash" size={16} color="white" />
-                      <Text className="text-white font-bold text-[13px] ml-2">
-                        Send Challenge
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    className="py-2 items-center flex-row justify-center mt-1"
-                    onPress={handleLeaveRoom}
-                  >
-                    <Ionicons
-                      name="exit-outline"
-                      size={13}
-                      color={isDark ? "#f87171" : "#ef4444"}
-                    />
-                    <Text className="text-red-500 dark:text-red-400 font-bold text-[11px] tracking-wide ml-1.5">
-                      Leave Room
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              /* ── NO ROOM CARD ────────────────────────────── */
-              <View
-                key="no-room-card"
-                className="rounded-[28px] p-5 shadow-lg relative overflow-hidden border"
-                style={{
-                  minHeight: 200,
-                  justifyContent: "center",
-                  backgroundColor: isDark ? "#271318" : "#ffffff",
-                  borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
-                }}
-              >
-                {/* Background decorative elements */}
-                <View
-                  style={{ top: -30, right: -20, backgroundColor: isDark ? "rgba(244,63,94,0.1)" : "#ffe4e6" }}
-                  className="absolute w-28 h-28 rounded-full"
-                />
-                <View
-                  style={{ bottom: -20, left: -15, backgroundColor: isDark ? "rgba(45,212,191,0.1)" : "#ccfbf1" }}
-                  className="absolute w-20 h-20 rounded-full"
-                />
-
-                <View className="flex-row items-center mb-1.5">
-                  <View
-                    style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
-                    className="w-8 h-8 rounded-full items-center justify-center mr-2.5"
-                  >
-                    <Ionicons
-                      name="people"
-                      size={16}
-                      color={isDark ? "#f43f5e" : "#af2c3b"}
-                    />
-                  </View>
-                  <Text style={{ color: isDark ? "#fda4af" : "#be123c" }} className="text-[10px] font-bold tracking-widest uppercase">
-                    Couple Room
+                    Today's Dare
                   </Text>
                 </View>
 
-                <Text style={{ color: isDark ? "#ffffff" : "#0f172a" }} className="text-xl font-black tracking-tight mt-1 mb-1 leading-6">
-                  Connect with{"\n"}Your Partner
-                </Text>
-                <Text style={{ color: isDark ? "#94a3b8" : "#64748b" }} className="font-medium text-[12px] leading-5 mb-5 pr-8">
-                  Create or join a private room to start playing together.
-                </Text>
-
-                <View className="flex-row gap-3">
-                  <TouchableOpacity
-                    style={{ backgroundColor: isDark ? "#e11d48" : "#af2c3b" }}
-                    className="flex-1 rounded-2xl py-4 items-center shadow-md flex-row justify-center"
-                    activeOpacity={0.8}
-                    onPress={() => openRoomModal("create")}
-                  >
-                    <Ionicons name="add-circle" size={18} color="white" />
-                    <Text className="text-white font-bold text-[13px] ml-2">
-                      Create
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={{ backgroundColor: isDark ? "#0d9488" : "#0d5f5a" }}
-                    className="flex-1 rounded-2xl py-4 items-center shadow-md flex-row justify-center"
-                    activeOpacity={0.8}
-                    onPress={() => openRoomModal("join")}
-                  >
-                    <Ionicons name="enter" size={18} color="white" />
-                    <Text className="text-white font-bold text-[13px] ml-2">
-                      Join
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-
-          {/* Active Challenge Section */}
-          {activeChallenges.length > 0 && (
-            <View>
-              <View className="pb-4">
-                {activeChallenges.map((challenge, index) => (
-                  <View key={challenge.id}>
-                    <View
-                      className="mx-6 mt-6 rounded-[32px] overflow-hidden shadow-lg border"
-                      style={{
-                        backgroundColor: challenge.sender_id === currentUserId
-                          ? (isDark ? "#132724" : "#f0fdfa")
-                          : (isDark ? "#271318" : "#ffffff"),
-                        borderColor: challenge.sender_id === currentUserId
-                          ? (isDark ? "rgba(45,212,191,0.2)" : "rgba(13,148,136,0.15)")
-                          : (isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)"),
-                      }}
-                    >
-<View className="h-40 relative">
-                <Image
-                  source={{ uri: challenge.card.image_url }}
-                  className="w-full h-full"
-                  resizeMode="cover"
-                />
-                <View className="absolute inset-0 bg-black/25" />
-                {challenge.status === "COMPLETED_BY_RECEIVER" ? (
-                  challenge.sender_id === currentUserId ? (
-                    <View className="absolute top-4 left-4 bg-amber-500 dark:bg-amber-600 px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
-                      <Ionicons name="alert-circle" size={12} color="white" />
-                      <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">
-                        Needs Confirmation
-                      </Text>
-                    </View>
-                  ) : (
-                    <View className="absolute top-4 left-4 bg-slate-400 dark:bg-slate-500 px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
-                      <Ionicons name="time" size={12} color="white" />
-                      <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">
-                        Waiting for Partner
-                      </Text>
-                    </View>
-                  )
-                ) : (
-                  (() => {
-                    const targetDateStr = getTargetDateStr(challenge);
-                    const targetTime = targetDateStr
-                      ? new Date(targetDateStr).getTime()
-                      : 0;
-                    const isExpired =
-                      targetTime > 0 && targetTime <= new Date().getTime();
-
-                    if (isExpired) {
-                      return (
-                        <View className="absolute top-4 left-4 bg-slate-500 dark:bg-slate-600 px-3 py-1.5 rounded-full flex-row items-center">
-                          <Ionicons name="time" size={12} color="white" />
-                          <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">
-                            Expired
-                          </Text>
-                        </View>
-                      );
-                    }
-
-                    return challenge.sender_id === currentUserId ? (
-                      <View className="absolute top-4 left-4 bg-teal-500 dark:bg-teal-600 px-3 py-1.5 rounded-full flex-row items-center">
-                        <Ionicons name="paper-plane" size={12} color="white" />
-                        <Text className="text-white font-bold text-[10px] tracking-widest uppercase ml-1.5">
-                          Sent Dare (In Progress)
-                        </Text>
-                      </View>
-                    ) : (
-                      <View className="absolute top-4 left-4 bg-[#fde047] px-3 py-1.5 rounded-full flex-row items-center shadow-sm">
-                        <Ionicons name="flash" size={12} color="#854d0e" />
-                        <Text className="text-[#854d0e] font-bold text-[10px] tracking-widest uppercase ml-1.5">
-                          My Active Challenge
-                        </Text>
-                      </View>
-                    );
-                  })()
-                )}
-              </View>
-              <View className="p-6 relative overflow-hidden">
-                {/* Magical Watermark Icon */}
-                <Ionicons
-                  name={challenge.sender_id === currentUserId ? "paper-plane" : "mail-open"}
-                  size={180}
-                  color={challenge.sender_id === currentUserId 
-                    ? (isDark ? "rgba(45,212,191,0.06)" : "rgba(13,148,136,0.04)")
-                    : (isDark ? "rgba(225,29,72,0.06)" : "rgba(225,29,72,0.04)")}
+                <TouchableOpacity
+                  onPress={toggleHeroHeart}
+                  activeOpacity={0.8}
                   style={{
-                    position: 'absolute',
-                    right: -40,
-                    bottom: -30,
-                    transform: [{ rotate: '-15deg' }],
-                    zIndex: 0
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.12)",
                   }}
-                />
-                <View style={{ zIndex: 1 }}>
-                <Text
-                  style={{ 
-                    color: challenge.sender_id === currentUserId 
-                      ? (isDark ? "#2dd4bf" : "#0f766e") 
-                      : (isDark ? "#fda4af" : "#be123c") 
-                  }}
-                  className="text-[10px] font-bold tracking-widest uppercase mb-2"
-                >
-                  {challenge.card.category}
-                </Text>
-                <Text
-                  style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-                  className="text-2xl font-black tracking-tight mb-3"
-                >
-                  {challenge.card.title}
-                </Text>
-
-                {challenge.sender_id === currentUserId &&
-                  (challenge.status === "COMPLETED_BY_RECEIVER" ? (
-                    <View
-                      style={{
-                        backgroundColor: isDark ? "#271318" : "#fffbeb",
-                        borderColor: isDark ? "rgba(245,158,11,0.2)" : "#fef3c7",
-                      }}
-                      className="px-4 py-3 rounded-2xl border mb-5 flex-row items-center"
-                    >
-                      <Ionicons
-                        name="gift-outline"
-                        size={16}
-                        color={isDark ? "#fbbf24" : "#d97706"}
-                      />
-                      <Text
-                        style={{ color: isDark ? "#fbbf24" : "#b45309" }}
-                        className="font-semibold text-[12.5px] leading-5 ml-2.5 flex-1"
-                      >
-                        Your partner marked this dare as completed. Please
-                        confirm!
-                      </Text>
-                    </View>
-                  ) : (
-                    <View
-                      style={{
-                        backgroundColor: isDark ? "#180D10" : "#f0fdfa",
-                        borderColor: isDark ? "rgba(13,148,136,0.2)" : "#ccfbf1",
-                      }}
-                      className="px-4 py-3 rounded-2xl border mb-5 flex-row items-center"
-                    >
-                      <Ionicons
-                        name="hourglass-outline"
-                        size={16}
-                        color={isDark ? "#2dd4bf" : "#0d5f5a"}
-                      />
-                      <Text
-                        style={{ color: isDark ? "#2dd4bf" : "#0d5f5a" }}
-                        className="font-semibold text-[12.5px] leading-5 ml-2.5 flex-1"
-                      >
-                        Your partner accepted this dare and is completing it.
-                      </Text>
-                    </View>
-                  ))}
-
-                <Text
-                  style={{ color: isDark ? "#cbd5e1" : "#475569" }}
-                  className="text-[14px] leading-6 font-medium mb-5"
-                >
-                  {challenge.card.description}
-                </Text>
-
-                {challenge.message ? (
-                  <View
-                    style={{
-                      backgroundColor: isDark ? "rgba(244,63,94,0.08)" : "#fff1f2",
-                      borderColor: isDark ? "rgba(244,63,94,0.2)" : "#fce7f3",
-                    }}
-                    className="px-4 py-3 rounded-2xl border mb-5"
-                  >
-                    <Text
-                      style={{ color: isDark ? "#fda4af" : "#be123c" }}
-                      className="font-bold text-[10px] uppercase tracking-wider mb-1"
-                    >
-                      {challenge.sender_id === currentUserId
-                        ? "Your note to partner"
-                        : "Note from partner"}
-                    </Text>
-                    <Text
-                      style={{ color: isDark ? "#cbd5e1" : "#475569" }}
-                      className="text-[13px] italic font-medium leading-5"
-                    >
-                      &quot;{challenge.message}&quot;
-                    </Text>
-                  </View>
-                ) : null}
-
-                {/* Spacing & Divider */}
-                <View className="h-[1px] bg-slate-100 dark:bg-rose-950/20 my-4" />
-
-                <View className="flex-row items-center justify-between mb-4 mt-2">
-                  <View className="flex-row items-center">
-                    <Ionicons name="time" size={14} color="#64748b" />
-                    <Text className="text-slate-500 dark:text-slate-400 font-bold text-[12.5px] ml-2 mr-2">
-                      Time Left:
-                    </Text>
-                    {getTargetDateStr(challenge) ? (
-                      <CountdownTimer
-                        targetDate={getTargetDateStr(challenge)}
-                      />
-                    ) : null}
-                  </View>
-                </View>
-
-                {challenge.sender_id !== currentUserId ? (
-                  challenge.status === "COMPLETED_BY_RECEIVER" ? (
-                    <View className="bg-slate-100 dark:bg-[#271318]/50 py-3.5 rounded-2xl border border-slate-200/45 dark:border-rose-950/10 items-center">
-                      <Text className="text-slate-400 dark:text-slate-500 font-bold text-[12.5px]">
-                        Waiting for confirmation...
-                      </Text>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      className="bg-emerald-500 dark:bg-emerald-600 py-3.5 rounded-full flex-row items-center justify-center shadow-md dark:shadow-none active:opacity-85"
-                      onPress={() => handleCompleteCard(challenge.id)}
-                    >
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={16}
-                        color="white"
-                      />
-                      <Text className="text-white font-bold text-[13.5px] ml-2">
-                        Complete Challenge
-                      </Text>
-                    </TouchableOpacity>
-                  )
-                ) : challenge.status === "COMPLETED_BY_RECEIVER" ? (
-                  <TouchableOpacity
-                    className="bg-emerald-500 dark:bg-emerald-600 py-3.5 rounded-full flex-row items-center justify-center shadow-md dark:shadow-none active:opacity-85"
-                    onPress={() =>
-                      handleConfirmCompleteCard(challenge.id)
-                    }
-                  >
-                    <Ionicons name="checkmark-circle" size={16} color="white" />
-                    <Text className="text-white font-bold text-[13.5px] ml-2">
-                      Confirm Completion
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    className="bg-rose-50 dark:bg-slate-800/60 py-3.5 rounded-full border border-rose-100 dark:border-slate-700/40 items-center justify-center"
-                    onPress={() => navigateTo("/history")}
-                  >
-                    <Text className="text-[#b91c1c] dark:text-rose-400 font-bold text-[13.5px]">
-                      View History
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                </View>
-              </View>
-            </View>
-          
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Pending Challenges Section */}
-          {displayPendingChallenges.length > 0 && (
-            <View className="mt-8 mb-2">
-              <View className="flex-row items-center justify-between px-6 mb-4">
-                <Text className="text-xl font-black text-slate-900 dark:text-rose-100 tracking-tight">
-                  Pending Dares
-                </Text>
-                <View className="bg-amber-100 dark:bg-amber-500/20 px-2 py-0.5 rounded-full">
-                  <Text className="text-amber-600 dark:text-amber-400 font-bold text-[10px] uppercase tracking-wider">
-                    {displayPendingChallenges.length} waiting
-                  </Text>
-                </View>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
-              >
-                {displayPendingChallenges.map((cardSend) => (
-                  <View
-                    key={cardSend.id}
-                    style={{
-                      width: width - 48,
-                      backgroundColor: cardSend.sender_id === currentUserId
-                        ? (isDark ? "#132724" : "#f0fdfa")
-                        : (isDark ? "#271318" : "#ffffff"),
-                      borderColor: cardSend.sender_id === currentUserId
-                        ? (isDark ? "rgba(45,212,191,0.2)" : "rgba(13,148,136,0.15)")
-                        : (isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)"),
-                    }}
-                    className="rounded-[28px] overflow-hidden shadow-lg border"
-                  >
-                    <View className="h-32 relative">
-                      <Image
-                        source={{ uri: cardSend.card?.image_url }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                      />
-                      <View className="absolute inset-0 bg-black/40" />
-                      <View className="absolute top-3 left-3 bg-white/90 dark:bg-black/70 px-2.5 py-1 rounded-full flex-row items-center">
-                        <Ionicons
-                          name={
-                            cardSend.sender_id === currentUserId
-                              ? "paper-plane"
-                              : "mail-unread"
-                          }
-                          size={12}
-                          color={
-                            cardSend.sender_id === currentUserId
-                              ? isDark
-                                ? "#2dd4bf"
-                                : "#0d5f5a"
-                              : isDark
-                                ? "#fda4af"
-                                : "#e11d48"
-                          }
-                        />
-                        <Text
-                          className={`font-bold text-[9px] tracking-widest uppercase ml-1.5 ${cardSend.sender_id === currentUserId ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"}`}
-                        >
-                          {cardSend.sender_id === currentUserId
-                            ? "Sent"
-                            : "Received"}
-                        </Text>
-                      </View>
-                      {activeRoom?.expiry_type === "30_DAYS" &&
-                        cardSend.sender_id !== currentUserId && (
-                          <View className="absolute top-3 right-3 bg-indigo-500/90 px-2.5 py-1 rounded-full flex-row items-center">
-                            <Ionicons
-                              name="shield-checkmark"
-                              size={11}
-                              color="white"
-                            />
-                            <Text className="text-white font-bold text-[9px] uppercase tracking-wider ml-1">
-                              Deflect Available ({deflectCardsCount})
-                            </Text>
-                          </View>
-                        )}
-                    </View>
-                    <View className="p-5 relative overflow-hidden">
-                      {/* Magical Watermark Icon */}
-                      <Ionicons
-                        name={cardSend.sender_id === currentUserId ? "paper-plane" : "mail-open"}
-                        size={140}
-                        color={cardSend.sender_id === currentUserId 
-                          ? (isDark ? "rgba(45,212,191,0.08)" : "rgba(13,148,136,0.06)")
-                          : (isDark ? "rgba(225,29,72,0.08)" : "rgba(225,29,72,0.06)")}
-                        style={{
-                          position: 'absolute',
-                          right: -30,
-                          bottom: -20,
-                          transform: [{ rotate: '-15deg' }],
-                          zIndex: 0
-                        }}
-                      />
-                      
-                      <View style={{ zIndex: 1 }}>
-                        <Text
-                        style={{ 
-                          color: cardSend.sender_id === currentUserId 
-                            ? (isDark ? "#2dd4bf" : "#0f766e") 
-                            : (isDark ? "#fda4af" : "#be123c") 
-                        }}
-                        className="text-[9px] font-bold tracking-widest uppercase mb-1"
-                      >
-                        {cardSend.card.category}
-                      </Text>
-                      <Text
-                        style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-                        className="text-lg font-black tracking-tight mb-2"
-                        numberOfLines={1}
-                      >
-                        {cardSend.card.title}
-                      </Text>
-
-                      <View className="flex-row items-center mb-5 mt-1">
-                        {getTargetDateStr(cardSend) ? (
-                          <CountdownTimer
-                            targetDate={getTargetDateStr(cardSend)}
-                          />
-                        ) : null}
-                      </View>
-                      {cardSend.message ? (
-                        <View className="bg-rose-50/50 dark:bg-rose-950/10 px-4 py-3 rounded-2xl border border-rose-100/30 dark:border-rose-950/25 mb-4">
-                          <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[10px] uppercase tracking-wider mb-1">
-                            Note from partner
-                          </Text>
-                          <Text className="text-slate-600 dark:text-slate-300 text-[13px] italic font-medium leading-5">
-                            &quot;{cardSend.message}&quot;
-                          </Text>
-                        </View>
-                      ) : null}
-
-                      {cardSend.id?.toString().startsWith("dummy") ? (
-                        <View className="bg-rose-50/50 dark:bg-rose-950/10 py-3.5 rounded-xl items-center border border-rose-100/30 dark:border-rose-950/20">
-                          <Text className="text-[#a12338] dark:text-rose-400 font-bold text-[12px] uppercase tracking-wider">
-                            Placeholder (Send a real dare to start)
-                          </Text>
-                        </View>
-                      ) : cardSend.sender_id === cardSend.receiver_id ? (
-                        <View className="w-full items-center">
-                          <Text className="text-amber-600 dark:text-amber-400 font-bold text-[10px] text-center mb-2 uppercase tracking-wider">
-                            ⚠️ Bugged Card (Sent to yourself)
-                          </Text>
-                          <TouchableOpacity
-                            className="w-full bg-amber-500 dark:bg-amber-600 py-3 rounded-xl items-center shadow-md dark:shadow-none"
-                            onPress={async () => {
-                              try {
-                                await rejectCardSend(
-                                  cardSend.id,
-                                  cardSend.room_id || activeRoom?.id || "",
-                                );
-                                Alert.alert(
-                                  "Cleared",
-                                  "Bugged card cleared! You can now send a new dare.",
-                                );
-                                fetchActiveRoom(true);
-                              } catch (e: any) {
-                                Alert.alert(
-                                  "Error",
-                                  e.response?.data?.message ||
-                                    "Failed to clear card",
-                                );
-                              }
-                            }}
-                          >
-                            <Text className="text-white font-bold text-[13px]">
-                              Clear Bugged Card
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : cardSend.sender_id === currentUserId ? (
-                        <View className="bg-slate-100 dark:bg-[#180D10]/50 py-3.5 rounded-xl items-center border border-slate-200/50 dark:border-rose-950/20">
-                          <Text className="text-slate-500 dark:text-slate-400 font-bold text-[12px] uppercase tracking-wider">
-                            Waiting for partner...
-                          </Text>
-                        </View>
-                      ) : (
-                        <View className="flex-row gap-1.5">
-                          <TouchableOpacity
-                            className="flex-1 bg-gradient-to-r from-[#0d5f5a] to-teal-600 bg-teal-600 dark:bg-teal-700 py-3.5 rounded-xl items-center shadow-md dark:shadow-none"
-                            onPress={() => setSelectedReceivedCard(cardSend)}
-                          >
-                            <Text className="text-white font-bold text-[13px] tracking-wide">
-                              Open Challenge
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {/* Coin Toss Decision Maker Section */}
-          <View
-            className="mx-6 mt-6 rounded-[36px] p-7 shadow-lg relative overflow-hidden border"
-            style={{
-              backgroundColor: isDark ? "#271318" : "#ffffff",
-              borderColor: isDark ? "rgba(245,158,11,0.25)" : "rgba(245,158,11,0.2)",
-            }}
-          >
-            {/* Background gold decoration */}
-            <View
-              style={{ top: -20, right: -25, backgroundColor: isDark ? "rgba(245,158,11,0.12)" : "#fef3c7" }}
-              className="absolute w-24 h-24 rounded-full"
-            />
-
-            <View className="flex-row items-center mb-2">
-              <View
-                style={{ backgroundColor: isDark ? "rgba(245,158,11,0.15)" : "#fef3c7" }}
-                className="w-9 h-9 rounded-full items-center justify-center mr-3"
-              >
-                <Ionicons
-                  name="pricetag"
-                  size={16}
-                  color={isDark ? "#fbbf24" : "#d97706"}
-                />
-              </View>
-              <Text
-                style={{ color: isDark ? "#fbbf24" : "#d97706" }}
-                className="text-[11px] font-bold tracking-widest uppercase"
-              >
-                Decision Maker
-              </Text>
-            </View>
-
-            <Text
-              style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-              className="text-2xl font-black mt-4 pr-12 leading-8"
-            >
-              Can&apos;t agree on something?
-            </Text>
-            <Text
-              style={{ color: isDark ? "#cbd5e1" : "#475569" }}
-              className="mt-3 leading-6 text-[14px] font-medium"
-            >
-              Toss a virtual coin to decide who washes the dishes, picks the
-              movie, or gets their way today!
-            </Text>
-
-            <TouchableOpacity
-              style={{ backgroundColor: isDark ? "#d97706" : "#f59e0b" }}
-              className="rounded-full py-[16px] items-center mt-6 flex-row justify-center shadow-md"
-              activeOpacity={0.8}
-              onPress={() => navigateTo("/coin-toss")}
-            >
-              <Text className="text-white font-bold text-[15px] mr-2">
-                Toss a Coin
-              </Text>
-              <Ionicons name="reload" size={16} color="white" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Card History Section */}
-          <View className="mt-10 mb-8 px-6">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center">
-                <View
-                  style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
-                  className="w-8 h-8 rounded-full items-center justify-center mr-2.5"
                 >
                   <Ionicons
-                    name="time"
-                    size={16}
-                    color={isDark ? "#f43f5e" : "#e11d48"}
+                    name={heroHeartFilled ? "heart" : "heart-outline"}
+                    size={18}
+                    color={heroHeartFilled ? "#ff2d55" : "#ffffff"}
                   />
-                </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Center Title */}
+              <View style={{ paddingHorizontal: 18, marginTop: 4, zIndex: 2 }}>
                 <Text
-                  style={{ color: isDark ? "#fda4af" : "#0f172a" }}
-                  className="text-xl font-black tracking-tight"
+                  style={{
+                    color: "#ffffff",
+                    fontSize: 26,
+                    fontWeight: "800",
+                    letterSpacing: -0.4,
+                    lineHeight: 31,
+                  }}
                 >
-                  Card History
+                  {activeChallenges.length > 0 && activeChallenges[0]?.card?.title
+                    ? activeChallenges[0].card.title
+                    : `A new side\nof you  ♡`}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => navigateTo("/history")}>
-                <Text
-                  style={{ color: isDark ? "#fda4af" : "#be123c" }}
-                  className="text-[11px] font-bold uppercase tracking-widest"
+
+              {/* Bottom Row: CTA Button & Script Quote */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-end",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 16,
+                  paddingBottom: 16,
+                  marginTop: "auto",
+                  zIndex: 2,
+                }}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => {
+                    if (activeChallenges.length > 0) {
+                      navigateTo("/(tabs)/dares");
+                    } else if (activeRoom && activeRoom.status === "ACTIVE") {
+                      navigateTo("/(tabs)/dares");
+                    } else {
+                      openRoomModal("create");
+                    }
+                  }}
+                  style={{
+                    backgroundColor: "#ff2d55",
+                    paddingHorizontal: 18,
+                    paddingVertical: 10,
+                    borderRadius: 24,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    shadowColor: "#ff2d55",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 8,
+                    elevation: 5,
+                  }}
                 >
-                  View All →
+                  <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 14 }}>
+                    Start Dare
+                  </Text>
+                  <Ionicons name="arrow-forward" size={15} color="#ffffff" style={{ marginLeft: 6 }} />
+                </TouchableOpacity>
+
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text
+                    style={{
+                      color: "#fbcfe8",
+                      fontSize: 12,
+                      fontStyle: "italic",
+                      fontFamily: Platform.select({ ios: "Snell Roundhand", android: "serif", default: "serif" }),
+                      lineHeight: 15,
+                    }}
+                  >
+                    Small dares
+                  </Text>
+                  <Text
+                    style={{
+                      color: "#fbcfe8",
+                      fontSize: 11,
+                      fontStyle: "italic",
+                      fontFamily: Platform.select({ ios: "Snell Roundhand", android: "serif", default: "serif" }),
+                      lineHeight: 15,
+                    }}
+                  >
+                    Big connections ♡
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* ── 4. Section: Continue Together ── */}
+          <View className="mt-6 px-5">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "800", letterSpacing: -0.3 }}>
+                Continue Together
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigateTo("/history")}
+                className="flex-row items-center"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={{ color: "#ff2d55", fontSize: 13, fontWeight: "700", marginRight: 2 }}>
+                  See all
                 </Text>
+                <Ionicons name="chevron-forward" size={13} color="#ff2d55" />
               </TouchableOpacity>
             </View>
 
-            {cardHistoryList.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                className="-mx-6 px-6 pb-2"
-                contentContainerStyle={{ paddingRight: 48, gap: 14 }}
-              >
-                {cardHistoryList.slice(0, 6).map((item: any, idx: number) => {
-                  const title =
-                    item.title ||
-                    item.card?.title ||
-                    item.cards?.name ||
-                    "Completed Challenge";
-                  const category =
-                    item.category ||
-                    item.card?.category ||
-                    item.cards?.card_categories?.name?.split("_")[0] ||
-                    "DARE";
-                  const dateStr =
-                    item.sent_at || item.created_at || item.updated_at;
-                  const formattedDate = dateStr
-                    ? new Date(dateStr).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })
-                    : "Recently";
-                  const isCompleted =
-                    item.status === "COMPLETED" || item.status === "CONFIRMED";
-                  const isDeflected = item.status === "DEFLECTED";
-                  const isExpired = item.status === "EXPIRED";
+            <View
+              style={{
+                backgroundColor: "#160a10",
+                borderWidth: 1,
+                borderColor: "#2c121d",
+                borderRadius: 22,
+                padding: 14,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              {/* Left: Thumbnail */}
+              <Image
+                source={require("@/assets/images/bundle_cozy.jpg")}
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 14,
+                  marginRight: 14,
+                }}
+                resizeMode="cover"
+              />
 
-                  const statusBg = isCompleted
-                    ? "bg-emerald-500/90"
-                    : isDeflected
-                      ? "bg-indigo-500/90"
-                      : isExpired
-                        ? "bg-slate-500/90"
-                        : "bg-rose-500/90";
+              {/* Center: Details & Progress */}
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text
+                  style={{ color: "#ffffff", fontSize: 14, fontWeight: "700", letterSpacing: -0.2 }}
+                  numberOfLines={1}
+                >
+                  30-Day Connection Jour...
+                </Text>
+                <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "500", marginTop: 2 }}>
+                  Day {currentStreak > 0 ? Math.min(currentStreak, 30) : 12} of 30
+                </Text>
 
-                  const statusLabel = isCompleted
-                    ? "Completed"
-                    : isDeflected
-                      ? "Deflected"
-                      : isExpired
-                        ? "Expired"
-                        : "Sent";
-                  const imageUrl =
-                    item.image ||
-                    item.card?.image_url ||
-                    "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&h=400&fit=crop";
-
-                  return (
-                    <TouchableOpacity
-                      key={item.id || idx}
-                      activeOpacity={0.88}
-                      onPress={() => navigateTo("/history")}
+                {/* Progress Bar Row */}
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 5,
+                      backgroundColor: "#2a121c",
+                      borderRadius: 3,
+                      overflow: "hidden",
+                      marginRight: 8,
+                    }}
+                  >
+                    <View
                       style={{
-                        backgroundColor: isDark ? "#271318" : "#ffffff",
-                        borderColor: isDark ? "rgba(225,29,72,0.2)" : "rgba(225,29,72,0.15)",
+                        width: "40%",
+                        height: "100%",
+                        backgroundColor: "#ff2d55",
+                        borderRadius: 3,
                       }}
-                      className="w-[240px] rounded-[28px] overflow-hidden border shadow-md"
-                    >
-                      <View className="h-32 relative">
-                        <Image
-                          source={{ uri: imageUrl }}
-                          className="w-full h-full"
-                          resizeMode="cover"
-                        />
-                        <View className="absolute inset-0 bg-black/30" />
+                    />
+                  </View>
+                  <Text style={{ color: "#94a3b8", fontSize: 10, fontWeight: "600" }}>40%</Text>
+                </View>
+              </View>
 
-                        {/* Top Status Tag */}
-                        <View
-                          className={`absolute top-3 left-3 ${statusBg} px-2.5 py-1 rounded-full flex-row items-center`}
-                        >
-                          <Ionicons
-                            name={
-                              isCompleted
-                                ? "checkmark-circle"
-                                : isDeflected
-                                  ? "return-up-back"
-                                  : "time"
-                            }
-                            size={11}
-                            color="white"
-                          />
-                          <Text className="text-white font-bold text-[9px] uppercase tracking-wider ml-1">
-                            {statusLabel}
-                          </Text>
-                        </View>
-
-                        {/* Date Badge */}
-                        <View className="absolute bottom-2.5 right-3 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded-full">
-                          <Text className="text-white/90 text-[10px] font-semibold">
-                            {formattedDate}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View className="p-4">
-                        <Text
-                          style={{ color: isDark ? "#fda4af" : "#be123c" }}
-                          className="text-[9px] font-bold tracking-widest uppercase mb-1"
-                        >
-                          {category}
-                        </Text>
-                        <Text
-                          style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-                          className="text-base font-black tracking-tight"
-                          numberOfLines={1}
-                        >
-                          {title}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            ) : (
+              {/* Right: Continue Button */}
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => navigateTo("/dares")}
+                onPress={() => navigateTo("/(tabs)/dares")}
                 style={{
-                  backgroundColor: isDark ? "#271318" : "#ffffff",
-                  borderColor: isDark ? "rgba(225,29,72,0.3)" : "rgba(225,29,72,0.25)",
+                  backgroundColor: "#35101a",
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  borderWidth: 1,
+                  borderColor: "rgba(255,45,85,0.2)",
                 }}
-                className="border border-dashed rounded-[28px] p-6 items-center justify-center shadow-sm"
               >
+                <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "700" }}>Continue</Text>
+                <Ionicons name="arrow-forward" size={12} color="#ffffff" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── 5. Section: Recent Moments ── */}
+          <View className="mt-6">
+            <View className="flex-row items-center justify-between px-5 mb-3">
+              <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "800", letterSpacing: -0.3 }}>
+                Recent Moments
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigateTo("/history")}
+                className="flex-row items-center"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={{ color: "#ff2d55", fontSize: 13, fontWeight: "700", marginRight: 2 }}>
+                  See all
+                </Text>
+                <Ionicons name="chevron-forward" size={13} color="#ff2d55" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+            >
+              {/* Moment 1 */}
+              <View
+                style={{
+                  width: 130,
+                  height: 175,
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  position: "relative",
+                  backgroundColor: "#1b0d14",
+                }}
+              >
+                <Image
+                  source={require("@/assets/images/couple_beach_sunset.jpg")}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
                 <View
-                  style={{ backgroundColor: isDark ? "rgba(244,63,94,0.15)" : "#ffe4e6" }}
-                  className="w-12 h-12 rounded-full items-center justify-center mb-3"
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.3)",
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => toggleMomentHeart("m1")}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
                   <Ionicons
-                    name="card"
-                    size={22}
-                    color={isDark ? "#f43f5e" : "#e11d48"}
-                  />
-                </View>
-                <Text
-                  style={{ color: isDark ? "#ffffff" : "#0f172a" }}
-                  className="text-base font-bold mb-1 text-center"
-                >
-                  No Card History Yet
-                </Text>
-                <Text
-                  style={{ color: isDark ? "#94a3b8" : "#64748b" }}
-                  className="text-xs font-medium text-center mb-4 leading-4 px-4"
-                >
-                  Send your first dare card to your partner to start creating
-                  history together! 💕
-                </Text>
-                <View
-                  style={{ backgroundColor: isDark ? "#e11d48" : "#af2c3b" }}
-                  className="px-5 py-2.5 rounded-full flex-row items-center"
-                >
-                  <Text className="text-white font-bold text-xs">
-                    Send a Dare
-                  </Text>
-                  <Ionicons
-                    name="arrow-forward"
+                    name={likedMoments["m1"] ? "heart" : "heart-outline"}
                     size={14}
-                    color="white"
-                    style={{ marginLeft: 4 }}
+                    color={likedMoments["m1"] ? "#ff2d55" : "#ffffff"}
                   />
+                </TouchableOpacity>
+                <View style={{ position: "absolute", bottom: 12, left: 12, right: 12 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>Sunset Walk</Text>
+                  <Text style={{ color: "#cbd5e1", fontSize: 10, fontWeight: "500", marginTop: 1 }}>
+                    2 days ago
+                  </Text>
+                </View>
+              </View>
+
+              {/* Moment 2 */}
+              <View
+                style={{
+                  width: 130,
+                  height: 175,
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  position: "relative",
+                  backgroundColor: "#1b0d14",
+                }}
+              >
+                <Image
+                  source={require("@/assets/images/couple_cafe_morning.jpg")}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.3)",
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => toggleMomentHeart("m2")}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons
+                    name={likedMoments["m2"] ? "heart" : "heart-outline"}
+                    size={14}
+                    color={likedMoments["m2"] ? "#ff2d55" : "#ffffff"}
+                  />
+                </TouchableOpacity>
+                <View style={{ position: "absolute", bottom: 12, left: 12, right: 12 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>Coffee Date</Text>
+                  <Text style={{ color: "#cbd5e1", fontSize: 10, fontWeight: "500", marginTop: 1 }}>
+                    4 days ago
+                  </Text>
+                </View>
+              </View>
+
+              {/* Moment 3 */}
+              <View
+                style={{
+                  width: 130,
+                  height: 175,
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  position: "relative",
+                  backgroundColor: "#1b0d14",
+                }}
+              >
+                <Image
+                  source={require("@/assets/images/couple_cooking_dinner.jpg")}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.3)",
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => toggleMomentHeart("m3")}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons
+                    name={likedMoments["m3"] ? "heart" : "heart-outline"}
+                    size={14}
+                    color={likedMoments["m3"] ? "#ff2d55" : "#ffffff"}
+                  />
+                </TouchableOpacity>
+                <View style={{ position: "absolute", bottom: 12, left: 12, right: 12 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>Late Night Talk</Text>
+                  <Text style={{ color: "#cbd5e1", fontSize: 10, fontWeight: "500", marginTop: 1 }}>
+                    1 week ago
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+
+          {/* ── 6. Section: Picked for You 💕 ── */}
+          <View className="mt-6 mb-8">
+            <View className="flex-row items-center justify-between px-5 mb-3">
+              <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "800", letterSpacing: -0.3 }}>
+                Picked for You 💕
+              </Text>
+              <TouchableOpacity
+                onPress={() => navigateTo("/(tabs)/dares")}
+                className="flex-row items-center"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={{ color: "#ff2d55", fontSize: 13, fontWeight: "700", marginRight: 2 }}>
+                  See all
+                </Text>
+                <Ionicons name="chevron-forward" size={13} color="#ff2d55" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+            >
+              {/* Pick 1: Romance */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => navigateTo("/(tabs)/dares")}
+                style={{
+                  width: 145,
+                  height: 195,
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  position: "relative",
+                  backgroundColor: "#1b0d14",
+                }}
+              >
+                <Image
+                  source={require("@/assets/images/couple_wildflower_sunset.jpg")}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.35)",
+                  }}
+                />
+                {/* Badge Top Left */}
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    backgroundColor: "#ff2d55",
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 }}>
+                    ROMANCE
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => toggleMomentHeart("p1")}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons
+                    name={likedMoments["p1"] ? "heart" : "heart-outline"}
+                    size={14}
+                    color={likedMoments["p1"] ? "#ff2d55" : "#ffffff"}
+                  />
+                </TouchableOpacity>
+                <View style={{ position: "absolute", bottom: 12, left: 12, right: 12 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", lineHeight: 16 }}>
+                    {`Handwritten\nCompliments`}
+                  </Text>
                 </View>
               </TouchableOpacity>
-            )}
+
+              {/* Pick 2: Deep */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => navigateTo("/(tabs)/dares")}
+                style={{
+                  width: 145,
+                  height: 195,
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  position: "relative",
+                  backgroundColor: "#1b0d14",
+                }}
+              >
+                <Image
+                  source={{ uri: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80" }}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.35)",
+                  }}
+                />
+                {/* Badge Top Left */}
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    backgroundColor: "#2563eb",
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 }}>
+                    DEEP
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => toggleMomentHeart("p2")}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons
+                    name={likedMoments["p2"] ? "heart" : "heart-outline"}
+                    size={14}
+                    color={likedMoments["p2"] ? "#ff2d55" : "#ffffff"}
+                  />
+                </TouchableOpacity>
+                <View style={{ position: "absolute", bottom: 12, left: 12, right: 12 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", lineHeight: 16 }}>
+                    {`Our Dream\nSomeday`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Pick 3: Fun */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => navigateTo("/(tabs)/dares")}
+                style={{
+                  width: 145,
+                  height: 195,
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  position: "relative",
+                  backgroundColor: "#1b0d14",
+                }}
+              >
+                <Image
+                  source={{ uri: "https://images.unsplash.com/photo-1513297887119-d46091b24bfa?w=600&auto=format&fit=crop&q=80" }}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.35)",
+                  }}
+                />
+                {/* Badge Top Left */}
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    backgroundColor: "#8b5cf6",
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 6,
+                  }}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 9, fontWeight: "900", letterSpacing: 0.5 }}>
+                    FUN
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => toggleMomentHeart("p3")}
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: "rgba(0,0,0,0.4)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons
+                    name={likedMoments["p3"] ? "heart" : "heart-outline"}
+                    size={14}
+                    color={likedMoments["p3"] ? "#ff2d55" : "#ffffff"}
+                  />
+                </TouchableOpacity>
+                <View style={{ position: "absolute", bottom: 12, left: 12, right: 12 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", lineHeight: 16 }}>
+                    Yes or No
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </ScrollView>
 

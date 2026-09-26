@@ -1,5 +1,4 @@
-import { Tabs, useRouter, useSegments, usePathname, useNavigation } from 'expo-router';
-import { CommonActions } from '@react-navigation/native';
+import { Tabs, useRouter, useSegments, usePathname } from 'expo-router';
 import React, { useEffect, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GameSocket from '@/services/socketService';
@@ -27,6 +26,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+type BottomTabBarProps = {
+  state: any;
+  descriptors: any;
+  navigation: any;
+  insets?: any;
+};
 
 const TABS = [
   { name: 'index',     label: 'Home',      icon: 'heart-outline',     activeIcon: 'heart'     },
@@ -114,7 +119,7 @@ function TabItem({
 }
 
 // ─── Custom Floating Tab Bar ──────────────────────────────────────────────────
-function CustomTabBar({ state, navigation }: any) {
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const isDark = useColorScheme() === 'dark';
   const insets = useSafeAreaInsets();
 
@@ -135,7 +140,7 @@ function CustomTabBar({ state, navigation }: any) {
           },
         ]}
       >
-        {TABS.map((tab, index) => {
+        {TABS.map((tab) => {
           const route = state.routes.find((r: any) => r.name === tab.name);
           if (!route) return null;
           const focused = state.index === state.routes.findIndex((r: any) => r.name === tab.name);
@@ -212,7 +217,6 @@ export default function TabLayout() {
   const segments = useSegments();
   const pathname = usePathname();
   const router = useRouter();
-  const navigation = useNavigation();
 
   const pathnameRef = useRef(pathname);
   const segmentsRef = useRef(segments);
@@ -345,7 +349,7 @@ export default function TabLayout() {
       router.replace('/');
     });
     return () => sub.remove();
-  }, [navigation]);
+  }, [router]);
 
   return (
     <View style={{ flex: 1 }}>
