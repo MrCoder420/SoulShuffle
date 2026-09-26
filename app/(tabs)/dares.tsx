@@ -184,6 +184,12 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
   const { Animated, PanResponder } = require('react-native');
   const position = React.useRef(new Animated.ValueXY()).current;
 
+  // Reset index when data changes (e.g., category filter)
+  React.useEffect(() => {
+    setCurrentIndex(0);
+    position.setValue({ x: 0, y: 0 });
+  }, [data?.length, data?.[0]?.id]);
+
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -191,18 +197,33 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
         position.setValue({ x: gestureState.dx, y: gestureState.dy });
       },
       onPanResponderRelease: (evt: any, gestureState: any) => {
-        if (gestureState.dx > 120) {
-          Animated.spring(position, { toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy }, useNativeDriver: false }).start(() => {
-            setCurrentIndex(prev => prev + 1);
+        if (gestureState.dx > 100) {
+          // SWIPE RIGHT -> MOVE BACK TO PREVIOUS CARD
+          Animated.timing(position, {
+            toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy },
+            duration: 200,
+            useNativeDriver: false
+          }).start(() => {
+            setCurrentIndex(prev => (prev > 0 ? prev - 1 : (data ? data.length - 1 : 0)));
             position.setValue({ x: 0, y: 0 });
           });
-        } else if (gestureState.dx < -120) {
-          Animated.spring(position, { toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy }, useNativeDriver: false }).start(() => {
-            setCurrentIndex(prev => prev + 1);
+        } else if (gestureState.dx < -100) {
+          // SWIPE LEFT -> MOVE FORWARD TO NEXT CARD
+          Animated.timing(position, {
+            toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy },
+            duration: 200,
+            useNativeDriver: false
+          }).start(() => {
+            setCurrentIndex(prev => (data && prev < data.length - 1 ? prev + 1 : 0));
             position.setValue({ x: 0, y: 0 });
           });
         } else {
-          Animated.spring(position, { toValue: { x: 0, y: 0 }, friction: 5, useNativeDriver: false }).start();
+          // Return to center
+          Animated.spring(position, {
+            toValue: { x: 0, y: 0 },
+            friction: 5,
+            useNativeDriver: false
+          }).start();
         }
       }
     })
@@ -211,13 +232,17 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
   if (!data || data.length === 0) return null;
 
   const renderCards = () => {
-    return data.map((item: any, i: number) => {
-      if (i < currentIndex) return null;
-      if (i > currentIndex + 2) return null;
+    const cardsToRender = [];
+    const count = Math.min(data.length, 3);
+    for (let offset = 0; offset < count; offset++) {
+      const idx = (currentIndex + offset) % data.length;
+      cardsToRender.push({ item: data[idx], offset, originalIndex: idx });
+    }
 
-      const isFront = i === currentIndex;
-      const isSecond = i === currentIndex + 1;
-      const isThird = i === currentIndex + 2;
+    return cardsToRender.map(({ item, offset, originalIndex }) => {
+      const isFront = offset === 0;
+      const isSecond = offset === 1;
+      const isThird = offset === 2;
 
       let animatedStyle: any = {};
       let panHandlers = {};
@@ -273,7 +298,7 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
 
       return (
         <Animated.View
-          key={item.id}
+          key={`${item.id}-${originalIndex}-${offset}`}
           style={[
             { position: 'absolute', width: ITEM_WIDTH, height: ITEM_HEIGHT },
             animatedStyle
@@ -287,30 +312,33 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
   };
 
   const renderPagination = () => {
-    // Determine number of dots based on remaining items (max 4 visually)
-    const totalDots = Math.min(data.length - currentIndex, 4);
+    const totalDots = Math.min(data.length, 5);
     if (totalDots <= 1) return null;
-    
-    const dots = [];
-    for(let i=0; i<totalDots; i++) {
-      const isActive = i === 0;
-      dots.push(
-        <View 
-          key={i} 
-          style={{ 
-            height: 8, 
-            width: isActive ? 24 : 8, 
-            borderRadius: 4, 
-            backgroundColor: isActive ? '#FF296D' : '#D9D9D9',
-            marginHorizontal: 4,
-            opacity: isActive ? 1 : 0.5
-          }} 
-        />
-      );
-    }
+
     return (
       <View className="flex-row justify-center items-center mt-6 h-4">
-        {dots}
+        {Array.from({ length: totalDots }).map((_, i) => {
+          const activeIndex = currentIndex % totalDots;
+          const isActive = activeIndex === i;
+          return (
+            <TouchableOpacity 
+              key={i} 
+              activeOpacity={0.7}
+              onPress={() => {
+                setCurrentIndex(i);
+                position.setValue({ x: 0, y: 0 });
+              }}
+              style={{ 
+                height: 8, 
+                width: isActive ? 24 : 8, 
+                borderRadius: 4, 
+                backgroundColor: isActive ? '#FF296D' : (isDark ? '#3D3442' : '#D9D9D9'),
+                marginHorizontal: 4,
+                opacity: isActive ? 1 : 0.6
+              }} 
+            />
+          );
+        })}
       </View>
     );
   };
