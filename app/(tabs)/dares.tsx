@@ -144,7 +144,7 @@ const DareDeckItem = ({ item, index, isDark, onSelect, panHandlers, animatedStyl
       <TouchableOpacity 
          activeOpacity={0.95} 
          onPress={() => onSelect(item)}
-         className="w-full h-full rounded-[30px] overflow-hidden bg-slate-200 dark:bg-slate-800 shadow-xl"
+         className="w-full h-full rounded-[30px] overflow-hidden bg-slate-200 dark:bg-[#1C1518] shadow-xl"
          style={{ elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, borderWidth: isDark ? 1 : 0, borderColor: 'rgba(255,255,255,0.05)' }}
       >
         <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
@@ -270,10 +270,10 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
          </View>
       )}
       <View className="absolute -bottom-6 flex-row justify-center items-center gap-2 w-full">
-        <View className="w-2.5 h-2.5 rounded-full bg-[#ff1b6b]" />
-        <View className="w-2.5 h-2.5 rounded-full bg-slate-800" />
-        <View className="w-2.5 h-2.5 rounded-full bg-slate-800" />
-        <View className="w-2.5 h-2.5 rounded-full bg-slate-800" />
+        <View className="w-2.5 h-2.5 rounded-full bg-[#FF1B6B]" />
+        <View className="w-2 h-2 rounded-full bg-[#221C1E]" />
+        <View className="w-2 h-2 rounded-full bg-[#221C1E]" />
+        <View className="w-2 h-2 rounded-full bg-[#221C1E]" />
       </View>
     </View>
   );
@@ -672,11 +672,11 @@ export default function Dares() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#0F0608]" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-[#fff8f7] dark:bg-[#0B0406]" edges={['top', 'left', 'right']}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff8f7"} />
       
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0F0608] z-10">
+      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0B0406] z-10">
         <TouchableOpacity onPress={openSidebar}>
           <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
         </TouchableOpacity>
@@ -693,7 +693,7 @@ export default function Dares() {
       </View>
 
       {loading ? (
-        <View className="flex-1 items-center justify-center bg-[#fff8f7] dark:bg-[#0F0608]">
+        <View className="flex-1 items-center justify-center bg-[#fff8f7] dark:bg-[#0B0406]">
           <ActivityIndicator size="large" color="#f43f5e" />
           <Text className="text-[#a12338] dark:text-rose-400 font-semibold text-sm mt-3">Loading dares...</Text>
         </View>
@@ -722,17 +722,17 @@ export default function Dares() {
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-xl font-bold text-slate-900 dark:text-white">Explore Categories</Text>
               <TouchableOpacity>
-                <Text className="text-[#ff1b6b] font-bold text-sm">See all</Text>
+                <Text className="text-[#FF1B6B] font-bold text-sm">See all</Text>
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={{ paddingHorizontal: 24 }}>
               {[
-                { id: 'romance', label: 'Romance', image: require('@/assets/images/bundle_romantic.jpg'), color: 'text-[#ff1b6b]' },
+                { id: 'romance', label: 'Romance', image: require('@/assets/images/bundle_romantic.jpg'), color: 'text-[#FF1B6B]' },
                 { id: 'fun', label: 'Fun', image: require('@/assets/images/bundle_cozy.jpg'), color: 'text-purple-500' },
                 { id: 'deep', label: 'Deep', image: require('@/assets/images/sunset_picnic.jpeg'), color: 'text-blue-600 dark:text-blue-400' },
-                { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: 'text-[#ff1b6b]' }
+                { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: 'text-[#FF1B6B]' }
               ].map((cat: any) => (
-                <TouchableOpacity key={cat.id} activeOpacity={0.9} className="w-[100px] h-[120px] bg-white dark:bg-[#1C1215] rounded-3xl overflow-hidden mr-3 items-center shadow-sm border border-slate-50 dark:border-rose-950/20">
+                <TouchableOpacity key={cat.id} activeOpacity={0.9} className="w-[100px] h-[120px] bg-white dark:bg-[#161114] rounded-3xl overflow-hidden mr-3 items-center shadow-sm border border-slate-50 dark:border-rose-950/20">
                   <View className="w-full h-[65%]">
                     <Image source={cat.image} className="w-full h-full" resizeMode="cover" />
                   </View>
