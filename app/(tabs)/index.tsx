@@ -1449,7 +1449,10 @@ export default function Dashboard() {
           </View>
 
           {/* ── Partner Connection Status Bar (if waiting/not connected) ── */}
-          {(!activeRoom || activeRoom.status !== "ACTIVE") && (
+          
+          {activeRoom && activeRoom.status === 'ACTIVE' ? (
+            <>
+              {false && (
             <TouchableOpacity
               activeOpacity={0.88}
               onPress={() => openRoomModal("create")}
@@ -1991,7 +1994,153 @@ export default function Dashboard() {
                   </Text>
                 </View>
               </View>
-            </ScrollView>
+            
+            </>
+          ) : (
+            <View className="px-5 mt-8 pb-10">
+              {activeRoom?.status === 'WAITING' ? (
+                <View className="bg-white dark:bg-[#1a0c10] rounded-3xl p-6 border border-rose-100 dark:border-rose-950/40 shadow-sm relative overflow-hidden">
+                  <View className="absolute -top-4 -right-4 opacity-10">
+                    <Ionicons name="time" size={100} color={isDark ? "#f43f5e" : "#af2c3b"} />
+                  </View>
+                  <Text className="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+                    Waiting for Partner...
+                  </Text>
+                  <Text className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6 leading-5">
+                    Share the room code below with your partner so they can join your Love Room.
+                  </Text>
+
+                  <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-widest uppercase mb-1.5">
+                    Room Code
+                  </Text>
+                  <View className="flex-row items-center justify-between mb-6 bg-slate-50 dark:bg-[#200e14] p-4 rounded-xl border border-slate-100 dark:border-rose-950/20">
+                    <Text className="text-2xl font-black text-[#af2c3b] dark:text-rose-400 tracking-widest">{activeRoom.code}</Text>
+                    <TouchableOpacity onPress={async () => {
+                      if (activeRoom?.code) {
+                        await Clipboard.setStringAsync(activeRoom.code);
+                        Alert.alert("Copied!", "Room code copied to clipboard.");
+                      }
+                    }} className="bg-rose-100 dark:bg-rose-900/40 px-4 py-2 rounded-full flex-row items-center">
+                      <Ionicons name="copy-outline" size={16} color={isDark ? "#fda4af" : "#be123c"} />
+                      <Text className="text-sm font-bold text-[#be123c] dark:text-rose-300 ml-1.5">Copy</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity onPress={handleLeaveRoom} className="py-4 flex-row items-center justify-center border-2 border-red-100 dark:border-red-900/30 rounded-xl bg-red-50 dark:bg-red-950/10">
+                    <Ionicons name="log-out-outline" size={18} color="#ef4444" />
+                    <Text className="text-sm font-bold text-red-500 ml-2">Cancel / Leave Room</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View className="bg-white dark:bg-[#1a0c10] rounded-3xl p-6 border border-rose-100 dark:border-rose-950/40 shadow-sm">
+                  <View className="flex-row bg-[#f5eeed] dark:bg-rose-950/40 rounded-xl p-1.5 mb-6">
+                    <TouchableOpacity
+                      className={lex-1 py-3.5 rounded-lg items-center }
+                      onPress={() => switchRoomModalTab("create")}
+                    >
+                      <Text className={ont-bold text-[13px] }>
+                        Create Room
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      className={lex-1 py-3.5 rounded-lg items-center }
+                      onPress={() => switchRoomModalTab("join")}
+                    >
+                      <Text className={ont-bold text-[13px] }>
+                        Join Room
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {roomModalTab === "create" && (
+                    <View>
+                      <Text className="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+                        Create a Love Room
+                      </Text>
+                      <Text className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6 leading-5">
+                        Start a private room and share the code with your partner to connect.
+                      </Text>
+
+                      <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-widest uppercase mb-3">
+                        Room Duration
+                      </Text>
+                      <View className="flex-row gap-3 mb-6">
+                        {(["7_DAYS", "30_DAYS"] as ExpiryType[]).map((type) => (
+                          <TouchableOpacity
+                            key={type}
+                            className={lex-1 py-3.5 rounded-xl items-center border-2 }
+                            onPress={() => setSelectedExpiry(type)}
+                          >
+                            <Text className={ont-bold text-[12px] }>
+                              {expiryLabel(type)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      {actionError ? <Text className="text-red-500 font-medium text-[11px] mb-3">{actionError}</Text> : null}
+
+                      <TouchableOpacity
+                        onPress={handleCreateRoom}
+                        disabled={actionLoading}
+                        className={w-full py-4 rounded-xl items-center flex-row justify-center shadow-md dark:shadow-none }
+                      >
+                        {actionLoading ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <>
+                            <Ionicons name="add-circle" size={18} color="white" />
+                            <Text className="text-white font-bold text-[14px] ml-2 tracking-wide">Create Room</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {roomModalTab === "join" && (
+                    <View>
+                      <Text className="text-xl font-black text-slate-900 dark:text-white tracking-tight mb-2">
+                        Join Your Partner
+                      </Text>
+                      <Text className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6 leading-5">
+                        Enter the room code your partner shared with you.
+                      </Text>
+
+                      <View className="bg-white dark:bg-[#271318] rounded-xl border-2 border-slate-100 dark:border-rose-950/40 px-4 py-1 mb-4">
+                        <TextInput
+                          value={joinCode}
+                          onChangeText={(text) => setJoinCode(text.toUpperCase())}
+                          placeholder="e.g. SOU-L123"
+                          placeholderTextColor={isDark ? "rgba(255,255,255,0.2)" : "#94a3b8"}
+                          autoCapitalize="characters"
+                          maxLength={8}
+                          className="h-12 font-black text-center text-xl tracking-widest text-[#af2c3b] dark:text-rose-400"
+                        />
+                      </View>
+
+                      {actionError ? <Text className="text-red-500 font-medium text-[11px] mb-3 text-center">{actionError}</Text> : null}
+
+                      <TouchableOpacity
+                        onPress={handleJoinRoom}
+                        disabled={actionLoading}
+                        className={w-full py-4 rounded-xl items-center flex-row justify-center shadow-md dark:shadow-none }
+                      >
+                        {actionLoading ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <>
+                            <Ionicons name="log-in" size={18} color="white" />
+                            <Text className="text-white font-bold text-[14px] ml-2 tracking-wide">Join Room</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+</ScrollView>
           </View>
 
           {/* ── 6. Section: Picked for You 💕 ── */}
