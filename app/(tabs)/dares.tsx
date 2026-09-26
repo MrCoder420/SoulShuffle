@@ -182,51 +182,100 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   
   const { Animated, PanResponder } = require('react-native');
-  const position = React.useRef(new Animated.ValueXY()).current;
+  // We store a separate Animated.ValueXY for EVERY card ID so they don't share position.
+  // This completely eliminates the 1-frame flash when swapping cards!
+  const positionCache = React.useRef<{ [key: string]: any }>({});
+  const getPosition = (id: string | number) => {
+    if (!positionCache.current[id]) {
+      positionCache.current[id] = new Animated.ValueXY();
+    }
+    return positionCache.current[id];
+  };
 
-  // Reset index when data changes (e.g., category filter)
+  // Reset index when data changes
   React.useEffect(() => {
     setCurrentIndex(0);
-    position.setValue({ x: 0, y: 0 });
   }, [data?.length, data?.[0]?.id]);
+
+  const latestIndex = React.useRef(currentIndex);
+  const latestData = React.useRef(data);
+
+  React.useEffect(() => {
+    latestIndex.current = currentIndex;
+    latestData.current = data;
+  }, [currentIndex, data]);
+
+  const isAnimating = React.useRef(false);
 
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (evt: any, gestureState: any) => {
+        const d = latestData.current;
+        if (isAnimating.current || !d || d.length === 0) return false;
         return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
       onMoveShouldSetPanResponderCapture: (evt: any, gestureState: any) => {
+        const d = latestData.current;
+        if (isAnimating.current || !d || d.length === 0) return false;
         return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
+      onPanResponderGrant: () => {
+        const d = latestData.current;
+        const idx = latestIndex.current;
+        if (!isAnimating.current && d && d[idx]) {
+          const currentPosition = getPosition(d[idx].id);
+          currentPosition.setOffset({
+            x: (currentPosition.x as any)._value,
+            y: (currentPosition.y as any)._value
+          });
+          currentPosition.setValue({ x: 0, y: 0 });
+        }
+      },
       onPanResponderMove: (evt: any, gestureState: any) => {
-        position.setValue({ x: gestureState.dx, y: gestureState.dy });
+        const d = latestData.current;
+        const idx = latestIndex.current;
+        if (isAnimating.current || !d || d.length === 0) return;
+        const currentPosition = getPosition(d[idx].id);
+        currentPosition.setValue({ x: gestureState.dx, y: gestureState.dy });
       },
       onPanResponderRelease: (evt: any, gestureState: any) => {
-        if (gestureState.dx > 100) {
-          // SWIPE RIGHT -> DISMISS CARD TO RIGHT, REVEAL NEXT CARD
-          Animated.timing(position, {
-            toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy },
+        const d = latestData.current;
+        const idx = latestIndex.current;
+        if (isAnimating.current || !d || d.length === 0) return;
+        
+        const currentPosition = getPosition(d[idx].id);
+        currentPosition.flattenOffset();
+
+        const isSwipeRight = gestureState.dx > 100 || (gestureState.dx > 20 && gestureState.vx > 0.5);
+        const isSwipeLeft = gestureState.dx < -100 || (gestureState.dx < -20 && gestureState.vx < -0.5);
+
+        if (isSwipeRight) {
+          isAnimating.current = true;
+          Animated.timing(currentPosition, {
+            toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy + (gestureState.vy * 50) },
             duration: 200,
             useNativeDriver: false
           }).start(() => {
-            setCurrentIndex(prev => (data && prev < data.length - 1 ? prev + 1 : 0));
-            position.setValue({ x: 0, y: 0 });
+            setCurrentIndex(prev => (prev < d.length - 1 ? prev + 1 : 0));
+            // Reset this card's position silently in the background
+            setTimeout(() => currentPosition.setValue({ x: 0, y: 0 }), 50);
+            isAnimating.current = false;
           });
-        } else if (gestureState.dx < -100) {
-          // SWIPE LEFT -> DISMISS CARD TO LEFT, REVEAL NEXT CARD
-          Animated.timing(position, {
-            toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy },
+        } else if (isSwipeLeft) {
+          isAnimating.current = true;
+          Animated.timing(currentPosition, {
+            toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy + (gestureState.vy * 50) },
             duration: 200,
             useNativeDriver: false
           }).start(() => {
-            setCurrentIndex(prev => (data && prev < data.length - 1 ? prev + 1 : 0));
-            position.setValue({ x: 0, y: 0 });
+            setCurrentIndex(prev => (prev < d.length - 1 ? prev + 1 : 0));
+            setTimeout(() => currentPosition.setValue({ x: 0, y: 0 }), 50);
+            isAnimating.current = false;
           });
         } else {
-          // Return to center
-          Animated.spring(position, {
+          Animated.spring(currentPosition, {
             toValue: { x: 0, y: 0 },
             friction: 5,
             useNativeDriver: false
@@ -246,6 +295,9 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
       cardsToRender.push({ item: data[idx], offset, originalIndex: idx });
     }
 
+    const frontCard = data[currentIndex];
+    const frontPosition = getPosition(frontCard.id);
+
     return cardsToRender.map(({ item, offset, originalIndex }) => {
       const isFront = offset === 0;
       const isSecond = offset === 1;
@@ -255,15 +307,16 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
       let panHandlers = {};
 
       if (isFront) {
-        const rotate = position.x.interpolate({
+        const itemPosition = getPosition(item.id);
+        const rotate = itemPosition.x.interpolate({
           inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
           outputRange: ['-8deg', '0deg', '8deg'],
           extrapolate: 'clamp'
         });
         animatedStyle = {
           transform: [
-            { translateX: position.x },
-            { translateY: position.y },
+            { translateX: itemPosition.x },
+            { translateY: itemPosition.y },
             { scale: 1 },
             { rotate }
           ],
@@ -272,22 +325,22 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
         };
         panHandlers = panResponder.panHandlers;
       } else if (isSecond) {
-        const scale = position.x.interpolate({
+        const scale = frontPosition.x.interpolate({
           inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
           outputRange: [1, 0.94, 1],
           extrapolate: 'clamp'
         });
-        const rotate = position.x.interpolate({
+        const rotate = frontPosition.x.interpolate({
           inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
           outputRange: ['0deg', '-6deg', '0deg'],
           extrapolate: 'clamp'
         });
-        const translateX = position.x.interpolate({
+        const translateX = frontPosition.x.interpolate({
           inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
           outputRange: [0, -25, 0],
           extrapolate: 'clamp'
         });
-        const translateY = position.x.interpolate({
+        const translateY = frontPosition.x.interpolate({
           inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
           outputRange: [0, -10, 0],
           extrapolate: 'clamp'
@@ -334,8 +387,10 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
               key={i} 
               activeOpacity={0.7}
               onPress={() => {
+                if (data && data[currentIndex]) {
+                  getPosition(data[currentIndex].id).setValue({ x: 0, y: 0 });
+                }
                 setCurrentIndex(i);
-                position.setValue({ x: 0, y: 0 });
               }}
               style={{ 
                 height: 8, 
@@ -675,65 +730,118 @@ export default function Dares() {
         >
           {/* Header Title */}
           <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}>
-            <Text style={{ fontSize: 32, fontWeight: '900', color: textColor, letterSpacing: -0.5, marginBottom: 6 }}>Dares</Text>
-            <Text style={{ color: subTextColor, fontSize: 15, fontWeight: '500', letterSpacing: -0.2 }}>Step out, connect, and make memories 💖</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text style={{ fontSize: 32, fontWeight: '900', color: textColor, letterSpacing: -0.5 }}>Dares</Text>
+              <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 }}>
+                <Text style={{ color: textColor, fontWeight: '800', fontSize: 13 }}>
+                  {selectedCategory === 'ALL' 
+                    ? dares.length 
+                    : dares.filter((d: any) => d.category === selectedCategory).length} Cards
+                </Text>
+              </View>
+            </View>
+            <Text style={{ color: subTextColor, fontSize: 15, fontWeight: '500', letterSpacing: -0.2 }}>
+              {selectedCategory === 'ALL' 
+                ? "Step out, connect, and make memories 💖" 
+                : `${selectedCategory.charAt(0) + selectedCategory.slice(1).toLowerCase()} dares to explore`}
+            </Text>
           </View>
 
           {/* Carousel */}
           <View style={{ marginTop: 8, marginBottom: 30 }}>
               <DareCarousel 
-                data={selectedCategory === 'ALL' ? dares : dares.filter((d: any) => d.category.includes(selectedCategory))} 
+                data={selectedCategory === 'ALL' ? dares : dares.filter((d: any) => d.category === selectedCategory)} 
                 isDark={isDark} 
                 onSelectDare={setSelectedDare} 
               />
           </View>
 
           {/* Explore Categories */}
-          <View style={{ paddingHorizontal: 24, marginTop: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: textColor }}>Explore Categories</Text>
-              <TouchableOpacity onPress={() => setSelectedCategory('ALL')}>
-                  <Text style={{ color: '#FF296D', fontWeight: '700', fontSize: 14 }}>See all</Text>
-                </TouchableOpacity>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={{ paddingHorizontal: 24 }}>
-              {[
-                { id: 'romance', label: 'Romance', image: require('@/assets/images/bundle_romantic.jpg'), color: '#FF296D' },
-                { id: 'fun', label: 'Fun', image: require('@/assets/images/bundle_cozy.jpg'), color: '#9D4EDD' },
-                { id: 'deep', label: 'Deep', image: require('@/assets/images/sunset_picnic.jpeg'), color: '#3A86FF' },
-                { id: 'spicy', label: 'Spicy', image: require('@/assets/images/bundle_spicy.jpg'), color: '#D90429' }
-              ].map((cat: any) => (
-                <TouchableOpacity 
-                  key={cat.id} 
-                  activeOpacity={0.9} 
-                  onPress={() => setSelectedCategory(cat.id.toUpperCase())} 
-                  style={{
-                    width: 105,
-                    height: 125,
-                    backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
-                    borderRadius: 24,
-                    overflow: 'hidden',
-                    marginRight: 14,
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                    shadowColor: isDark ? '#000' : '#000',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: isDark ? 0.3 : 0.05,
-                    shadowRadius: 10,
-                    elevation: 3
-                  }}
-                >
-                  <View style={{ width: '100%', height: '65%' }}>
-                    <Image source={cat.image} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                  </View>
-                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-                    <Text style={{ fontSize: 12, fontWeight: '800', color: cat.color }}>{cat.label}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+          {(() => {
+            // Dynamically calculate available categories based on current deck
+            const catMap = new Map();
+            dares.forEach(d => {
+              const c = d.category || 'GENERAL';
+              if (!catMap.has(c)) catMap.set(c, { id: c, count: 1 });
+              else catMap.get(c).count++;
+            });
+
+            const dynamicCategories = Array.from(catMap.values()).map(cat => {
+              let color = '#3A86FF';
+              let image = require('@/assets/images/bundle_cozy.jpg');
+              const nameLower = cat.id.toLowerCase();
+              if(nameLower.includes('romanc')) { color = '#FF296D'; image = require('@/assets/images/bundle_romantic.jpg'); }
+              else if(nameLower.includes('spic')) { color = '#D90429'; image = require('@/assets/images/bundle_spicy.jpg'); }
+              else if(nameLower.includes('fun')) { color = '#9D4EDD'; image = require('@/assets/images/bundle_cozy.jpg'); }
+              else if(nameLower.includes('deep')) { color = '#3A86FF'; image = require('@/assets/images/sunset_picnic.jpeg'); }
+              else if(nameLower.includes('penalt')) { color = '#FF9F1C'; image = require('@/assets/images/bundle_spicy.jpg'); }
+              
+              return {
+                id: cat.id,
+                label: cat.id.charAt(0) + cat.id.slice(1).toLowerCase(),
+                count: cat.count,
+                color,
+                image
+              };
+            });
+
+            // If selected category becomes empty, fallback to ALL silently
+            if (selectedCategory !== 'ALL' && !catMap.has(selectedCategory)) {
+              setTimeout(() => setSelectedCategory('ALL'), 0);
+            }
+
+            if (dynamicCategories.length === 0) return null;
+
+            return (
+              <View style={{ paddingHorizontal: 24, marginTop: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: textColor }}>Explore Categories</Text>
+                  {selectedCategory !== 'ALL' && (
+                    <TouchableOpacity onPress={() => setSelectedCategory('ALL')}>
+                      <Text style={{ color: '#FF296D', fontWeight: '700', fontSize: 14 }}>View all deck</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={{ paddingHorizontal: 24 }}>
+                  {dynamicCategories.map((cat: any) => (
+                    <TouchableOpacity 
+                      key={cat.id} 
+                      activeOpacity={0.9} 
+                      onPress={() => setSelectedCategory(cat.id)} 
+                      style={{
+                        width: 110,
+                        height: 135,
+                        backgroundColor: selectedCategory === cat.id ? cat.color : (isDark ? '#1C1721' : '#FFFFFF'),
+                        borderRadius: 24,
+                        overflow: 'hidden',
+                        marginRight: 14,
+                        alignItems: 'center',
+                        borderWidth: 2,
+                        borderColor: selectedCategory === cat.id ? cat.color : (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'),
+                        shadowColor: cat.color,
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: selectedCategory === cat.id ? 0.4 : (isDark ? 0.3 : 0.05),
+                        shadowRadius: 10,
+                        elevation: 3
+                      }}
+                    >
+                      <View style={{ width: '100%', height: '60%' }}>
+                        <Image source={cat.image} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      </View>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%', paddingHorizontal: 4 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: selectedCategory === cat.id ? '#FFF' : cat.color, textAlign: 'center' }}>
+                          {cat.label}
+                        </Text>
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: selectedCategory === cat.id ? 'rgba(255,255,255,0.8)' : subTextColor, marginTop: 2 }}>
+                          {cat.count} {cat.count === 1 ? 'Card' : 'Cards'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            );
+          })()}
         </ScrollView>
       ) : (
         renderDisconnectedState()
