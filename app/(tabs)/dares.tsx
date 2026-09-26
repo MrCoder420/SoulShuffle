@@ -127,95 +127,133 @@ const getCatColor = (cat: string) => {
   return '#3A86FF';
 };
 
+
 const CarouselItem = ({ item, index, scrollX, isDark, onSelectDare }: any) => {
   const animatedStyle = useAnimatedStyle(() => {
-    const inputRange = [
-      (index - 1) * ITEM_WIDTH,
-      index * ITEM_WIDTH,
-      (index + 1) * ITEM_WIDTH
-    ];
+    // Relative position: 0 is active, -1 is next, 1 is previous
+    const pos = (scrollX.value / SCREEN_WIDTH) - index;
 
-    const scale = interpolate(scrollX.value, inputRange, [0.85, 1, 0.85], Extrapolation.CLAMP);
-    const rotateZ = interpolate(scrollX.value, inputRange, [-8, 0, 8], Extrapolation.CLAMP);
-    const translateY = interpolate(scrollX.value, inputRange, [30, 0, 30], Extrapolation.CLAMP);
-    const opacity = interpolate(scrollX.value, inputRange, [0.7, 1, 0.7], Extrapolation.CLAMP);
-    const zIndex = interpolate(scrollX.value, inputRange, [0, 100, 0], Extrapolation.CLAMP);
+    // Shift to perfectly center the card in the viewport
+    const centerOffset = -pos * SCREEN_WIDTH;
+
+    // Fan offsets
+    const fanTranslateX = interpolate(
+      pos, 
+      [-3, -2, -1, 0, 1], 
+      [0, 30, -30, 0, -SCREEN_WIDTH * 0.8], 
+      Extrapolation.CLAMP
+    );
+    
+    const translateY = interpolate(
+      pos, 
+      [-3, -2, -1, 0, 1], 
+      [0, -10, -20, 0, 0], 
+      Extrapolation.CLAMP
+    );
+    const scale = interpolate(
+      pos, 
+      [-3, -2, -1, 0, 1], 
+      [0.8, 0.85, 0.92, 1, 1], 
+      Extrapolation.CLAMP
+    );
+    const rotateZ = interpolate(
+      pos, 
+      [-3, -2, -1, 0, 1], 
+      [0, 6, -6, 0, -15], 
+      Extrapolation.CLAMP
+    );
+    const opacity = interpolate(
+      pos, 
+      [-3, -2, -1, 0, 1], 
+      [0, 1, 1, 1, 0], 
+      Extrapolation.CLAMP
+    );
+    const zIndex = interpolate(
+      pos, 
+      [-3, -2, -1, 0, 1], 
+      [0, 1, 2, 3, 3], 
+      Extrapolation.CLAMP
+    );
 
     return {
       transform: [
-        { scale },
+        { translateX: centerOffset + fanTranslateX },
         { translateY },
+        { scale },
         { rotateZ: `${rotateZ}deg` }
       ],
       opacity,
-      zIndex: Math.round(zIndex)
+      zIndex: Math.round(zIndex),
+      elevation: Math.round(zIndex) * 5
     };
   });
 
   const categoryColor = getCatColor(item.category);
 
   return (
-    <Animated.View style={[{ width: ITEM_WIDTH, height: ITEM_HEIGHT }, animatedStyle]}>
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={() => onSelectDare(item)}
-        className="w-full h-full rounded-[32px] overflow-hidden shadow-xl border"
-        style={{ 
-          backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
-          borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-          elevation: 12, 
-          shadowColor: isDark ? '#000' : '#FF296D', 
-          shadowOffset: { width: 0, height: 15 }, 
-          shadowOpacity: isDark ? 0.4 : 0.15, 
-          shadowRadius: 25 
-        }}
-      >
-        <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
-        
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%', backgroundColor: 'rgba(0,0,0,0.45)' }} />
+    <View style={{ width: SCREEN_WIDTH, height: ITEM_HEIGHT, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={[{ width: ITEM_WIDTH, height: ITEM_HEIGHT, position: 'absolute' }, animatedStyle]}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => onSelectDare(item)}
+          className="w-full h-full rounded-[28px] overflow-hidden shadow-2xl"
+          style={{ 
+            backgroundColor: isDark ? '#1C1721' : '#FFFFFF',
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+            shadowColor: isDark ? '#000' : '#FF296D', 
+            shadowOffset: { width: 0, height: 10 }, 
+            shadowOpacity: isDark ? 0.6 : 0.1, 
+            shadowRadius: 20 
+          }}
+        >
+          <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={{ width: '100%', height: '100%', position: 'absolute' }} resizeMode="cover" />
+          
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%', backgroundColor: 'rgba(0,0,0,0.5)' }} />
 
-        <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
-          {item.category ? (
-            <View className="px-3.5 py-1.5 rounded-full" style={{ backgroundColor: categoryColor }}>
-               <Text className="text-white text-[10px] font-bold tracking-wider uppercase">{item.category}</Text>
-            </View>
-          ) : <View />}
-          <TouchableOpacity className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
-             <Ionicons name="heart-outline" size={18} color="white" />
-          </TouchableOpacity>
-        </View>
+          <View className="absolute top-5 left-5 right-5 flex-row justify-between items-start">
+            {item.category ? (
+              <View className="px-3 py-1.5 rounded-full" style={{ backgroundColor: categoryColor }}>
+                 <Text className="text-white text-[11px] font-black tracking-widest uppercase">{item.category}</Text>
+              </View>
+            ) : <View />}
+            <TouchableOpacity className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.25)' }}>
+               <Ionicons name="heart-outline" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
 
-        <View className="absolute bottom-6 left-5 right-5">
-           <Text className="text-white text-[24px] font-black mb-1.5 tracking-tight leading-7">{item.title}</Text>
-           <Text className="text-white/90 text-[13px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
-           
-           <View className="flex-row justify-between items-center mt-1">
-             <View className="flex-row items-center">
-               <Ionicons name="people" size={15} color="white" />
-               <Text className="text-white font-medium text-[12px] ml-1.5">2+ People</Text>
+          <View className="absolute bottom-6 left-5 right-5">
+             <Text className="text-white text-[26px] font-black mb-1 tracking-tight leading-8">{item.title}</Text>
+             <Text className="text-white/90 text-[14px] leading-5 mb-5" numberOfLines={2}>{item.description}</Text>
+             
+             <View className="flex-row justify-between items-center mt-1">
+               <View className="flex-row items-center">
+                 <Ionicons name="people" size={16} color="white" />
+                 <Text className="text-white font-semibold text-[13px] ml-1.5">2+ People</Text>
+               </View>
+               <TouchableOpacity onPress={() => onSelectDare(item)} className="w-12 h-12 rounded-full items-center justify-center bg-[#FF296D] shadow-lg">
+                 <Ionicons name="arrow-forward" size={22} color="white" />
+               </TouchableOpacity>
              </View>
-             <TouchableOpacity onPress={() => onSelectDare(item)} className="w-11 h-11 rounded-full items-center justify-center bg-[#FF296D]">
-               <Ionicons name="arrow-forward" size={20} color="white" />
-             </TouchableOpacity>
-           </View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
   );
 };
 
 const PaginationDot = ({ index, scrollX }: any) => {
   const dotStyle = useAnimatedStyle(() => {
-    const width = interpolate(scrollX.value, [(index - 1) * ITEM_WIDTH, index * ITEM_WIDTH, (index + 1) * ITEM_WIDTH], [8, 20, 8], Extrapolation.CLAMP);
-    const opacity = interpolate(scrollX.value, [(index - 1) * ITEM_WIDTH, index * ITEM_WIDTH, (index + 1) * ITEM_WIDTH], [0.4, 1, 0.4], Extrapolation.CLAMP);
+    const width = interpolate(scrollX.value, [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH], [8, 24, 8], Extrapolation.CLAMP);
+    const opacity = interpolate(scrollX.value, [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH], [0.3, 1, 0.3], Extrapolation.CLAMP);
     const backgroundColor = interpolateColor(
       scrollX.value, 
-      [(index - 1) * ITEM_WIDTH, index * ITEM_WIDTH, (index + 1) * ITEM_WIDTH], 
-      ['#D9D9D9', '#FF296D', '#D9D9D9']
+      [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH], 
+      ['#A09CA3', '#FF296D', '#A09CA3']
     );
     return { width, opacity, backgroundColor };
   });
-  return <Animated.View style={[{ height: 8, borderRadius: 4, marginHorizontal: 3 }, dotStyle]} />;
+  return <Animated.View style={[{ height: 8, borderRadius: 4, marginHorizontal: 4 }, dotStyle]} />;
 };
 
 const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
@@ -228,18 +266,17 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
   if (!data || data.length === 0) return null;
 
   return (
-    <View style={{ width: '100%', alignItems: 'center' }}>
+    <View style={{ width: '100%', alignItems: 'center', height: ITEM_HEIGHT + 40 }}>
       <Animated.FlatList
         data={data}
         keyExtractor={(item) => item.id.toString()}
         horizontal
+        pagingEnabled
         showsHorizontalScrollIndicator={false}
-        snapToInterval={ITEM_WIDTH}
-        decelerationRate="fast"
         bounces={false}
-        contentContainerStyle={{ paddingHorizontal: (SCREEN_WIDTH - ITEM_WIDTH) / 2, paddingTop: 10, paddingBottom: 25 }}
         onScroll={onScroll}
         scrollEventThrottle={16}
+        style={{ width: SCREEN_WIDTH, height: ITEM_HEIGHT, flexGrow: 0 }}
         renderItem={({ item, index }) => (
           <CarouselItem 
             item={item} 
@@ -250,7 +287,7 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
           />
         )}
       />
-      <View className="flex-row justify-center items-center mt-6 h-4">
+      <View className="flex-row justify-center items-center mt-6 h-4 absolute bottom-0">
         {data.map((_: any, i: number) => (
           <PaginationDot key={i} index={i} scrollX={scrollX} />
         ))}
@@ -568,7 +605,7 @@ export default function Dares() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF296D']} tintColor={isDark ? '#fff' : '#FF296D'} />
           }
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}
         >
           {/* Header Title */}
           <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}>
@@ -717,3 +754,4 @@ export default function Dares() {
     </SafeAreaView>
   );
 }
+
