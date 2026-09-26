@@ -825,14 +825,21 @@ export default function Dares() {
                         elevation: 3
                       }}
                     >
-                      <View style={{ width: '100%', height: '60%' }}>
+                      <View style={{ width: '100%', height: '55%' }}>
                         <Image source={cat.image} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                       </View>
-                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%', paddingHorizontal: 4 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '800', color: selectedCategory === cat.id ? '#FFF' : cat.color, textAlign: 'center' }}>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%', paddingHorizontal: 6, paddingTop: 2 }}>
+                        <Text 
+                          numberOfLines={1} 
+                          adjustsFontSizeToFit 
+                          style={{ fontSize: 13, fontWeight: '800', color: selectedCategory === cat.id ? '#FFF' : cat.color, textAlign: 'center', width: '100%' }}
+                        >
                           {cat.label}
                         </Text>
-                        <Text style={{ fontSize: 11, fontWeight: '600', color: selectedCategory === cat.id ? 'rgba(255,255,255,0.8)' : subTextColor, marginTop: 2 }}>
+                        <Text 
+                          numberOfLines={1}
+                          style={{ fontSize: 11, fontWeight: '700', color: selectedCategory === cat.id ? 'rgba(255,255,255,0.9)' : subTextColor, marginTop: 4, textAlign: 'center' }}
+                        >
                           {cat.count} {cat.count === 1 ? 'Card' : 'Cards'}
                         </Text>
                       </View>
