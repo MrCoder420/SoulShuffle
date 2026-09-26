@@ -213,18 +213,18 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (evt: any, gestureState: any) => {
         const d = latestData.current;
-        if (isAnimating.current || !d || d.length === 0) return false;
+        if (!d || d.length === 0) return false;
         return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
       onMoveShouldSetPanResponderCapture: (evt: any, gestureState: any) => {
         const d = latestData.current;
-        if (isAnimating.current || !d || d.length === 0) return false;
+        if (!d || d.length === 0) return false;
         return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
       },
       onPanResponderGrant: () => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (!isAnimating.current && d && d[idx]) {
+        if (d && d[idx]) {
           const currentPosition = getPosition(d[idx].id);
           currentPosition.setOffset({
             x: (currentPosition.x as any)._value,
@@ -236,14 +236,14 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
       onPanResponderMove: (evt: any, gestureState: any) => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (isAnimating.current || !d || d.length === 0) return;
+        if (!d || d.length === 0) return;
         const currentPosition = getPosition(d[idx].id);
         currentPosition.setValue({ x: gestureState.dx, y: gestureState.dy });
       },
       onPanResponderRelease: (evt: any, gestureState: any) => {
         const d = latestData.current;
         const idx = latestIndex.current;
-        if (isAnimating.current || !d || d.length === 0) return;
+        if (!d || d.length === 0) return;
         
         const currentPosition = getPosition(d[idx].id);
         currentPosition.flattenOffset();
@@ -252,28 +252,23 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
         const isSwipeLeft = gestureState.dx < -100 || (gestureState.dx < -20 && gestureState.vx < -0.5);
 
         if (isSwipeRight) {
-          isAnimating.current = true;
           Animated.timing(currentPosition, {
             toValue: { x: SCREEN_WIDTH + 100, y: gestureState.dy + (gestureState.vy * 50) },
-            duration: 200,
+            duration: 250,
             useNativeDriver: false
           }).start(() => {
-            setCurrentIndex(prev => (prev < d.length - 1 ? prev + 1 : 0));
-            // Reset this card's position silently in the background
-            setTimeout(() => currentPosition.setValue({ x: 0, y: 0 }), 50);
-            isAnimating.current = false;
+            setTimeout(() => currentPosition.setValue({ x: 0, y: 0 }), 300);
           });
+          setCurrentIndex(prev => (prev < d.length - 1 ? prev + 1 : 0));
         } else if (isSwipeLeft) {
-          isAnimating.current = true;
           Animated.timing(currentPosition, {
             toValue: { x: -SCREEN_WIDTH - 100, y: gestureState.dy + (gestureState.vy * 50) },
-            duration: 200,
+            duration: 250,
             useNativeDriver: false
           }).start(() => {
-            setCurrentIndex(prev => (prev < d.length - 1 ? prev + 1 : 0));
-            setTimeout(() => currentPosition.setValue({ x: 0, y: 0 }), 50);
-            isAnimating.current = false;
+            setTimeout(() => currentPosition.setValue({ x: 0, y: 0 }), 300);
           });
+          setCurrentIndex(prev => (prev < d.length - 1 ? prev + 1 : 0));
         } else {
           Animated.spring(currentPosition, {
             toValue: { x: 0, y: 0 },
@@ -289,9 +284,11 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
 
   const renderCards = () => {
     const cardsToRender = [];
-    const count = Math.min(data.length, 3);
-    for (let offset = 0; offset < count; offset++) {
-      const idx = (currentIndex + offset) % data.length;
+    const count = Math.min(data.length, 4); // Render up to 4 cards to include the flying one
+    // offset -1 is the card that was just swiped and is currently flying off screen
+    for (let offset = -1; offset < count - 1; offset++) {
+      if (data.length === 1 && offset === -1) continue; // Don't duplicate if only 1 card
+      const idx = (currentIndex + offset + data.length) % data.length;
       cardsToRender.push({ item: data[idx], offset, originalIndex: idx });
     }
 
@@ -299,6 +296,7 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
     const frontPosition = getPosition(frontCard.id);
 
     return cardsToRender.map(({ item, offset, originalIndex }) => {
+      const isFlying = offset === -1;
       const isFront = offset === 0;
       const isSecond = offset === 1;
       const isThird = offset === 2;
@@ -306,7 +304,7 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
       let animatedStyle: any = {};
       let panHandlers = {};
 
-      if (isFront) {
+      if (isFlying || isFront) {
         const itemPosition = getPosition(item.id);
         const rotate = itemPosition.x.interpolate({
           inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
@@ -320,10 +318,12 @@ const DareCarousel = ({ data, isDark, onSelectDare }: any) => {
             { scale: 1 },
             { rotate }
           ],
-          zIndex: 3,
-          elevation: 3
+          zIndex: isFlying ? 4 : 3, // Flying card stays above everything else
+          elevation: isFlying ? 4 : 3
         };
-        panHandlers = panResponder.panHandlers;
+        if (isFront) {
+          panHandlers = panResponder.panHandlers;
+        }
       } else if (isSecond) {
         const scale = frontPosition.x.interpolate({
           inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
