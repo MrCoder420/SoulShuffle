@@ -676,23 +676,29 @@ export default function Dares() {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={isDark ? "#0F0608" : "#fff8f7"} />
       
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0B0406] z-10">
-        <TouchableOpacity onPress={openSidebar}>
-          <Ionicons name="menu-outline" size={30} color={isDark ? "#fff" : "#9f1239"} />
-        </TouchableOpacity>
-        <View className="flex-row items-center gap-1.5">
-          <Ionicons name="infinite" size={28} color={isDark ? "#fda4af" : "#be123c"} style={{ transform: [{ rotate: '-15deg' }] }} />
-          <Text className="text-[#a12338] dark:text-rose-400 font-black text-xl tracking-tight">SoulShuffle</Text>
+        <View className="flex-row items-center justify-between px-6 pt-5 pb-3 bg-[#fff8f7] dark:bg-[#0B0406] z-10">
+          <TouchableOpacity onPress={openSidebar}>
+            <Ionicons name="menu-outline" size={32} color={isDark ? "#fff" : "#000"} />
+          </TouchableOpacity>
+          <View className="flex-row items-center justify-center absolute left-0 right-0 z-[-1]" pointerEvents="none" style={{ paddingHorizontal: 100 }}>
+            <Ionicons name="infinite" size={28} color="#FF1B6B" style={{ transform: [{ rotate: '-15deg' }] }} />
+            <Text className="text-[#FF1B6B] font-black text-[22px] leading-6 tracking-tight ml-1" style={{ flexShrink: 1, textAlign: 'center' }}>{'SoulShuffl\ne'}</Text>
+          </View>
+          <View className="flex-row items-center gap-4">
+            <TouchableOpacity>
+               <Ionicons name="notifications-outline" size={26} color={isDark ? "#fff" : "#000"} />
+               <View className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#FF1B6B] border-[1.5px] border-[#0B0406]" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/profile')}>
+              <Image 
+                source={{ uri: userAvatar }} 
+                className="w-9 h-9 rounded-full border border-slate-200 dark:border-rose-950/30"
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity onPress={() => router.push('/profile')}>
-          <Image 
-            source={{ uri: userAvatar }} 
-            className="w-8 h-8 rounded-full border border-rose-200 dark:border-rose-950/30"
-          />
-        </TouchableOpacity>
-      </View>
 
-      {loading ? (
+        {loading ? (
         <View className="flex-1 items-center justify-center bg-[#fff8f7] dark:bg-[#0B0406]">
           <ActivityIndicator size="large" color="#f43f5e" />
           <Text className="text-[#a12338] dark:text-rose-400 font-semibold text-sm mt-3">Loading dares...</Text>
